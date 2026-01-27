@@ -1,0 +1,66 @@
+# Pre-commit Guardrails - Room Map Shader RnD
+# Environment: shader_rnd (Python 3.10)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=10240'] # 10MB limit
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m black
+        language: system
+        types: [python]
+
+      - id: isort
+        name: isort
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m isort
+        language: system
+        types: [python]
+
+      - id: flake8
+        name: flake8
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m flake8
+        language: system
+        types: [python]
+
+      - id: bandit
+        name: bandit
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m bandit
+        language: system
+        types: [python]
+        args: ["-r", "src", "tools"]
+        exclude: "tests/"
+
+      # Dependency Consistency Check (ADR 003 Protection)
+      - id: pip-compile-check
+        name: pip-compile-check
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m piptools compile --no-header --quiet --dry-run requirements.in
+        language: system
+        files: ^requirements\.(in|txt)$
+        pass_filenames: false
+        always_run: false
+
+      # Dependency Vulnerability Scanning (ADR 002 Security)
+      # Optimization: --desc=off --progress-spinner=off to prevent hanging on Windows
+      - id: pip-audit
+        name: pip-audit
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m pip_audit -r requirements.txt --desc=off --progress-spinner=off
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Tests
+      - id: pytest
+        name: pytest
+        entry: C:/Users/SpeLL/anaconda3/envs/shader_rnd/python.exe -m pytest
+        language: system
+        pass_filenames: false
+        always_run: true

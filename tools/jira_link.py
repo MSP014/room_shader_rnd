@@ -16,7 +16,10 @@ def get_jira_session():
     token = os.getenv("JIRA_TOKEN")
 
     if not all([url, user, token]):
-        print("Error: Missing JIRA configuration in .env (Need JIRA_USER and JIRA_TOKEN)")
+        print(
+            "Error: Missing JIRA configuration in .env "
+            "(Need JIRA_USER and JIRA_TOKEN)"
+        )
         sys.exit(1)
 
     auth_str = f"{user}:{token}".encode("ascii")
@@ -46,14 +49,19 @@ def get_issue(issue_key):
         print(f"[{data['key']}] {fields['summary']}")
         print(f"Status: {fields['status']['name']}")
 
-        if "timetracking" in fields and "originalEstimate" in fields["timetracking"]:
+        if (
+            "timetracking" in fields
+            and "originalEstimate" in fields["timetracking"]
+        ):
             print(f"Estimate: {fields['timetracking']['originalEstimate']}")
         else:
             print("Estimate: None")
 
         if "parent" in fields:
             parent = fields["parent"]
-            print(f"Parent/Epic: [{parent['key']}] {parent['fields']['summary']}")
+            print(
+                f"Parent/Epic: [{parent['key']}] {parent['fields']['summary']}"
+            )
 
         print(f"Link: {base_url}/browse/{data['key']}")
 
@@ -84,11 +92,17 @@ def get_issue(issue_key):
 def list_issues(project_key):
     base_url, headers = get_jira_session()
     # JQL to get open issues
-    jql = f"project = {project_key} AND statusCategory != Done ORDER BY created DESC"
+    jql = (
+        f"project = {project_key} AND statusCategory != Done "
+        "ORDER BY created DESC"
+    )
     payload = {"jql": jql, "fields": ["summary", "status"], "maxResults": 20}
 
     resp = requests.post(
-        f"{base_url}/rest/api/3/search/jql", headers=headers, json=payload, timeout=30
+        f"{base_url}/rest/api/3/search/jql",
+        headers=headers,
+        json=payload,
+        timeout=30,
     )
 
     if resp.status_code == 200:
@@ -177,7 +191,9 @@ def set_status(issue_key, status_name):
     )
 
     if resp.status_code == 204:
-        print(f"Issue {issue_key} moved to '{target_transition['to']['name']}'")
+        print(
+            f"Issue {issue_key} moved to '{target_transition['to']['name']}'"
+        )
     else:
         print(f"Error {resp.status_code}: {resp.text}")
 
@@ -287,7 +303,10 @@ def create_issue(
     payload = {"fields": fields}
 
     resp = requests.post(
-        f"{base_url}/rest/api/3/issue", headers=headers, json=payload, timeout=30
+        f"{base_url}/rest/api/3/issue",
+        headers=headers,
+        json=payload,
+        timeout=30,
     )
 
     if resp.status_code == 201:
@@ -301,7 +320,9 @@ def create_issue(
 
 def get_myself():
     base_url, headers = get_jira_session()
-    resp = requests.get(f"{base_url}/rest/api/3/myself", headers=headers, timeout=30)
+    resp = requests.get(
+        f"{base_url}/rest/api/3/myself", headers=headers, timeout=30
+    )
     if resp.status_code == 200:
         return resp.json()["accountId"]
 
@@ -323,7 +344,9 @@ def list_transitions(issue_key):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Simple Jira CLI (Quentin - KRM)")
+    parser = argparse.ArgumentParser(
+        description="Simple Jira CLI (Quentin - KRM)"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Get Issue
@@ -337,7 +360,9 @@ def main():
     )
 
     # Transitions
-    p_trans = subparsers.add_parser("transitions", help="List available transitions")
+    p_trans = subparsers.add_parser(
+        "transitions", help="List available transitions"
+    )
     p_trans.add_argument("key", help="Issue Key")
 
     # Comment
@@ -348,7 +373,9 @@ def main():
     # Status
     p_status = subparsers.add_parser("status", help="Change issue status")
     p_status.add_argument("key", help="Issue Key")
-    p_status.add_argument("status", help="Target status (e.g. 'Done', 'In Progress')")
+    p_status.add_argument(
+        "status", help="Target status (e.g. 'Done', 'In Progress')"
+    )
 
     # Worklog
     p_worklog = subparsers.add_parser("worklog", help="Log work time")
@@ -367,15 +394,26 @@ def main():
 
     # Create
     p_create = subparsers.add_parser("create", help="Create new issue")
-    p_create.add_argument("project", help="Project Key", nargs="?", default="KRM")
-    p_create.add_argument("summary", help="Issue Summary")
-    p_create.add_argument("--description", help="Issue Description", default="")
-    p_create.add_argument("--type", help="Issue Type (Task, Epic, Bug)", default="Task")
     p_create.add_argument(
-        "--parent", help="Parent Issue Key (for Subtasks or Hierarchy)", default=None
+        "project", help="Project Key", nargs="?", default="KRM"
+    )
+    p_create.add_argument("summary", help="Issue Summary")
+    p_create.add_argument(
+        "--description", help="Issue Description", default=""
     )
     p_create.add_argument(
-        "--assign-me", help="Assign to current user?", action="store_true", default=True
+        "--type", help="Issue Type (Task, Epic, Bug)", default="Task"
+    )
+    p_create.add_argument(
+        "--parent",
+        help="Parent Issue Key (for Subtasks or Hierarchy)",
+        default=None,
+    )
+    p_create.add_argument(
+        "--assign-me",
+        help="Assign to current user?",
+        action="store_true",
+        default=True,
     )
     p_create.add_argument(
         "--estimate", help="Original Estimate (e.g. 1h)", default="1h"
@@ -407,7 +445,9 @@ def main():
                 args.key,
                 summary=args.summary,
                 description=(
-                    args.description.replace("\\n", "\n") if args.description else None
+                    args.description.replace("\\n", "\n")
+                    if args.description
+                    else None
                 ),
                 assignee_id=myself_id,
                 estimate=args.estimate,
@@ -416,7 +456,11 @@ def main():
             create_issue(
                 args.project,
                 args.summary,
-                args.description.replace("\\n", "\n") if args.description else "",
+                (
+                    args.description.replace("\\n", "\n")
+                    if args.description
+                    else ""
+                ),
                 args.type,
                 args.parent,
                 assignee_id=myself_id,
