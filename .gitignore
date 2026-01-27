@@ -1,0 +1,62 @@
+# Room Map Shader RnD - .gitignore
+
+# --- Documentation (Included) ---
+# !protocols/  <-- we WANT to track protocols in this repo
+# !docs/       <-- we WANT to track docs
+
+# --- Heavy Work Directories (Project Structure) ---
+assets/
+cache/
+Refs/
+_incoming/
+geo/
+HIP/
+# tests/ <-- we WANT to track minimal test scenes, unless they are huge
+
+# --- Media & Renders (Heavy) ---
+EXR/
+MP4/
+GIF/
+MOV/
+PNG/
+OUT/
+
+# --- File Extensions (Specific Blocklist) ---
+# USD (Heavy Binary Crates blocked, ASCII allowed)
+*.usdc
+*.usdz
+# *.usda <-- Allowed for test scenes
+
+# Houdini
+*.hip
+*.hipnc
+*.hiplc
+*.bgeo
+*.bgeo.sc
+*.vdb
+*.abc
+
+# Adobe / Image
+*.aep
+*.prproj
+*.psd
+*.ai
+*.exr
+*.hdr
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+.pytest_cache/
+
+# --- Tools & System ---
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
