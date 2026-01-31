@@ -7,7 +7,7 @@ To create a high-quality educational video tutorial titled **"Procedural Room Ma
 ## 📅 **Deadlines**
 
 * **Submission Deadline**: 31 January 2026.
-* **Status**: Critical (Active Production).
+* **Status**: ⏸️ **Strategic Pause / Postponed**
 
 ## 🎬 **Content Plan (The "Shot" List)**
 
@@ -34,3 +34,12 @@ The project involves a series of specific shots (tracked in Jira KRM-41 to KRM-6
 ## 🤝 **Relation to Showreel**
 
 This project directly utilises the assets and workflows developed for **Case 01 - Moskovsky Av**. The "Smart City" assets serve as the practical example for the tutorial, creating a synergy between the Showreel production and the educational content.
+
+## 📝 **Decision Log**
+
+### 2026-01-28: Strategic Pause (Scality Pivot)
+
+* **Decision:** Withdrawn from SideFX "How To Houdini" Contest (Deadline Jan 31).
+* **Rationale:** Resource conflict with Priority #0 (Revenue). Initiated work on Scality project (~€900 revenue) to address budget deficit.
+* **Value Retention:** R&D for texture optimization, USD Collections, and Material Overrides has been **successfully integrated** into the **Case 01 (Moskovsky Av)** pipeline.
+* **Future Plan:** Tutorial will be completed post-deadline as "evergreen" content for personal branding.
