@@ -2,7 +2,7 @@
 
 # --- Documentation (Included) ---
 
-# --- Internal Protocols ---
+# --- Internal Procedures ---
 protocols/
 # !docs/       <-- we WANT to track docs
 
