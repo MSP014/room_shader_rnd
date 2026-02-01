@@ -1,7 +1,8 @@
 # Room Map Shader RnD - .gitignore
 
 # --- Documentation (Included) ---
-# Protocols (not tracked in repo - AI assistant context)
+
+# --- Internal Protocols ---
 protocols/
 # !docs/       <-- we WANT to track docs
 

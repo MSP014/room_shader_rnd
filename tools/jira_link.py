@@ -7,6 +7,14 @@ from base64 import b64encode
 import requests
 from dotenv import load_dotenv
 
+# Configure stdout for UTF-8 (Windows encoding fix)
+if sys.platform == "win32":
+    import io
+
+    sys.stdout = io.TextIOWrapper(
+        sys.stdout.buffer, encoding="utf-8", errors="replace"
+    )
+
 
 def get_jira_session():
     load_dotenv()
