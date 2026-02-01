@@ -4,7 +4,7 @@
 
 # --- Internal Procedures ---
 protocols/
-# !docs/       <-- we WANT to track docs
+
 
 # --- Heavy Work Directories (Project Structure) ---
 assets/
@@ -15,7 +15,11 @@ geo/
 HIP/
 # tests/ <-- we WANT to track minimal test scenes, unless they are huge
 
+# --- Source/Project Files (Adobe and other software specific) ---
 # --- Media & Renders (Heavy) ---
+AE/
+AI/
+PSD/
 EXR/
 MP4/
 GIF/
