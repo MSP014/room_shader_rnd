@@ -56,12 +56,43 @@ This project follows the **Nvidia Showreel Standard** to ensure consistency and 
 
 ```text
 .
-├── docs/        # ADRs, Research Notes, and Plans
-├── src/         # Source code (MDL, Python, VEX)
-├── tests/       # Validation scenes (*.usda) and pytest scripts
-├── tools/       # Pipeline tools (Jira, Automation)
+├── assets/
+│   ├── _external/   # [DOWNLOADED] Runtime Assets (USD, Textures, HDRI) - Git Ignored
+│   │   ├── usd/
+│   │   ├── tex/
+│   │   └── hdri/
+│   └── local/       # Lightweight assets tracked by Git
+├── docs/            # ADRs, Research Notes, and Plans
+├── src/             # Source code (MDL, Python, VEX)
+├── tests/           # Validation scenes (*.usda) and pytest scripts
+├── tools/           # Pipeline tools (Jira, Automation)
 └── requirements.txt # Locked dependencies (Python 3.10)
 ```
+
+---
+
+## 💾 Project Data / Assets
+
+### 🏭 The "Factory" Narrative
+>
+> This repository follows a strict **"Source vs. Artifact"** philosophy:
+>
+> - **Houdini (Fabricator):** The procedural "factory" where assets are generated. Source files (`.hip`) are proprietary and **excluded** from this repository.
+> - **USD (Artifact):** The "product" of the factory. These are the optimized files needed to run the Digital Twin in Omniverse.
+> - **Synthetic Data:** Telemetry streams are emulated via Python generators to simulate robust edge cases (e.g., extreme thermal loads) that are rarely captured in real-world data.
+
+### 📦 Asset Hydration
+
+To keep this repository lightweight, heavy binary assets (USD Crates, Textures, HDRIs) are stored externally.
+
+- [**Download Asset Pack (One Drive / S3 Link TBD)**](https://example.com/placeholder)
+
+**Hydration Steps:**
+
+1. Download the ZIP archive from the link above.
+2. **Extract contents** directly into the `assets/_external/` folder.
+    - *Note: This folder already exists (anchored by `.gitkeep`), so you simply unzip into it.*
+    - *Result:* Your local path should look like `assets/_external/usd/my_asset.usd`.
 
 ---
 
@@ -77,3 +108,4 @@ This project follows the **Nvidia Showreel Standard** to ensure consistency and 
 ## 📜 Changelog
 
 - **2026-01-27:** Initial repository bootstrap. Established **Nvidia Showreel Standard** (ADRs, Pre-commit, strict PEP 8).
+- **2026-02-02:** Implemented **Asset Hydration Protocol v10** (Git-agnostic storage for heavy assets).

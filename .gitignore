@@ -3,29 +3,33 @@
 # --- Documentation (Included) ---
 
 # --- Internal Procedures ---
+# --- Internal Protocols (STRICT PRIVACY) ---
 protocols/
 
-
 # --- Heavy Work Directories (Project Structure) ---
-assets/
+assets/_external/*
+!assets/**/.gitkeep
+
 cache/
 Refs/
 _incoming/
 geo/
 HIP/
+OUT/
 # tests/ <-- we WANT to track minimal test scenes, unless they are huge
 
 # --- Source/Project Files (Adobe and other software specific) ---
+AE/   # After Effects
+AI/   # Adobe Illustrator
+PRJ/  # Premiere Pro
+PSD/  # Photoshop Projects
+
 # --- Media & Renders (Heavy) ---
-AE/
-AI/
-PSD/
 EXR/
 MP4/
 GIF/
 MOV/
 PNG/
-OUT/
 
 # --- File Extensions (Specific Blocklist) ---
 # USD (Heavy Binary Crates blocked, ASCII allowed)
