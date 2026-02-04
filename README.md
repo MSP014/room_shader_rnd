@@ -38,17 +38,9 @@ To implement a "Window Box" effect that accurately simulates room interiors behi
 
 ## 🏗️ Architecture & Decisions
 
-This project follows the **Nvidia Showreel Standard** to ensure consistency and reliability.
+This project follows a **README-driven structure** to manage the complexity of hybrid Houdini/Omniverse pipelines.
 
 - [**View Architecture Decision Records (ADR)**](docs/adr/) – Design notes on Naming Conventions, QA/Security Guardrails, and Dependency Locking.
-
-### Core Components
-
-| Component | Description |
-| :--- | :--- |
-| **src/mdl/** | The core MDL shader definitions. |
-| **src/houdini/** | VEX snippets and HDA logic for atlas generation. |
-| **docs/plans/** | Technical implementation details and debt tracking. |
 
 ---
 
@@ -107,5 +99,5 @@ To keep this repository lightweight, heavy binary assets (USD Crates, Textures, 
 
 ## 📜 Changelog
 
+- **2026-02-02:** Implemented external storage strategy for heavy assets (Git-agnostic).
 - **2026-01-27:** Initial repository bootstrap. Established **Nvidia Showreel Standard** (ADRs, Pre-commit, strict PEP 8).
-- **2026-02-02:** Implemented **Asset Hydration Protocol v10** (Git-agnostic storage for heavy assets).
