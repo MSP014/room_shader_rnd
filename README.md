@@ -100,4 +100,22 @@ To keep this repository lightweight, heavy binary assets (USD Crates, Textures, 
 ## 📜 Changelog
 
 - **2026-02-02:** Implemented external storage strategy for heavy assets (Git-agnostic).
-- **2026-01-27:** Initial repository bootstrap. Established **Nvidia Showreel Standard** (ADRs, Pre-commit, strict PEP 8).
+- **2026-02-27:** Initial repository bootstrap. Established **Nvidia Showreel Standard** (ADRs, Pre-commit, strict PEP 8).
+
+---
+
+## 💖 Support This Project
+
+If you find this research useful for your own work:
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/maxspell)
+
+Your support helps fund:
+
+- Continued MDL shader development
+- Additional procedural interior texture packs
+- Comprehensive tutorials and documentation
+
+---
+
+**Part of [Omniverse Showreel](https://github.com/MSP014/dt-omniverse-showreel-case01-msk) | Research by Max Spell**
