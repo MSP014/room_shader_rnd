@@ -2,9 +2,9 @@
 
 ## What & Why
 
-The **Karma Room Map Shader** is Houdini's solution for rendering realistic building interiors without the geometry overhead — a clever "window box" illusion using parallax mapping. Instead of modeling every room interior (tables, chairs, wall decorations), you bake them into special textures and use shader math to create depth perception.
+The **Room Map Shader** is Houdini's solution for rendering realistic building interiors without the geometry overhead — a clever "window box" illusion using parallax mapping. Instead of modeling every room interior (tables, chairs, wall decorations), you bake them into special textures and use shader math to create depth perception.
 
-**The Challenge**: This technique is implemented in VEX (Houdini's shading language) and tightly integrated with Karma renderer. NVIDIA Omniverse uses MDL (Material Definition Language). There's no direct translation path.
+**The Challenge**: This technique is implemented in VEX (Houdini's procedural language) and tightly integrated with Houdini's production renderer. NVIDIA Omniverse uses MDL (Material Definition Language). There's no direct translation path.
 
 **This Research**: Document how to adapt Houdini's Room Map approach to NVIDIA MDL, enabling Omniverse Digital Twins to benefit from this lightweight interior rendering technique.
 
@@ -20,9 +20,9 @@ The **Karma Room Map Shader** is Houdini's solution for rendering realistic buil
 
 The technique has three components:
 
-1. **Geometry Setup** — A SOP node (`Room Map Frame`) analyzes window geometry and computes per-primitive tangent space
+1. **Geometry Setup** — A geometry preprocessing tool analyzes window geometry and computes per-primitive tangent space
 2. **Texture Baking** — Interior scenes are rendered into a special cross-shaped layout (back wall, left/right walls, ceiling, floor + depth slices)
-3. **Shader Math** — The VOP node (`kma_roommap`) uses view-dependent parallax to sample the correct part of the texture, creating 3D illusion
+3. **Shader Math** — The shader uses view-dependent parallax to sample the correct part of the texture, creating 3D illusion
 
 For full workflow details, see the official SideFX guide below.
 
@@ -34,7 +34,7 @@ These are the **conceptual takeaways** from studying Houdini's implementation, n
 
 ### 1. **Geometry Preprocessing is Non-Negotiable**
 
-The Room Map Frame SOP generates critical per-primitive attributes (`tangentu`, `tangentv`, `roomN`, `roomP`) that define the local coordinate system. **MDL has no equivalent to VEX primitive attributes.**
+Houdini's **geometry preprocessing tool** generates critical per-primitive attributes (`tangentu`, `tangentv`, `roomN`, `roomP`) that define the local coordinate system. **MDL has no equivalent to VEX primitive attributes.**
 
 **Translation Strategy**: Pre-compute these in Houdini (or USD preprocessing) and store as **USD primvars**. The MDL shader reads them via `state::texture_coordinate()` or primvar lookups.
 
