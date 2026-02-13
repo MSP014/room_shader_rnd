@@ -1,126 +1,99 @@
-# Knowledge Base — Karma Room Map Shader to MDL
+# Parallax Interior Mapping: Houdini to Omniverse
 
-This knowledge base provides reference links and analysis for translating Houdini's Karma Room Map Shader (VEX) to NVIDIA MDL.
+## What & Why
 
-> **Note**: Full documentation copies are maintained locally in `houdini/` directory (gitignored) for research purposes. Public repository contains only references to official sources.
+The **Karma Room Map Shader** is Houdini's solution for rendering realistic building interiors without the geometry overhead — a clever "window box" illusion using parallax mapping. Instead of modeling every room interior (tables, chairs, wall decorations), you bake them into special textures and use shader math to create depth perception.
 
----
+**The Challenge**: This technique is implemented in VEX (Houdini's shading language) and tightly integrated with Karma renderer. NVIDIA Omniverse uses MDL (Material Definition Language). There's no direct translation path.
 
-## 📚 Official Documentation Sources
+**This Research**: Document how to adapt Houdini's Room Map approach to NVIDIA MDL, enabling Omniverse Digital Twins to benefit from this lightweight interior rendering technique.
 
-### Houdini / SideFX Documentation
+**Why It Matters for Digital Twins**:
 
-**Houdini Version**: 21.0
-**Last Verified**: 2026-02-13
-
-#### Core Documentation
-
-1. **[Karma Room Map Shader - Workflow Guide](https://www.sidefx.com/docs/houdini/solaris/support/karma_room_map.html)** ★ Start Here
-   - Complete tutorial with setup instructions
-   - Single-window, multi-window, and curved surface workflows
-   - Troubleshooting guide
-   - MaterialX integration examples
-
-2. **[Karma Room Map VOP](https://www.sidefx.com/docs/houdini/nodes/vop/kma_roommap.html)**
-   - Core shader node reference
-   - Cross-shaped texture layout specification
-   - Slice system for depth layering
-   - UDIM support for randomization
-
-3. **[Room Map Frame SOP](https://www.sidefx.com/docs/houdini/nodes/sop/roommapframe.html)**
-   - Geometry setup node (critical!)
-   - Generates primitive attributes: `tangentu`, `tangentv`, `roomN`, `roomP`
-   - Defines local coordinate basis for projection
-
-4. **[Karma Room Lens VOP](https://www.sidefx.com/docs/houdini/nodes/vop/kma_roomlens.html)**
-   - Baking tool for generating interior maps
-   - Not directly relevant for MDL translation (Houdini-specific)
+- **Urban scale**: A city block has thousands of windows. Traditional geometry = performance death.
+- **Visual fidelity**: Parallax interiors maintain realism without polygon cost.
+- **Procedural variation**: UDIM randomization prevents repetitive "copy-paste" look.
 
 ---
 
+## How It Works (High Level)
+
+The technique has three components:
+
+1. **Geometry Setup** — A SOP node (`Room Map Frame`) analyzes window geometry and computes per-primitive tangent space
+2. **Texture Baking** — Interior scenes are rendered into a special cross-shaped layout (back wall, left/right walls, ceiling, floor + depth slices)
+3. **Shader Math** — The VOP node (`kma_roommap`) uses view-dependent parallax to sample the correct part of the texture, creating 3D illusion
+
+For full workflow details, see the official SideFX guide below.
+
 ---
 
-## 🎯 Translation Strategy
+## Key Insights for MDL Translation
 
-For the VEX to MDL translation strategy document, see:
+These are the **conceptual takeaways** from studying Houdini's implementation, not a copy-paste of technical specs:
+
+### 1. **Geometry Preprocessing is Non-Negotiable**
+
+The Room Map Frame SOP generates critical per-primitive attributes (`tangentu`, `tangentv`, `roomN`, `roomP`) that define the local coordinate system. **MDL has no equivalent to VEX primitive attributes.**
+
+**Translation Strategy**: Pre-compute these in Houdini (or USD preprocessing) and store as **USD primvars**. The MDL shader reads them via `state::texture_coordinate()` or primvar lookups.
+
+### 2. **Cross-Shaped UV Layout is Algorithm-Agnostic**
+
+The texture layout (center = back wall, left/right = side walls, etc.) is just a convention. The math for mapping view direction → UV coordinates is portable to any shading language.
+
+**Translation Strategy**: Implement the same UV indexing logic in MDL. No Houdini-specific code required.
+
+### 3. **Parallax Projection is a Standard Technique**
+
+The core algorithm (ray marching through depth slices) exists in game engines, OSL, GLSL, etc. Houdini didn't invent it — they just packaged it nicely.
+
+**Translation Strategy**: Adapt existing parallax algorithms to MDL. The challenge is not the math, but the **data plumbing** (primvars, texture lookups).
+
+### 4. **UDIM Randomization is Trivial in MDL**
+
+Houdini uses UDIM tiles for texture variation. MDL's `tex::lookup_*()` functions support UDIM natively.
+
+**Translation Strategy**: Direct 1:1 mapping. No work needed.
+
+---
+
+## Official Documentation
+
+### SideFX Houdini (Version 21.0)
+
+**Start Here**: [Karma Room Map Shader — Workflow Guide](https://www.sidefx.com/docs/houdini/solaris/support/karma_room_map.html)
+
+- Complete tutorial with setup instructions
+- Examples: single window, multi-window, curved surfaces
+- MaterialX integration notes
+
+**Technical References**:
+
+- [Karma Room Map VOP](https://www.sidefx.com/docs/houdini/nodes/vop/kma_roommap.html) — Shader node parameters
+- [Room Map Frame SOP](https://www.sidefx.com/docs/houdini/nodes/sop/roommapframe.html) — Geometry setup (critical!)
+- [Karma Room Lens VOP](https://www.sidefx.com/docs/houdini/nodes/vop/kma_roomlens.html) — Texture baking tool
+
+> **Note**: Full documentation copies are maintained locally in `houdini/` directory (gitignored) for offline research. Public repository contains only these references.
+
+---
+
+## NVIDIA MDL Resources
+
+- [MDL Language Specification](https://raytracing-docs.nvidia.com/mdl/introduction/index.html)
+- [USD Primvars Specification](https://graphics.pixar.com/usd/release/api/class_usd_geom_primvar.html) — How to store custom attributes
+- [MaterialX Standard Surface](https://materialx.org) — Interoperability reference
+
+---
+
+## Next Steps
+
+The detailed **VEX → MDL translation strategy** will be documented in:
 
 **[`../vex_to_mdl_strategy.md`](../vex_to_mdl_strategy.md)** (To be created)
 
-This document will synthesize findings from the knowledge base into actionable translation steps.
+This document will map specific VEX functions to MDL equivalents, provide pseudocode, and outline implementation risks.
 
 ---
 
-## 📝 Quick Reference
-
-### Key VEX Concepts
-
-- **Primitive Attributes**: `tangentu`, `tangentv`, `roomN`, `roomP`
-- **Cross-Shaped Texture Layout**: Walls + ceiling + floor + 4 slices
-- **UDIM Support**: For randomization across windows
-- **Parallax Projection**: Creates 3D illusion from 2D texture
-
-### MDL Translation Challenges
-
-1. **Primitive attributes** → USD primvars or `state::` functions
-2. **Local coordinate basis** → Manual matrix construction
-3. **Cross-shaped UV layout** → Custom texture coordinate math
-4. **Parallax offset** → Standard parallax algorithms
-
----
-
-## 📊 Documentation Status
-
-| Document | Status | Images | Notes |
-| -------- | ------ | ------ | ----- |
-| Workflow Guide | ✅ Complete | ⚠️ Pending | Comprehensive tutorial |
-| Room Map VOP | ✅ Complete | ⚠️ Pending | Node reference |
-| Room Lens VOP | ✅ Complete | ⚠️ Pending | Baking tool |
-
-> **Note**: Full workflow examples and detailed parameter descriptions are available in the official SideFX documentation above.
-
-### Technical Implementation Details
-
-#### Critical VEX Concepts for Translation
-
-**Primitive Attributes** (from Room Map Frame SOP):
-
-- `tangentu`, `tangentv` — Local UV basis vectors
-- `roomN` — Surface normal
-- `roomP` — Reference position
-
-**Texture Layout**:
-
-- Cross-shaped pattern (center = back wall, left/right = side walls, top = ceiling, bottom = floor)
-- 4 corner slices for depth-layered props
-
-**UDIM Support**:
-
-- Randomization across multiple windows
-- Offset parameters for procedural variation
-
-#### Implementation Challenges for MDL
-
-| VEX Feature                                          | MDL Approach                              | Complexity |
-| ---------------------------------------------------- | ----------------------------------------- | ---------- |
-| Primitive attributes                                 | USD primvars or `state::` functions       | Medium     |
-| Cross-shaped UV layout                               | Custom texture coordinate math            | Low        |
-| Parallax projection                                  | Standard parallax algorithms              | Medium     |
-| UDIM support                                         | `tex::lookup_*()` with UDIM               | Low        |
-
----
-
-## 📊 Research Status
-
-| Phase | Status | Notes |
-| ----- | ------ | ----- |
-| Documentation Research | ✅ Complete | 4 core SideFX pages identified |
-| Local Knowledge Base | ✅ Complete | Detailed notes maintained locally |
-| VEX → MDL Strategy | 🔴 Not Started | Next step |
-
----
-
-## � Additional Resources
-
-- [NVIDIA MDL Documentation](https://raytracing-docs.nvidia.com/mdl/introduction/index.html)
-- [USD Primvars Specification](https://graphics.pixar.com/usd/release/api/class_usd_geom_primvar.html)
-- [MaterialX Standard Surface](https://materialx.org)
+**Part of [Omniverse Showreel](https://github.com/MSP014/dt-omniverse-showreel-case01-msk) | Research by Max Spell**
