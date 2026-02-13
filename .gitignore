@@ -54,6 +54,9 @@ PNG/
 *.exr
 *.hdr
 
+# Knowledge Base - External Documentation (not for public repo)
+docs/knowledge_base/houdini/
+
 # --- Python ---
 __pycache__/
 *.py[cod]
