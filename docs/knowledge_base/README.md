@@ -36,18 +36,7 @@ This knowledge base provides reference links and analysis for translating Houdin
    - Baking tool for generating interior maps
    - Not directly relevant for MDL translation (Houdini-specific)
 
-### Images
-
-Documentation images are stored in [`houdini/images/`](./houdini/images/) with descriptive filenames.
-
-> **⚠️ TODO**: Download images from SideFX documentation and save to `images/` directory.
-> See individual `.md` files for list of required images.
-
 ---
-
-## 🔗 External Sources
-
-All external documentation sources with URLs and retrieval dates are tracked in [`_sources.md`](./_sources.md).
 
 ---
 
@@ -76,8 +65,6 @@ This document will synthesize findings from the knowledge base into actionable t
 2. **Local coordinate basis** → Manual matrix construction
 3. **Cross-shaped UV layout** → Custom texture coordinate math
 4. **Parallax offset** → Standard parallax algorithms
-
-See [Karma Room Map VOP - Technical Notes](./houdini/karma_room_map_vop.md#technical-notes-for-vex-mdl-translation) for detailed analysis.
 
 ---
 
