@@ -57,6 +57,9 @@ PNG/
 # Knowledge Base - External Documentation (not for public repo)
 docs/knowledge_base/houdini/
 
+# Planning - Tutorial (WIP, not for public repo)
+docs/plans/room_map_shader_tutorial/
+
 # --- Python ---
 __pycache__/
 *.py[cod]

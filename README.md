@@ -203,6 +203,22 @@ This project demonstrates:
 
 ---
 
+## 📜 Technical Stack
+
+- **Python**: 3.10
+- **NVIDIA MDL**: Core shader language
+- **USD**: 23.11+ (primvars, stage composition)
+- **Houdini**: 21.0 (VEX reference implementation)
+- **NVIDIA Omniverse**: 2024.x (MDL runtime, validation)
+
+**Development Tools**:
+
+- Pre-commit hooks (markdown linting, Python formatting)
+- pytest (validation framework)
+- Git LFS (for binary assets, if needed)
+
+---
+
 ## 💖 Support This Research
 
 If you find this work valuable:
