@@ -1,4 +1,4 @@
-# ADR 001: Hybrid Coordinate Basis Strategy for MDL Parallax
+# Architecture Decision Record: 006 - Hybrid Coordinate Basis Strategy for MDL Parallax Shader
 
 ## Status
 
