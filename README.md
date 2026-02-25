@@ -74,13 +74,12 @@ vector roomP     // Reference position
 
 **MDL Problem**: No concept of "primitive attributes." Shaders access geometry via `state::` module, which provides positions, normals, UVs — but not arbitrary custom data.
 
-**Translation Strategy**:
+**Translation Strategy**: We are implementing a **Hybrid Geometry Context Strategy** (Detailed in [ADR 001](docs/adr/001-hybrid-geometry-context.md)) to support two distinct pipelines:
 
-- Pre-compute these attributes in Houdini (or a USD preprocessing step)
-- Store as **USD primvars** (geometry-attached custom attributes)
-- Read in MDL shader via primvar lookups or `state::texture_coordinate()` with custom indexing
+- **Production Mode (Option 1)**: Pre-compute these attributes in Houdini and store them as **USD primvars**. The MDL shader bypasses heavy math and simply reads these variables via `state::texture_coordinate(N)`. This is the optimized path required to render the thousands of instances in **Case 01**.
+- **Community Mode (Option 2)**: For DCC-Agnostic usage (Blender, Maya, base Omniverse), an exposed boolean (`Use Pre-computed Frame Attributes = False`) forces the shader to dynamically compute the basis using `state::texture_tangent_u()` and `state::normal()`. This incurs a performance penalty but guarantees the shader works "out-of-the-box" for the community.
 
-**Risk**: Primvar performance characteristics differ from VEX attribute access. Needs profiling.
+**Risk**: The dynamic computation in Option 2 requires careful profiling to understand the exact GPU overhead per pixel.
 
 ---
 
@@ -162,6 +161,7 @@ Focus areas:
 docs/
 ├── knowledge_base/     # Analysis of Houdini's approach
 ├── adr/                # Architecture Decision Records
+│   └── 001-hybrid-geometry-context.md
 └── vex_to_mdl_strategy.md (planned)
 
 src/                    # MDL shaders (TBD)
