@@ -61,6 +61,14 @@ Our MDL shader will mimic this:
 2. In the DCC (or via Omniverse OmniGraph/MaterialX graph), the user will generate a pseudo-random integer based on the `roomID` primvar (using a noise or hash function).
 3. This integer is passed to our MDL shader, which shifts the UV lookup to the corresponding texture sequence/UDIM tile, guaranteeing that windows with different `roomIDs` get different interiors.
 
+### 6. Surface Material Integration
+
+As observed in the Karma network (`kma_roommap1` feeding into `mtlxstandard_surface`), our custom PIM logic acts solely as a sophisticated color and normal generator.
+In the final MDL implementation, the Parallax Module will output a Struct containing `base_color` and `normal`. These outputs will then be fed into a standard Physically Based Rendering (PBR) material definition (such as `OmniSurface` or a standard `material` construct), mapping:
+
+* `out` -> `base_color`
+* `normal` -> `geometry.normal`
+
 ## Consequences
 
 * **Performance**: OptiX will JIT-compile this pure mathematical approach into a highly optimized GPU kernel. Bypassing Houdini's unoptimized VEX logic guarantees better performance at scale (Case 01).
