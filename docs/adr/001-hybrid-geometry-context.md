@@ -11,9 +11,9 @@ The Karma Room Map Shader relies on local vector attributes (`tangentu`, `tangen
 In porting this logic to NVIDIA MDL, a critical architectural decision arises regarding how the shader acquires this local basis:
 
 **Approach A: USD Primvars (Pre-computed)**
-Calculate the basis vectors in Houdini (SOPs) and export them as USD primvars. The MDL shader simply reads these variables.
+Calculate the basis vectors in Houdini (SOPs) and export them as USD primvars. Crucially, screenshot analysis confirms these must be exported as **Point (Vertex) Attributes**, not Primitive attributes. The MDL shader simply reads these variables via vertex interpolation.
 
-* *Pros*: Optimal GPU performance. Offloads linear algebra to the CPU preprocessing stage. Scales efficiently for scenes with tens of thousands of windows.
+* *Pros*: Optimal GPU performance. Offloads linear algebra to the CPU preprocessing stage. Scales efficiently for scenes with tens of thousands of windows. Supports complex clustered geometry (e.g. cylindrical buildings) via `roomID` stitching.
 * *Cons*: Tightly couples the shader to a specific Houdini preprocessing pipeline. Useless for general Omniverse users who just want to apply the shader to standard DCC planes (Maya, Blender, etc.).
 
 **Approach B: Dynamic MDL Calculation (Compute-on-the-fly)**
