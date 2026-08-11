@@ -3,33 +3,35 @@
 # --- Documentation (Included) ---
 
 # --- Internal Procedures ---
-# --- Internal Protocols (STRICT PRIVACY) ---
+# --- Internal Protocols & Planning (STRICT PRIVACY) ---
 protocols/
+.codex/
+omniverse_kit_app/
+docs/plans/shader rnd - implementation.md
 
 # --- Heavy Work Directories (Project Structure) ---
 assets/_external/*
 !assets/**/.gitkeep
 
 cache/
-Refs/
+refs/
 _incoming/
 geo/
-HIP/
-OUT/
+hip/
+out/
 # tests/ <-- we WANT to track minimal test scenes, unless they are huge
 
 # --- Source/Project Files (Adobe and other software specific) ---
-AE/   # After Effects
-AI/   # Adobe Illustrator
-PRJ/  # Premiere Pro
-PSD/  # Photoshop Projects
+ae/   # After Effects
+ai/   # Adobe Illustrator
+prj/  # Premiere Pro
+psd/  # Photoshop Projects
 
 # --- Media & Renders (Heavy) ---
-EXR/
-MP4/
-GIF/
-MOV/
-PNG/
+exr/
+mp4/
+gif/
+mov/
 
 # --- File Extensions (Specific Blocklist) ---
 # USD (Heavy Binary Crates blocked, ASCII allowed)

@@ -19,7 +19,10 @@ Format: `room_shader_rnd`
 * **Example:** `room_shader_rnd` (this workspace).
 * **Remote:** `https://github.com/MSP014/room_shader_rnd.git`
 
-### 2. File Layers (Snake Case)
+### 2. Folders and File Layers (Snake Case)
+
+* **Directories:** All directories MUST be written in `snake_case` (e.g., `refs/`, `assets/`, `audio_tracks/`).
+* `mesh_*` (Geometry, e.g., `mesh_rack_A01`)
 
 * `mdl_*` (Material Definition Language files)
 * `tex_*` (Textures / Atlases)
