@@ -8,13 +8,16 @@ from base64 import b64encode
 import requests
 from dotenv import load_dotenv
 
-# Configure stdout for UTF-8 (Windows encoding fix)
-if sys.platform == "win32":
-    import io
+LEGACY_TUTORIAL_EPIC_KEYS = frozenset({"KRM-1", "KRM-5", "KRM-7"})
 
-    sys.stdout = io.TextIOWrapper(
-        sys.stdout.buffer, encoding="utf-8", errors="replace"
-    )
+
+def configure_stdout():
+    if sys.platform == "win32":
+        import io
+
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
 
 
 def get_jira_session():
@@ -132,12 +135,47 @@ def parse_description(text):
     return objective, dod
 
 
+def belongs_to_legacy_tutorial(item, issue_map):
+    current = item
+    visited_keys = set()
+
+    while current:
+        key = current["key"]
+        if key in LEGACY_TUTORIAL_EPIC_KEYS:
+            return True
+        if key in visited_keys:
+            return False
+
+        visited_keys.add(key)
+        parent_key = current["parent"]
+        current = issue_map.get(parent_key)
+
+    return False
+
+
+def filter_legacy_tutorial_items(issue_map, include_legacy_tutorial):
+    if include_legacy_tutorial:
+        return issue_map
+
+    return {
+        key: item
+        for key, item in issue_map.items()
+        if not belongs_to_legacy_tutorial(item, issue_map)
+    }
+
+
 def main():
+    configure_stdout()
     parser = argparse.ArgumentParser(description="Jira to Markdown Sync")
     parser.add_argument(
         "--save",
         action="store_true",
         help="Save output to file (default is dry-run)",
+    )
+    parser.add_argument(
+        "--include-legacy-tutorial",
+        action="store_true",
+        help="Include paused legacy tutorial epics in the generated plan",
     )
     args = parser.parse_args()
 
@@ -183,6 +221,9 @@ def main():
             "logged": fields.get("timetracking", {}).get("timeSpent"),
             "children": [],
         }
+    all_map = filter_legacy_tutorial_items(
+        all_map, args.include_legacy_tutorial
+    )
 
     # Pass 2: Build Tree
     epics = []

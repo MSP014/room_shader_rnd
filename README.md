@@ -6,6 +6,16 @@
 
 ---
 
+## Visual Baseline and Transformation Path
+
+This RnD begins with a digital replica of Building 150 on Moskovsky Avenue in Saint Petersburg, prepared as a USD asset for Omniverse. The work will evolve its flat glazing into a scalable parallax-interior system for the Case 01 Urban Digital Twin.
+
+![Starting asset — Building 150 on Moskovsky Avenue in Omniverse](docs/img/msk_150_omniverse.jpg)
+
+*Starting asset: the Omniverse USD building before Room Map geometry context, MDL parallax mapping, and interior variation are introduced.*
+
+---
+
 ## The Problem
 
 Urban Digital Twins face a fundamental challenge: **realistic building interiors at scale**.
@@ -231,6 +241,17 @@ Your support funds:
 - Continued VEX → MDL translation research
 - Prototype shader development and testing
 - Quality documentation and tutorials
+
+---
+
+## 📜 Changelog
+
+* **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
+* **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.
+* **Week of 16 February, 2026:** Refined the public project narrative, knowledge base, technical stack, support information, and privacy boundary for a clearer recruiter and engineer reading path.
+* **Week of 9 February, 2026:** Added safer Jira-plan synchronisation and consolidated repository naming conventions for repeatable research delivery.
+* **Week of 2 February, 2026:** Established the Room Map Shader RnD foundation with public research documentation, architecture decisions, isolated Python tooling, security guardrails, a test baseline, and reusable asset-hydration structure.
+
 
 ---
 

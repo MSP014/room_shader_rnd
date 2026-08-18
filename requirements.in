@@ -16,3 +16,6 @@ pytest
 # --- JIRA Link ---
 requests>=2.31.0
 python-dotenv>=1.0.0
+
+# --- OpenUSD Asset Inspection ---
+usd-core==26.5

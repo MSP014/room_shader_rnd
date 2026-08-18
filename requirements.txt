@@ -156,6 +156,8 @@ typing-extensions==4.16.0
     #   virtualenv
 urllib3==2.7.0
     # via requests
+usd-core==26.5
+    # via -r requirements.in
 virtualenv==21.7.4
     # via pre-commit
 wheel==0.47.0
