@@ -1,0 +1,19 @@
+mdl 1.7;
+
+import ::df::*;
+import ::state::*;
+
+export material uv0_as_colour() = let {
+    float3 uv = state::texture_coordinate(0);
+    color diagnostic_colour = color(uv.x, uv.y, 0.0);
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diagnostic_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: diagnostic_colour
+        )
+    )
+);

@@ -1,0 +1,15 @@
+mdl 1.7;
+
+import ::base::*;
+import ::df::*;
+
+export material hello_world(
+    color diffuse_colour = color(1.0, 0.0, 0.0)
+) = material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diffuse_colour,
+            roughness: 0.0
+        )
+    )
+);

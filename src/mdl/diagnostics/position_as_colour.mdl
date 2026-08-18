@@ -1,0 +1,24 @@
+mdl 1.7;
+
+import ::df::*;
+import ::state::*;
+
+export material position_as_colour(
+    float3 position_offset = float3(0.0),
+    float3 position_scale = float3(1.0)
+) = let {
+    float3 encoded_position = (
+        state::position() + position_offset
+    ) * position_scale;
+    color diagnostic_colour = color(encoded_position);
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diagnostic_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: diagnostic_colour
+        )
+    )
+);

@@ -1,0 +1,20 @@
+mdl 1.7;
+
+import ::df::*;
+import ::state::*;
+
+export material direction_as_colour() = let {
+    color diagnostic_colour = color(
+        0.5 * state::direction() + float3(0.5, 0.5, 0.5)
+    );
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diagnostic_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: diagnostic_colour
+        )
+    )
+);

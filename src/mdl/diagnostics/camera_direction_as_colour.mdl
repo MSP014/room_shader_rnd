@@ -1,0 +1,31 @@
+mdl 1.7;
+
+import ::df::*;
+import ::math::*;
+import ::state::*;
+
+export material camera_direction_as_colour(
+    float3 camera_position_world = float3(0.0)
+) = let {
+    float3 surface_position_world = state::transform_point(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::position()
+    );
+    float3 view_direction_world = math::normalize(
+        camera_position_world - surface_position_world
+    );
+    color diagnostic_colour = color(
+        0.5 * view_direction_world + float3(0.5)
+    );
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diagnostic_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: diagnostic_colour
+        )
+    )
+);

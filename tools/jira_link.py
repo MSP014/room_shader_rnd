@@ -1,19 +1,23 @@
 import argparse
+import datetime as dt
 import json
 import os
+import re
 import sys
 from base64 import b64encode
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from dotenv import load_dotenv
 
-# Configure stdout for UTF-8 (Windows encoding fix)
-if sys.platform == "win32":
-    import io
 
-    sys.stdout = io.TextIOWrapper(
-        sys.stdout.buffer, encoding="utf-8", errors="replace"
-    )
+def configure_stdout():
+    if sys.platform == "win32":
+        import io
+
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
 
 
 def get_jira_session():
@@ -206,14 +210,154 @@ def set_status(issue_key, status_name):
         print(f"Error {resp.status_code}: {resp.text}")
 
 
-def add_worklog(issue_key, time_spent):
-    print(f"DEBUG: Attempting to log {time_spent} for {issue_key}...")
+def _adf_paragraph(text):
+    return {
+        "type": "doc",
+        "version": 1,
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [{"text": text, "type": "text"}],
+            }
+        ],
+    }
+
+
+def _parse_worklog_timestamp(value, timezone_name):
+    try:
+        timestamp = dt.datetime.fromisoformat(
+            value.strip().replace("Z", "+00:00")
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "Timestamp must use ISO format, for example '2026-08-18 05:08:00'."
+        ) from exc
+
+    if timestamp.tzinfo is not None:
+        return timestamp
+
+    try:
+        return timestamp.replace(tzinfo=ZoneInfo(timezone_name))
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError(f"Unknown timezone: {timezone_name}") from exc
+
+
+def _format_jira_timestamp(timestamp):
+    offset = timestamp.strftime("%z")
+    return (
+        f"{timestamp:%Y-%m-%dT%H:%M:%S}."
+        f"{timestamp.microsecond // 1000:03d}{offset}"
+    )
+
+
+def _parse_duration_seconds(value):
+    match = re.fullmatch(
+        r"\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?\s*",
+        value,
+    )
+    if not match or not any(match.groups()):
+        raise ValueError(
+            "Time must use Jira duration format, for example '1h 30m' or '45m'."
+        )
+
+    hours, minutes, seconds = (int(part or 0) for part in match.groups())
+    total_seconds = (hours * 3600) + (minutes * 60) + seconds
+    if total_seconds <= 0:
+        raise ValueError("Worklog duration must be greater than zero.")
+    return total_seconds
+
+
+def _round_to_worklog_increment(total_seconds):
+    increment_seconds = 15 * 60
+    rounded_seconds = (
+        (total_seconds + (increment_seconds // 2)) // increment_seconds
+    ) * increment_seconds
+    if rounded_seconds <= 0:
+        raise ValueError("Worklog duration rounds to zero minutes.")
+    return rounded_seconds
+
+
+def _format_duration_seconds(total_seconds):
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if seconds:
+        parts.append(f"{seconds}s")
+    return " ".join(parts) or "0s"
+
+
+def _build_worklog_payload(time_spent, comment, started, ended, timezone_name):
+    if ended and not started:
+        raise ValueError("--ended requires --started.")
+
+    started_at = (
+        _parse_worklog_timestamp(started, timezone_name) if started else None
+    )
+    ended_at = (
+        _parse_worklog_timestamp(ended, timezone_name) if ended else None
+    )
+
+    if started_at and ended_at:
+        elapsed_seconds = int((ended_at - started_at).total_seconds())
+        if elapsed_seconds <= 0:
+            raise ValueError("--ended must be later than --started.")
+
+        duration_seconds = _round_to_worklog_increment(elapsed_seconds)
+        if time_spent:
+            supplied_seconds = _round_to_worklog_increment(
+                _parse_duration_seconds(time_spent)
+            )
+            if supplied_seconds != duration_seconds:
+                raise ValueError(
+                    "Supplied duration does not match rounded timestamps."
+                )
+    elif time_spent:
+        duration_seconds = _round_to_worklog_increment(
+            _parse_duration_seconds(time_spent)
+        )
+    else:
+        raise ValueError("Provide time or both --started and --ended.")
+
+    payload = {"timeSpentSeconds": duration_seconds}
+    if started_at:
+        payload["started"] = _format_jira_timestamp(started_at)
+    if comment:
+        payload["comment"] = _adf_paragraph(comment)
+    return payload, duration_seconds, started_at
+
+
+def add_worklog(
+    issue_key,
+    time_spent=None,
+    *,
+    comment=None,
+    started=None,
+    ended=None,
+    timezone_name="Asia/Yerevan",
+):
+    payload, duration_seconds, started_at = _build_worklog_payload(
+        time_spent,
+        comment,
+        started,
+        ended,
+        timezone_name,
+    )
+    duration = _format_duration_seconds(duration_seconds)
+    print(f"DEBUG: Attempting to log {duration} for {issue_key}...")
     base_url, headers = get_jira_session()
     url = f"{base_url}/rest/api/3/issue/{issue_key}/worklog"
-    payload = {"timeSpent": time_spent}
     resp = requests.post(url, headers=headers, json=payload, timeout=30)
     if resp.status_code == 201:
-        print(f"Worklog '{time_spent}' added to {issue_key}")
+        details = [f"duration: {duration}"]
+        if started_at:
+            details.append(f"started: {_format_jira_timestamp(started_at)}")
+        if comment:
+            details.append("comment: yes")
+        print(f"Worklog added to {issue_key} ({'; '.join(details)})")
     else:
         print(f"Error {resp.status_code}: {resp.text}")
 
@@ -352,9 +496,8 @@ def list_transitions(issue_key):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Simple Jira CLI (Quentin - KRM)"
-    )
+    configure_stdout()
+    parser = argparse.ArgumentParser(description="Simple Jira CLI for KRM")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Get Issue
@@ -388,7 +531,28 @@ def main():
     # Worklog
     p_worklog = subparsers.add_parser("worklog", help="Log work time")
     p_worklog.add_argument("key", help="Issue Key")
-    p_worklog.add_argument("time", help="Time spent (e.g. 1h 30m, 2h, 15m)")
+    p_worklog.add_argument(
+        "time",
+        nargs="?",
+        help=(
+            "Time spent (e.g. 1h 30m, 2h, 15m); optional with "
+            "--started and --ended. Entries are rounded to 15 minutes."
+        ),
+    )
+    p_worklog.add_argument("--comment", help="Worklog description.")
+    p_worklog.add_argument(
+        "--started",
+        help="Start timestamp in ISO format, e.g. '2026-08-18 05:08:00'.",
+    )
+    p_worklog.add_argument(
+        "--ended",
+        help="End timestamp in ISO format; rounds the elapsed duration to 15 minutes.",
+    )
+    p_worklog.add_argument(
+        "--timezone",
+        default="Asia/Yerevan",
+        help="Timezone for timestamps without an explicit UTC offset.",
+    )
 
     # Edit
     p_edit = subparsers.add_parser("edit", help="Edit issue fields")
@@ -447,7 +611,14 @@ def main():
         elif args.command == "status":
             set_status(args.key, args.status)
         elif args.command == "worklog":
-            add_worklog(args.key, args.time)
+            add_worklog(
+                args.key,
+                args.time,
+                comment=args.comment,
+                started=args.started,
+                ended=args.ended,
+                timezone_name=args.timezone,
+            )
         elif args.command == "edit":
             update_issue(
                 args.key,
