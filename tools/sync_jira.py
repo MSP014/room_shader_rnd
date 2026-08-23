@@ -4,6 +4,7 @@ import random  # nosec
 import sys
 import textwrap
 from base64 import b64encode
+from datetime import date
 
 import requests
 from dotenv import load_dotenv
@@ -44,17 +45,17 @@ def get_jira_session():
 def extract_text(node):
     if not node:
         return ""
-    texts = []
     if isinstance(node, dict):
         if node.get("type") == "text":
-            texts.append(node.get("text", ""))
-        elif "content" in node:
-            for child in node["content"]:
-                texts.extend(extract_text(child))
-    elif isinstance(node, list):
-        for item in node:
-            texts.extend(extract_text(item))
-    return "".join(texts)
+            return node.get("text", "")
+        content = node.get("content", [])
+        separator = "\n" if node.get("type") == "doc" else ""
+        return separator.join(
+            filter(None, (extract_text(child) for child in content))
+        )
+    if isinstance(node, list):
+        return "\n".join(filter(None, (extract_text(item) for item in node)))
+    return ""
 
 
 def fetch_issues(project_key):
@@ -247,10 +248,46 @@ def main():
     output.append("")
     output.append(f"**Jira Project**: {project_key}")
     output.append("**Status**: In Progress")
-    output.append("**Last Updated**: 2026-02-04")
+    output.append(f"**Last Updated**: {date.today().isoformat()}")
     output.append("")
     output.append("---")
     output.append("")
+
+    section_titles = frozenset(
+        {
+            "Goal",
+            "Delivery sequence",
+            "Validation",
+            "Scope boundary",
+            "Definition of Done",
+            "Objective",
+            "Scope",
+            "Required Material Controls",
+            "Acceptance Criteria",
+        }
+    )
+
+    def render_description(text, label="Description"):
+        result = []
+        show_label = True
+        for paragraph in filter(
+            None, (line.strip() for line in text.splitlines())
+        ):
+            heading = paragraph.rstrip(":")
+            if heading in section_titles:
+                result.append(f"**{heading}:**")
+                show_label = False
+                continue
+            prefix = f"**{label}:** " if show_label else ""
+            result.append(
+                textwrap.fill(
+                    f"{prefix}{paragraph}",
+                    width=80,
+                    subsequent_indent="  ",
+                )
+            )
+            show_label = False
+        return result
 
     def render_issue(item, level):
         res = []
@@ -274,20 +311,14 @@ def main():
 
         res.append(" | ".join(meta))
 
-        # Only show objective if it's not effectively empty
-        # or just repeating the summary
         if (
             item["objective"]
             and item["objective"] != "N/A"
             and len(item["objective"]) > 5
         ):
-            wrapped_obj = textwrap.fill(
-                f"**Objective**: {item['objective']}",
-                width=80,
-                subsequent_indent="  ",
+            res.extend(
+                render_description(item["objective"], label="Objective")
             )
-            res.append(wrapped_obj)
-
         if item["children"]:
             # Sort children by priority then key
             item["children"].sort(key=lambda x: (x["priority_val"], x["key"]))
@@ -306,7 +337,7 @@ def main():
         return "\n".join(res)
 
     # Selection logic: included if active or has active children
-    active_statuses = ["to do", "in progress", "done"]
+    active_statuses = ["backlog", "to do", "in progress", "done"]
     active_epics = []
 
     for epic in epics:
@@ -333,6 +364,13 @@ def main():
             )
         )
         output.append("")
+        if (
+            epic["objective"]
+            and epic["objective"] != "N/A"
+            and len(epic["objective"]) > 5
+        ):
+            output.extend(render_description(epic["objective"]))
+            output.append("")
 
         # Sort children
         epic["active_children"].sort(
@@ -374,7 +412,7 @@ def main():
         for i in all_map.values()
         if (
             i["type"] != "Epic"
-            and i["status"].lower() in ["to do", "in progress"]
+            and i["status"].lower() in ["backlog", "to do", "in progress"]
         )
     ]
     # Sort by priority val (asc), then by created key (desc/asc)

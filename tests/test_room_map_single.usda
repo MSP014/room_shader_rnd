@@ -1,0 +1,57 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Mesh "Window" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        normal3f[] normals = [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)] (
+            interpolation = "vertex"
+        )
+        point3f[] points = [(0, 0, -1), (0, 1, -1), (0, 1, 0), (0, 0, 0)]
+        rel material:binding = </World/Looks/RoomMapSingle>
+        texCoord2f[] primvars:st = [(1, 0), (1, 1), (0, 1), (0, 0)] (
+            interpolation = "faceVarying"
+        )
+        float3[] primvars:roomP = [(0, 0.5, -0.5), (0, 0.5, -0.5), (0, 0.5, -0.5), (0, 0.5, -0.5)] (
+            interpolation = "vertex"
+        )
+        float3[] primvars:tangentu = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)] (
+            interpolation = "vertex"
+        )
+        float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+            interpolation = "vertex"
+        )
+        uniform token subdivisionScheme = "none"
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMapSingle"
+        {
+            token outputs:mdl:surface.connect = </World/Looks/RoomMapSingle/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../src/mdl/room_map_single.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
+                float3 inputs:camera_position_world = (2, 0.5, -0.5)
+                float inputs:emission_strength = 1
+                color3f inputs:fallback_colour = (1, 0, 1)
+                float inputs:room_depth = 1
+                asset inputs:room_atlas = @../assets/_external/tex/roommap_debug.1001.png@
+                token outputs:out
+            }
+        }
+    }
+}

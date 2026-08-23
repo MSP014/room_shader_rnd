@@ -1,0 +1,34 @@
+mdl 1.7;
+
+import ::df::*;
+import ::nvidia::support_definitions::*;
+
+export material primvar_as_colour(
+    uniform string primvar_name = "roomP",
+    color fallback_colour = color(1.0, 0.0, 1.0),
+    bool remap_signed = false
+) = let {
+    float3 fallback_value = float3(fallback_colour);
+    float3 primvar_value = nvidia::support_definitions::data_lookup_float3(
+        primvar_name,
+        fallback_value
+    );
+    float3 display_value = remap_signed
+        ? primvar_value * 0.5 + float3(0.5)
+        : primvar_value;
+    color diagnostic_colour = color(
+        display_value.x,
+        display_value.y,
+        display_value.z
+    );
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: diagnostic_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: diagnostic_colour
+        )
+    )
+);

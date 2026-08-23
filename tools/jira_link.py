@@ -223,6 +223,32 @@ def _adf_paragraph(text):
     }
 
 
+def _adf_document_from_text(text):
+    paragraphs = []
+    for line in text.splitlines():
+        if line.strip():
+            paragraphs.append(
+                {
+                    "type": "paragraph",
+                    "content": [{"text": line, "type": "text"}],
+                }
+            )
+
+    if not paragraphs:
+        paragraphs.append(
+            {
+                "type": "paragraph",
+                "content": [{"text": "", "type": "text"}],
+            }
+        )
+
+    return {
+        "type": "doc",
+        "version": 1,
+        "content": paragraphs,
+    }
+
+
 def _parse_worklog_timestamp(value, timezone_name):
     try:
         timestamp = dt.datetime.fromisoformat(
@@ -371,17 +397,7 @@ def update_issue(
     if summary:
         fields["summary"] = summary
     if description:
-        # Simple ADF wrapper for description if it's just text
-        fields["description"] = {
-            "type": "doc",
-            "version": 1,
-            "content": [
-                {
-                    "type": "paragraph",
-                    "content": [{"text": description, "type": "text"}],
-                }
-            ],
-        }
+        fields["description"] = _adf_document_from_text(description)
 
     if assignee_id:
         fields["assignee"] = {"id": assignee_id}
@@ -426,16 +442,7 @@ def create_issue(
         "project": {"key": project_key},
         "summary": summary,
         "issuetype": {"name": issue_type},
-        "description": {
-            "type": "doc",
-            "version": 1,
-            "content": [
-                {
-                    "type": "paragraph",
-                    "content": [{"text": description, "type": "text"}],
-                }
-            ],
-        },
+        "description": _adf_document_from_text(description),
     }
 
     # 1. Assignment

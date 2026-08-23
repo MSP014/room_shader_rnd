@@ -1,0 +1,187 @@
+mdl 1.7;
+
+import ::df::*;
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+import ::nvidia::support_definitions::*;
+
+float room_map_epsilon()
+{
+    return 0.0001;
+}
+
+float room_map_far_distance()
+{
+    return 1000000.0;
+}
+
+float saturate(float value)
+{
+    return math::min(1.0, math::max(0.0, value));
+}
+
+float positive_plane_distance(
+    float plane,
+    float origin,
+    float direction
+) = let {
+    float epsilon = room_map_epsilon();
+    float safe_direction = direction >= 0.0
+        ? math::max(direction, epsilon)
+        : math::min(direction, -epsilon);
+    float distance = (plane - origin) / safe_direction;
+} in distance > epsilon ? distance : room_map_far_distance();
+
+float2 cross_atlas_coordinate(
+    float3 hit_point,
+    float room_depth,
+    float back_distance,
+    float left_distance,
+    float right_distance,
+    float ceiling_distance,
+    float floor_distance
+) = let {
+    float tile_size = 1.0 / 3.0;
+    float depth_coordinate = saturate(-hit_point.z / room_depth);
+    float middle_v = tile_size * (1.0 + hit_point.y);
+    float middle_u = tile_size * (1.0 + hit_point.x);
+} in back_distance <= left_distance
+        && back_distance <= right_distance
+        && back_distance <= ceiling_distance
+        && back_distance <= floor_distance
+    ? float2(middle_u, middle_v)
+    : left_distance <= right_distance
+        && left_distance <= ceiling_distance
+        && left_distance <= floor_distance
+    ? float2(tile_size * depth_coordinate, middle_v)
+    : right_distance <= ceiling_distance
+        && right_distance <= floor_distance
+    ? float2(tile_size * (3.0 - depth_coordinate), middle_v)
+    : ceiling_distance <= floor_distance
+    ? float2(middle_u, tile_size * (3.0 - depth_coordinate))
+    : float2(middle_u, tile_size * depth_coordinate);
+
+export material room_map_single(
+    uniform texture_2d room_atlas = texture_2d(),
+    float3 camera_position_world = float3(0.0),
+    float room_depth = 1.0,
+    color fallback_colour = color(1.0, 0.0, 1.0),
+    float emission_strength = 1.0
+) = let {
+    float3 room_position = nvidia::support_definitions::data_lookup_float3(
+        "roomP",
+        float3(0.0)
+    );
+    float3 tangent_u_raw = nvidia::support_definitions::data_lookup_float3(
+        "tangentu",
+        float3(0.0)
+    );
+    float3 tangent_v_raw = nvidia::support_definitions::data_lookup_float3(
+        "tangentv",
+        float3(0.0)
+    );
+    bool frame_is_valid = math::length(tangent_u_raw) > room_map_epsilon()
+        && math::length(tangent_v_raw) > room_map_epsilon()
+        && room_depth > room_map_epsilon();
+    float3 tangent_u = frame_is_valid
+        ? math::normalize(tangent_u_raw)
+        : float3(1.0, 0.0, 0.0);
+    float3 tangent_v = frame_is_valid
+        ? math::normalize(tangent_v_raw)
+        : float3(0.0, 1.0, 0.0);
+    float3 room_normal = math::normalize(math::cross(tangent_u, tangent_v));
+    float3 surface_position_world = state::transform_point(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::position()
+    );
+    float3 camera_from_room = camera_position_world - room_position;
+    float3 surface_from_room = surface_position_world - room_position;
+    float3 camera_position_room = float3(
+        math::dot(camera_from_room, tangent_u),
+        math::dot(camera_from_room, tangent_v),
+        math::dot(camera_from_room, room_normal)
+    );
+    float3 surface_position_room = float3(
+        math::dot(surface_from_room, tangent_u),
+        math::dot(surface_from_room, tangent_v),
+        math::dot(surface_from_room, room_normal)
+    );
+    float3 ray_direction = math::normalize(
+        surface_position_room - camera_position_room
+    );
+    float3 texture_coordinate = state::texture_coordinate(0);
+    float3 ray_origin = float3(
+        saturate(texture_coordinate.x),
+        saturate(texture_coordinate.y),
+        0.0
+    );
+    float back_distance = positive_plane_distance(
+        -room_depth,
+        ray_origin.z,
+        ray_direction.z
+    );
+    float left_distance = positive_plane_distance(
+        0.0,
+        ray_origin.x,
+        ray_direction.x
+    );
+    float right_distance = positive_plane_distance(
+        1.0,
+        ray_origin.x,
+        ray_direction.x
+    );
+    float ceiling_distance = positive_plane_distance(
+        1.0,
+        ray_origin.y,
+        ray_direction.y
+    );
+    float floor_distance = positive_plane_distance(
+        0.0,
+        ray_origin.y,
+        ray_direction.y
+    );
+    float hit_distance = math::min(
+        back_distance,
+        math::min(
+            left_distance,
+            math::min(
+                right_distance,
+                math::min(ceiling_distance, floor_distance)
+            )
+        )
+    );
+    float3 hit_point = ray_origin + hit_distance * ray_direction;
+    float2 atlas_coordinate = cross_atlas_coordinate(
+        hit_point,
+        room_depth,
+        back_distance,
+        left_distance,
+        right_distance,
+        ceiling_distance,
+        floor_distance
+    );
+    float4 atlas_sample = tex::lookup_float4(
+        room_atlas,
+        atlas_coordinate,
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    color sampled_colour = color(
+        atlas_sample.x,
+        atlas_sample.y,
+        atlas_sample.z
+    );
+    color room_colour = frame_is_valid ? sampled_colour : fallback_colour;
+} in material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(
+            tint: room_colour
+        ),
+        emission: material_emission(
+            df::diffuse_edf(),
+            intensity: room_colour * emission_strength
+        )
+    )
+);

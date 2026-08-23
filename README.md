@@ -14,6 +14,35 @@ This RnD begins with a digital replica of Building 150 on Moskovsky Avenue in Sa
 
 *Starting asset: the Omniverse USD building before Room Map geometry context, MDL parallax mapping, and interior variation are introduced.*
 
+### First MDL Parallax Proof
+
+The first functional MDL vertical slice uses a one-by-one test window to sample
+a labelled cross-atlas and form a view-dependent virtual room.
+The same plane is shown below before the material is applied, then from a
+head-on view and two oblique views in USD Composer with RTX Interactive (Path
+Tracing). The changing visible faces demonstrate the parallax response while
+the labelled atlas exposes any incorrect face assignment or orientation.
+
+![Unshaded one-by-one test window plane in USD Composer](docs/img/krm88/krm88_01.png)
+
+*Baseline: the unshaded test plane before the Room Map material is applied.*
+
+| Head-on room view | First oblique room view |
+| --- | --- |
+| ![Head-on view of the labelled virtual room](docs/img/krm88/krm88_02.png) | ![Oblique view of the labelled virtual room](docs/img/krm88/krm88_03.png) |
+
+| Second oblique room view |
+| --- |
+| ![Second oblique view of the labelled virtual room](docs/img/krm88/krm88_04.png) |
+
+#### Cross-Atlas Diagnostic Texture
+
+![Labelled Room Map debug cross-atlas](docs/img/krm88/roommap_debug.1001.png)
+
+*The diagnostic cross-atlas used for the first MDL validation. The five central tiles represent
+the virtual room faces; S1–S4 are reserved depth-slice markers and are not
+sampled by this first vertical slice.*
+
 ---
 
 ## The Problem
