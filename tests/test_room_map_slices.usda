@@ -1,0 +1,269 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (0, 0, 500)
+                double radius = 500
+            }
+            dictionary Perspective = {
+                double3 position = (3.143670151535036, 0.6833642637498928, -0.21106403015101677)
+                double3 target = (-0.00700081908239536, 0.5484248514716475, -0.42866300858675116)
+            }
+            dictionary Right = {
+                double3 position = (-500, 0, 0)
+                double radius = 500
+            }
+            dictionary Top = {
+                double3 position = (0, 500, 0)
+                double radius = 500
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary renderSettings = {
+        }
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Mesh "Window" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        rel material:binding = </World/Looks/RoomMap>
+        normal3f[] normals = [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)] (
+            interpolation = "vertex"
+        )
+        point3f[] points = [(0, 0, -1), (0, 1, -1), (0, 1, 0), (0, 0, 0)]
+        float3[] primvars:roomP = [(0, 0.5, -0.5), (0, 0.5, -0.5), (0, 0.5, -0.5), (0, 0.5, -0.5)] (
+            interpolation = "vertex"
+        )
+        texCoord2f[] primvars:st = [(1, 0), (1, 1), (0, 1), (0, 0)] (
+            interpolation = "faceVarying"
+        )
+        float3[] primvars:tangentu = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)] (
+            interpolation = "vertex"
+        )
+        float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+            interpolation = "vertex"
+        )
+        uniform token subdivisionScheme = "none"
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMap"
+        {
+            token outputs:mdl:surface.connect = </World/Looks/RoomMap/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../src/mdl/room_map.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "room_map"
+                float3 inputs:camera_position_world = (2, 0.5, -0.5)
+                float inputs:emission_strength = 1
+                bool inputs:enable_slice_1 = 1
+                bool inputs:enable_slice_2 = 1
+                bool inputs:enable_slice_3 = 1
+                bool inputs:enable_slice_4 = 1
+                color3f inputs:fallback_colour = (1, 0, 1)
+                asset inputs:room_atlas = @../assets/_external/tex/roommap_debug.1002.png@
+                float inputs:room_depth = 1
+                float inputs:slice_1_depth_percent = 20
+                float2 inputs:slice_1_offset = (0, 0)
+                float2 inputs:slice_1_scale = (1, 1)
+                float inputs:slice_2_depth_percent = 40
+                float2 inputs:slice_2_offset = (0, 0)
+                float2 inputs:slice_2_scale = (1, 1)
+                float inputs:slice_3_depth_percent = 60
+                float2 inputs:slice_3_offset = (0, 0)
+                float2 inputs:slice_3_scale = (1, 1)
+                float inputs:slice_4_depth_percent = 80
+                float2 inputs:slice_4_offset = (0, 0)
+                float2 inputs:slice_4_scale = (1, 1)
+                float2 inputs:window_shift = (0, 0)
+                token outputs:out
+            }
+        }
+    }
+}
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:ambientOcclusion:denoiserMode = "none"
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
+                bool omni:rtx:dlss:frameGeneration = 1
+                float3 omni:rtx:domeLight:rotationAxis = (0, 1, 0)
+                bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:adaptiveSampling:filterError = 0
+                uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                bool omni:rtx:reflections:denoiser:enabled = 0
+                token omni:rtx:rendermode = "RealTimePathTracing"
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                int omni:rtx:rt:sss:samples = 1
+                uint omni:rtx:rtpt:maxVolumeBounces = 15
+                float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1378, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+            uniform token sourceType = "raw"
+        }
+    }
+}
+
+over "OmniverseKit_Persp" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float focalLength = 18.147562
+    float focusDistance = 400
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -3.1610576593117785)
+    float3 xformOp:rotateXYZ = (-2.446589, 86.04918, 9.232352e-14)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (3.143670151535036, 0.6833642637498928, -0.21106403015101677)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Front" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (-0, 0, -0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 500)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Right" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (0, -90, -0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (-500, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Top" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (90, -4.961563e-15, 180)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 500, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}

@@ -2,7 +2,7 @@
 
 > Bringing Houdini's Room Map Shader to NVIDIA MDL for scalable Urban Digital Twins
 
-**Status**: First MDL parallax baseline validated • Production integration in progress
+**Status**: MDL parallax and depth-slice baselines validated • Production integration in progress
 
 ---
 
@@ -33,7 +33,9 @@ Houdini's **Room Map Shader** solves this elegantly: render interiors into speci
 2. Geometry preprocessing computes per-window tangent space
 3. Fragment shader uses view direction to sample correct texture region, creating parallax effect
 
-**The result**: Thousands of unique, depth-accurate interiors at the cost of texture lookups, not geometry.
+**The intended production result**: large numbers of visually varied virtual
+interiors evaluated on existing window surfaces rather than modelled as full
+interior geometry.
 
 **The catch**: This technique is written in **VEX** (Houdini's procedural language), tightly coupled to Houdini's production renderer. NVIDIA Omniverse uses **MDL** (Material Definition Language).
 
@@ -45,7 +47,7 @@ Houdini's **Room Map Shader** solves this elegantly: render interiors into speci
 
 **Why this matters:**
 
-- **For Digital Twins**: Scalable urban environments without performance compromises
+- **For Digital Twins**: Scalable urban interiors with reduced geometry and scene-complexity requirements
 - **For NVIDIA**: Demonstrates MDL's capability to handle advanced procedural techniques from other ecosystems
 - **For the industry**: Cross-DCC interoperability — workflows shouldn't be siloed by renderer choice
 
@@ -94,20 +96,43 @@ reserved depth-slice markers and are not sampled by this first vertical slice.*
 *The changing visible faces demonstrate the parallax response while the
 labelled atlas exposes any incorrect face assignment or orientation.*
 
+### MDL Depth-Slice Proof
+
+The public `room_map` material extends the five-face room with four
+alpha-composited virtual planes. The green diagnostic atlas separates this
+validation from the red single-room baseline: S1–S4 are sampled from the four
+corner regions and positioned by editable percentages of room depth.
+
+| Depth-slice test room | Depth-slice diagnostic cross-atlas |
+| --- | --- |
+| <img src="docs/img/krm89/krm89_01.png" alt="Green Room Map test room with four labelled depth slices" height="320"> | <img src="docs/img/krm89/roommap_debug.1002.png" alt="Green Room Map cross-atlas with S1 to S4 slice regions" height="320"> |
+
+*The green cross-atlas retains the five room faces and uses its four corner
+regions as alpha-capable S1–S4 slice tiles.*
+
+| Oblique RTX Real-Time view | Oblique RTX Interactive (Path Tracing) view |
+| --- | --- |
+| <img src="docs/img/krm89/krm89_02.png" alt="Room Map depth slices under an oblique RTX Real-Time view" height="320"> | <img src="docs/img/krm89/krm89_03.png" alt="Room Map depth slices under an oblique RTX Interactive Path Tracing view" height="320"> |
+
+*The changing camera angle exposes the virtual depth planes. The material
+sorts their alpha contribution by edited geometric depth, rather than by fixed
+S1–S4 order.*
+
 ### Current Prototype Boundary
 
 #### Validated now
 
 - One normalised `1 × 1` test window.
 - Five virtual room faces: Back, Left, Right, Ceiling, and Floor.
+- Four alpha-composited virtual depth slices: S1, S2, S3, and S4.
 - Named USD frame primvars: `roomP`, `tangentu`, and `tangentv`.
 - Active-camera runtime bridge and cross-atlas mapping.
-- Correct face assignment and orientation in RTX Real-Time and RTX Interactive
-  (Path Tracing).
+- Editable per-slice enable, depth, offset, and scale controls.
+- Correct face assignment, orientation, and depth sorting in RTX Real-Time and
+  RTX Interactive (Path Tracing).
 
 #### Not implemented yet
 
-- S1–S4 depth slices.
 - Multi-room or UDIM variation.
 - Production glass integration.
 - Arbitrary real-world window dimensions and aspect handling.
@@ -174,12 +199,19 @@ This baseline uses one atlas lookup and has no depth-slice composition.
 
 ---
 
-### 4. **Planned Depth-Slice Extension**
+### 4. **Validated Depth-Slice Extension**
 
-The S1–S4 atlas markers, multi-room variation, and depth-slice composition are
-the next layer of complexity. They remain planned work and require separate
-visual and performance validation before they become part of the production
-path.
+`room_map.mdl` retains the five-face analytic trace, then intersects the same
+view ray with up to four slice planes. Each plane is positioned from zero per
+cent at the window to one hundred per cent at the back wall, samples its
+corresponding S1–S4 atlas corner, and alpha-composites over the room result.
+The contribution order follows the edited geometric depths, so artists can
+reorder slices without changing their S1–S4 identifiers.
+
+The prototype exposes enable, depth, offset, and scale controls for each slice
+and has been visually validated in RTX Real-Time and RTX Interactive (Path
+Tracing). See the [depth-slice contract](docs/knowledge_base/mdl/006_depth_slices.md)
+for its parameter and validation boundary.
 
 ---
 
@@ -202,7 +234,7 @@ The validated integration contracts now include:
 
 ### Phase 3: Prototype Implementation — In progress
 
-The first functional vertical slice is renderer-validated. It supports:
+The renderer-validated prototype supports:
 
 - One normalised test window.
 - Five virtual room faces:
@@ -211,6 +243,8 @@ The first functional vertical slice is renderer-validated. It supports:
   - Right
   - Ceiling
   - Floor
+- Four alpha-composited S1–S4 depth slices with editable depth, offset, and
+  scale controls.
 - Cross-atlas sampling and view-dependent parallax.
 - RTX Real-Time validation.
 - RTX Interactive (Path Tracing) validation.
