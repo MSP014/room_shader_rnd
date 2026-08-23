@@ -2,7 +2,7 @@
 
 > Bringing Houdini's Room Map Shader to NVIDIA MDL for scalable Urban Digital Twins
 
-**Status**: Research phase complete • Translation strategy in progress
+**Status**: First MDL parallax baseline validated • Production integration in progress
 
 ---
 
@@ -10,9 +10,12 @@
 
 Urban Digital Twins face a fundamental challenge: **realistic building interiors at scale**.
 
-A single city block contains hundreds of windows. Each window reveals an interior — furniture, wall art, lighting fixtures. Modeling these geometrically is untenable:
+A single city block contains hundreds of windows. Each window reveals an
+interior — furniture, wall art, lighting fixtures. At façade scale, direct
+interior geometry creates a trade-off between scene detail, authoring effort,
+and runtime budgets:
 
-- ❌ **Full geometry approach**: 50+ objects per room × 200 windows = 10,000+ meshes → Performance collapse
+- **Interior geometry at façade scale**: A façade containing hundreds of visible rooms can require thousands of placed furniture and prop instances even when the underlying asset library is efficiently reused through instancing. Room mapping investigates whether that interior scene complexity can be replaced by material-evaluated virtual rooms on the existing window surfaces.
 - ❌ **Black windows**: Unrealistic, breaks immersion in high-fidelity Digital Twins
 - ❌ **Reflective/curtain fallback**: Works for distant views, fails at street level
 
@@ -91,103 +94,140 @@ reserved depth-slice markers and are not sampled by this first vertical slice.*
 *The changing visible faces demonstrate the parallax response while the
 labelled atlas exposes any incorrect face assignment or orientation.*
 
+### Current Prototype Boundary
+
+#### Validated now
+
+- One normalised `1 × 1` test window.
+- Five virtual room faces: Back, Left, Right, Ceiling, and Floor.
+- Named USD frame primvars: `roomP`, `tangentu`, and `tangentv`.
+- Active-camera runtime bridge and cross-atlas mapping.
+- Correct face assignment and orientation in RTX Real-Time and RTX Interactive
+  (Path Tracing).
+
+#### Not implemented yet
+
+- S1–S4 depth slices.
+- Multi-room or UDIM variation.
+- Production glass integration.
+- Arbitrary real-world window dimensions and aspect handling.
+- Full Building 150 façade integration.
+- A geometry-versus-Room-Map performance benchmark.
+
 ---
 
 ## Technical Challenge: No Direct Translation Path
 
-Houdini's implementation relies on three VEX-specific mechanisms:
+Houdini's original workflow and the MDL port meet different geometry, material,
+and runtime constraints:
 
-### 1. **Primitive Attributes** (No MDL Equivalent)
+### 1. **Room Frame Data in MDL**
 
-Houdini's **geometry preprocessing tool** generates per-primitive data for each window:
+Houdini exports `roomP`, `tangentu`, and `tangentv` as named USD `float3`
+primvars. The validated MDL baseline reads them with
+`nvidia::support_definitions::data_lookup_float3()`, constructing the room
+frame from the exported data rather than transporting it through texture
+coordinate channels.
 
-```c
-vector tangentu  // Local U tangent
-vector tangentv  // Local V tangent
-vector roomN     // Surface normal
-vector roomP     // Reference position
-```
+`nvidia::support_definitions` is an Omniverse-specific dependency of this
+implementation. The named-primvar path has been visually validated in RTX
+Real-Time and RTX Interactive (Path Tracing); the detailed evidence is in the
+[primvar access diagnostic](docs/knowledge_base/mdl/004_primvar_access.md).
 
-**MDL Problem**: No concept of "primitive attributes." Shaders access geometry via `state::` module, which provides positions, normals, UVs — but not arbitrary custom data.
-
-**Translation Strategy**: We are implementing a **Hybrid Geometry Context Strategy** (Detailed in [ADR 006](docs/adr/006-hybrid-geometry-context.md)) to support two distinct pipelines:
-
-- **Production Mode (Option 1)**: Pre-compute these attributes in Houdini and store them as **USD primvars**. The MDL shader bypasses heavy math and simply reads these variables via `state::texture_coordinate(N)`. This is the optimized path required to render the thousands of instances in **Case 01**.
-- **Community Mode (Option 2)**: For DCC-Agnostic usage (Blender, Maya, base Omniverse), an exposed boolean (`Use Pre-computed Frame Attributes = False`) forces the shader to dynamically compute the basis using `state::texture_tangent_u()` and `state::normal()`. This incurs a performance penalty but guarantees the shader works "out-of-the-box" for the community.
-
-**Risk**: The dynamic computation in Option 2 requires careful profiling to understand the exact GPU overhead per pixel.
-
----
-
-### 2. **Cross-Shaped UV Layout** (Portable)
-
-The texture atlas uses a specific layout:
-
-```text
-      [Ceiling]
-[Left] [Back] [Right]
-       [Floor]
-    [4 depth slices]
-```
-
-**Good news**: This is algorithm-agnostic. The math for "view direction → UV region" is standard coordinate transformation.
-
-**Translation Strategy**: Direct port of VEX logic to MDL. Implementation straightforward.
+Dynamic frame construction with `state::texture_tangent_u()` and
+`state::normal()`, or explicitly assigned texture-coordinate channels, remain
+compatibility options for environments that cannot provide the NVIDIA support
+definitions module. They are not the current primary path.
 
 ---
 
-### 3. **Parallax Ray Marching** (Adaptation Required)
+### 2. **Camera Position Runtime Bridge**
 
-Houdini's shader uses depth slices to simulate volumetric interiors. The algorithm:
+`state::direction()` was tested and does not provide the material view direction
+required for Room Map. Instead, `tools/omniverse/camera_position_bridge.py`
+obtains the active Kit or Composer camera world position and writes it to the
+`camera_position_world` material input in the USD **Session Layer**. Camera
+motion therefore does not become a permanent edit to the source USD scene.
 
-1. Compute view ray in local tangent space
-2. March through depth layers, sampling back-to-front
-3. Blend samples based on depth intersection
+The diagnostic view vector is
+`camera_position_world - surface_position_world`. The Room Map material
+transforms both positions into the room frame before constructing its ray. See
+the [state-function diagnostics](docs/knowledge_base/mdl/002_state_functions.md)
+and [camera bridge contract](docs/knowledge_base/mdl/003_camera_position_bridge.md)
+for the detailed validation record.
 
-**MDL Considerations**:
+---
 
-- `tex::lookup_*()` functions support UDIM (for randomization) ✅
-- Manual ray marching in fragment shader (performance-sensitive) ⚠️
-- MDL's distilled function model may require different optimization approach
+### 3. **Current Five-Face Analytic Parallax Baseline**
 
-**Translation Strategy**:
+`room_map_single.mdl` currently performs a single-room analytic projection:
 
-- Start with simple parallax offset (single depth layer)
-- Validate performance before adding multi-layer complexity
-- Compare with OSL implementations (similar constraints)
+1. Construct the local room frame from `roomP`, `tangentu`, and `tangentv`.
+2. Transform camera and surface positions into that room frame.
+3. Build the view ray through the window.
+4. Intersect the ray with the Back, Left, Right, Ceiling, and Floor planes.
+5. Select the nearest positive intersection.
+6. Convert the hit point into the corresponding cross-atlas region.
+7. Sample that region with `tex::lookup_float4()`.
+
+This baseline uses one atlas lookup and has no depth-slice composition.
+
+---
+
+### 4. **Planned Depth-Slice Extension**
+
+The S1–S4 atlas markers, multi-room variation, and depth-slice composition are
+the next layer of complexity. They remain planned work and require separate
+visual and performance validation before they become part of the production
+path.
 
 ---
 
 ## Research Progress
 
-### Phase 1: Documentation & Analysis ✅ COMPLETE
+### Phase 1: Documentation & Analysis — Complete
 
-Comprehensive study of Houdini's Room Map Shader:
+The [Knowledge Base](docs/knowledge_base/) and ADRs document the Houdini
+reference, the Room Map coordinate contract, and the MDL translation decisions.
 
-- **[Knowledge Base](docs/knowledge_base/)** — Narrative documentation with key insights for MDL translation
-- Analyzed 4 core SideFX documentation pages
-- Identified critical dependencies (geometry preprocessing, texture layout, shader math)
-- Documented translation challenges and proposed strategies
+### Phase 2: MDL / USD Integration Strategy — Baseline validated
 
-### Phase 2: VEX → MDL Strategy 🔵 IN PROGRESS
+The validated integration contracts now include:
 
-Detailed technical mapping currently being documented in:
+- Houdini-exported USD frame primvars.
+- MDL named `float3` primvar lookup.
+- Active-camera runtime bridge.
+- Room-space view-ray construction.
+- Cross-atlas face projection.
 
-**[`docs/vex_to_mdl_strategy.md`](docs/vex_to_mdl_strategy.md)** (to be created)
+### Phase 3: Prototype Implementation — In progress
 
-Focus areas:
+The first functional vertical slice is renderer-validated. It supports:
 
-- VEX (Houdini's procedural language) → MDL equivalent mappings
-- USD primvar schema design
-- Shader architecture (monolithic vs. modular)
-- Performance considerations (texture lookups, ray marching cost)
+- One normalised test window.
+- Five virtual room faces:
+  - Back
+  - Left
+  - Right
+  - Ceiling
+  - Floor
+- Cross-atlas sampling and view-dependent parallax.
+- RTX Real-Time validation.
+- RTX Interactive (Path Tracing) validation.
 
-### Phase 3: Prototype Implementation ⚪ PLANNED
+---
 
-- MDL shader module with basic parallax offset
-- Houdini → USD export pipeline (primvar generation)
-- Omniverse validation scenes
-- Performance benchmarking vs. geometry baseline
+## Planned Performance Validation
+
+This benchmark is planned; no performance result is claimed yet. Building 150
+will be the fixed test asset, with approximately 250 visible windows or
+apparent rooms. A conventional reference will use procedurally distributed
+instanced proxy interior assets whose geometry budgets are derived from
+representative real-time or low-poly furniture assets. The Room Map version
+will use the same building and camera path.
+
+The comparison will record GPU frame time or FPS, VRAM, scene load time, and
+USD prim or instance count.
 
 ---
 
@@ -195,14 +235,18 @@ Focus areas:
 
 ```text
 docs/
-├── knowledge_base/     # Analysis of Houdini's approach
-├── adr/                # Architecture Decision Records
-│   ├── 006-hybrid-geometry-context.md
-│   └── 007-vop-to-mdl-parallax-logic.md
-└── vex_to_mdl_strategy.md (planned)
+├── adr/                    # Architecture Decision Records
+├── img/                    # Visual proof captures and diagnostic atlas
+└── knowledge_base/
+    └── mdl/                # MDL diagnostics and implementation contracts
 
-src/                    # MDL shaders (TBD)
-tests/                  # USD validation scenes (TBD)
+src/
+└── mdl/                    # Room Map prototype and diagnostic MDL modules
+
+tests/                      # USD validation scenes and Python contract tests
+
+tools/
+└── omniverse/              # Runtime camera-position bridge
 ```
 
 **Key Documentation**:
@@ -213,6 +257,11 @@ tests/                  # USD validation scenes (TBD)
 ---
 
 ## For NVIDIA Recruiters
+
+The project now includes a renderer-validated MDL parallax prototype: a
+single normalised window projects a five-face virtual room from a labelled
+cross-atlas in both supported RTX validation modes. Production façade
+integration and performance measurement remain separate planned work.
 
 This project demonstrates:
 
@@ -236,7 +285,8 @@ This project demonstrates:
 
 **For researchers**: Check `docs/adr/` for design rationale
 
-**Setup**: Standard Omniverse/USD development environment (details TBD once implementation begins)
+**Validation baseline**: Open `tests/test_room_map_single.usda` in USD
+Composer and follow the [single-room parallax contract](docs/knowledge_base/mdl/005_single_room_parallax.md).
 
 ---
 
