@@ -1,12 +1,20 @@
-# Parallax Interior Mapping: Houdini to Omniverse
+# Parallax Interior Mapping in OpenUSD and NVIDIA MDL
 
 ## What & Why
 
-The **Room Map Shader** is Houdini's solution for rendering realistic building interiors without the geometry overhead — a clever "window box" illusion using parallax mapping. Instead of modeling every room interior (tables, chairs, wall decorations), you bake them into special textures and use shader math to create depth perception.
+**Parallax Interior Mapping (PIM)** renders realistic building interiors without
+the geometry overhead of modelling every table, chair, or wall decoration. It
+uses specialised textures and shader mathematics to create a view-dependent
+"window box" illusion.
 
-**The Challenge**: This technique is implemented in VEX (Houdini's procedural language) and tightly integrated with Houdini's production renderer. NVIDIA Omniverse uses MDL (Material Definition Language). There's no direct translation path.
+**The Challenge**: A production PIM material must receive stable room-frame and
+camera data through OpenUSD, then evaluate the illusion efficiently in NVIDIA
+MDL.
 
-**This Research**: Document how to adapt Houdini's Room Map approach to NVIDIA MDL, enabling Omniverse Digital Twins to benefit from this lightweight interior rendering technique.
+**This Research**: Document a native PIM implementation in NVIDIA MDL and
+OpenUSD, enabling Omniverse Digital Twins to benefit from lightweight interior
+rendering. The SideFX Karma Room Map workflow is an important reference
+implementation for this research.
 
 **Why It Matters for Digital Twins**:
 
@@ -24,45 +32,65 @@ The technique has three components:
 2. **Texture Baking** — Interior scenes are rendered into a special cross-shaped layout (back wall, left/right walls, ceiling, floor + depth slices)
 3. **Shader Math** — The shader uses view-dependent parallax to sample the correct part of the texture, creating 3D illusion
 
-For full workflow details, see the official SideFX guide below.
+The SideFX workflow below is a useful reference for one production-oriented
+implementation of these components.
 
 ---
 
-## Key Insights for MDL Translation
+## Key Insights for MDL and OpenUSD Implementation
 
-These are the **conceptual takeaways** from studying Houdini's implementation, not a copy-paste of technical specs:
+These are the **conceptual takeaways** for a native implementation. The SideFX
+workflow informed the initial contracts; it is not copied or directly
+translated.
 
 ### 1. **Geometry Preprocessing is Non-Negotiable**
 
-Houdini's **geometry preprocessing tool** generates critical per-primitive attributes (`tangentu`, `tangentv`, `roomN`, `roomP`) that define the local coordinate system. **MDL has no equivalent to VEX primitive attributes.**
+The SideFX reference workflow generates critical frame attributes
+(`tangentu`, `tangentv`, `roomN`, `roomP`) that define the local coordinate
+system. The Houdini bridge also authors a dedicated `roomUV` channel without
+repacking the model's ordinary texture coordinates. A compatible OpenUSD
+preprocessing step can author the same data independently of Houdini.
 
-**Translation Strategy**: Pre-compute these in Houdini (or USD preprocessing) and store as **USD primvars**. The MDL shader reads them via `state::texture_coordinate()` or primvar lookups.
+**Implementation Strategy**: Pre-compute the data in a DCC or USD preprocessing
+step and store it as **USD primvars**. The MDL shader uses named primvar lookups
+for the production contract and retains standard texture coordinates only as
+a compatibility fallback for earlier hand-authored tests.
 
 ### 2. **Cross-Shaped UV Layout is Algorithm-Agnostic**
 
 The texture layout (center = back wall, left/right = side walls, etc.) is just a convention. The math for mapping view direction → UV coordinates is portable to any shading language.
 
-**Translation Strategy**: Implement the same UV indexing logic in MDL. No Houdini-specific code required.
+**Implementation Strategy**: Implement the UV indexing logic natively in MDL.
+No Houdini-specific code is required.
 
 ### 3. **Parallax Projection is a Standard Technique**
 
-The core algorithm (ray marching through depth slices) exists in game engines, OSL, GLSL, etc. Houdini didn't invent it — they just packaged it nicely.
+The core algorithm (ray marching through depth slices) exists in game engines,
+OSL, GLSL, and other rendering environments. SideFX did not invent the
+technique; their workflow is a useful implementation reference.
 
-**Translation Strategy**: Adapt existing parallax algorithms to MDL. The challenge is not the math, but the **data plumbing** (primvars, texture lookups).
+**Implementation Strategy**: Apply parallax-interior mathematics in MDL. The
+key engineering challenge is the **data plumbing**: primvars, texture lookups,
+and runtime camera data.
 
-### 4. **UDIM Randomization is Trivial in MDL**
+### 4. **UDIM Variation Uses Explicit Room Identity**
 
-Houdini uses UDIM tiles for texture variation. MDL's `tex::lookup_*()` functions support UDIM natively.
+The SideFX reference workflow uses UDIM tiles for texture variation. MDL's
+`tex::lookup_*()` functions support UDIM resources.
 
-**Translation Strategy**: Direct 1:1 mapping. No work needed.
+**Implementation Strategy**: The current R&D material maps an integer `roomID`
+primvar and a material-level seed to one tile of an MDL tiled texture while
+retaining one material binding. The isolated stage and the Houdini-authored
+component have both been accepted in RTX Real-Time and RTX Interactive, with a
+dedicated `roomUV` channel preserving the model's ordinary texture layout.
 
 ---
 
 ## Official Documentation
 
-### SideFX Houdini (Version 21.0)
+### SideFX Houdini (Version 21.0) — Reference Implementation
 
-**Start Here**: [Karma Room Map Shader — Workflow Guide](https://www.sidefx.com/docs/houdini/solaris/support/karma_room_map.html)
+**Reference workflow**: [Karma Room Map Shader — Workflow Guide](https://www.sidefx.com/docs/houdini/solaris/support/karma_room_map.html)
 
 - Complete tutorial with setup instructions
 - Examples: single window, multi-window, curved surfaces
@@ -86,13 +114,12 @@ Houdini uses UDIM tiles for texture variation. MDL's `tex::lookup_*()` functions
 
 ---
 
-## Next Steps
+## Current Implementation Contracts
 
-The detailed **VEX → MDL translation strategy** will be documented in:
-
-**[`../vex_to_mdl_strategy.md`](../vex_to_mdl_strategy.md)** (To be created)
-
-This document will map specific VEX functions to MDL equivalents, provide pseudocode, and outline implementation risks.
+The [MDL knowledge base](mdl/) documents the validated primvar access,
+camera-position bridge, five-face parallax baseline, depth-slice contract, and
+the in-progress [deterministic room-variant contract](mdl/007_room_variants.md).
+The native implementation is not presented as a VEX translation.
 
 ---
 

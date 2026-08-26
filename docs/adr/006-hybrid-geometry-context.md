@@ -6,15 +6,26 @@ Accepted
 
 ## Context
 
-The Karma Room Map Shader relies on local vector attributes (`tangentu`, `tangentv`, `roomP`, `roomN`) baked onto geometry primitives via the `Room Map Frame SOP`. These vectors define the local coordinate system (tangent space) required to correctly project the 3D parallax illusion onto 2D polygons.
+The SideFX Karma Room Map reference workflow uses local vector attributes
+(`tangentu`, `tangentv`, `roomP`, `roomN`) baked onto geometry primitives via
+the `Room Map Frame SOP`. These vectors define the local coordinate system
+(tangent space) required to correctly project the 3D parallax illusion onto 2D
+polygons. A native PIM implementation needs the same coordinate information,
+not a copy of the Karma shader.
 
-In porting this logic to NVIDIA MDL, a critical architectural decision arises regarding how the shader acquires this local basis:
+For the native PIM material in NVIDIA MDL, a critical architectural decision is
+how the shader acquires this local basis:
 
 **Approach A: USD Primvars (Pre-computed)**
-Calculate the basis vectors in Houdini (SOPs) and export them as USD primvars. Crucially, screenshot analysis confirms these must be exported as **Point (Vertex) Attributes**, not Primitive attributes. The MDL shader simply reads these variables via vertex interpolation.
+Calculate the basis vectors in Houdini, another DCC, or USD preprocessing and
+export them as USD primvars. The current reference export uses **Point
+(Vertex) Attributes**, not Primitive attributes. The MDL shader reads these
+values via vertex interpolation.
 
 * *Pros*: Optimal GPU performance. Offloads linear algebra to the CPU preprocessing stage. Scales efficiently for scenes with tens of thousands of windows. Supports complex clustered geometry (e.g. cylindrical buildings) via `roomID` stitching.
-* *Cons*: Tightly couples the shader to a specific Houdini preprocessing pipeline. Useless for general Omniverse users who just want to apply the shader to standard DCC planes (Maya, Blender, etc.).
+* *Cons*: Requires a compatible preprocessing step and USD primvar contract.
+  Without one, the optimised path is unavailable to general Omniverse users who
+  want to apply the shader to standard DCC planes (Maya, Blender, etc.).
 
 **Approach B: Dynamic MDL Calculation (Compute-on-the-fly)**
 Derive the basis vectors inside the MDL shader using built-in state functions (`state::texture_tangent_u()`, `state::normal()`, etc.).
@@ -29,7 +40,7 @@ We will implement a **Hybrid Strategy**.
 The MDL material will expose a boolean parameter: `Use Pre-computed Frame Attributes` (defaulting to `false`).
 
 * **If `false` (Community/Agnostic Mode)**: The shader uses `state::` functions to dynamically construct the coordinate basis. This ensures the shader functions independently as a plug-and-play asset for the broader Omniverse ecosystem.
-* **If `true` (Production/Optimized Mode)**: The shader bypasses dynamic calculations and attempts to read `tangentu`, `tangentv`, `roomP`, `roomN` from USD primvars via `state::texture_coordinate(N)`. This mode is designed specifically for heavy Digital Twin pipelines (like Case 01), where geometrical preprocessing in Houdini is standard and performance at scale is paramount.
+* **If `true` (Production/Optimized Mode)**: The shader bypasses dynamic calculations and attempts to read `tangentu`, `tangentv`, `roomP`, `roomN` from USD primvars via `state::texture_coordinate(N)`. This mode is designed for heavy Digital Twin pipelines such as Case 01, where compatible geometry preprocessing and a stable primvar contract are available.
 
 ## Consequences
 

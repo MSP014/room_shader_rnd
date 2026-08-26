@@ -21,6 +21,30 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+int positive_modulo(int value, int divisor)
+{
+    int remainder = value % divisor;
+
+    return remainder < 0 ? remainder + divisor : remainder;
+}
+
+int select_room_variant(
+    int room_id,
+    int variation_seed,
+    int room_variant_count
+)
+{
+    int safe_variant_count = room_variant_count > 0 ? room_variant_count : 1;
+    int mixed_id = room_id * 1664525 + variation_seed * 1013904223;
+
+    return positive_modulo(mixed_id, safe_variant_count);
+}
+
+float2 udim_atlas_coordinate(float2 atlas_coordinate, int variant_index)
+{
+    return atlas_coordinate + float2(float(variant_index), 0.0);
+}
+
 float positive_plane_distance(
     float plane,
     float origin,
@@ -123,6 +147,8 @@ float transmittance_from_nearer_slice(
 
 export material room_map(
     uniform texture_2d room_atlas = texture_2d(),
+    uniform int room_variant_count = 1,
+    uniform int variation_seed = 0,
     float3 camera_position_world = float3(0.0),
     float room_depth = 1.0,
     float2 window_shift = float2(0.0),
@@ -145,6 +171,15 @@ export material room_map(
     color fallback_colour = color(1.0, 0.0, 1.0),
     float emission_strength = 1.0
 ) = let {
+    int room_id = nvidia::support_definitions::data_lookup_int(
+        "roomID",
+        0
+    );
+    int variant_index = select_room_variant(
+        room_id,
+        variation_seed,
+        room_variant_count
+    );
     float3 room_position = nvidia::support_definitions::data_lookup_float3(
         "roomP",
         float3(0.0)
@@ -187,10 +222,14 @@ export material room_map(
     float3 ray_direction = math::normalize(
         surface_position_room - camera_position_room
     );
-    float3 texture_coordinate = state::texture_coordinate(0);
+    float3 window_coordinate =
+        nvidia::support_definitions::data_lookup_float3(
+            "roomUV",
+            state::texture_coordinate(0)
+        );
     float3 ray_origin = float3(
-        saturate(texture_coordinate.x + window_shift.x),
-        saturate(texture_coordinate.y + window_shift.y),
+        saturate(window_coordinate.x + window_shift.x),
+        saturate(window_coordinate.y + window_shift.y),
         0.0
     );
     float back_distance = positive_plane_distance(
@@ -240,7 +279,7 @@ export material room_map(
     );
     float4 room_sample = tex::lookup_float4(
         room_atlas,
-        room_atlas_coordinate,
+        udim_atlas_coordinate(room_atlas_coordinate, variant_index),
         tex::wrap_clip,
         tex::wrap_clip
     );
@@ -292,25 +331,43 @@ export material room_map(
     );
     float4 slice_1_sample = tex::lookup_float4(
         room_atlas,
-        slice_atlas_coordinate(slice_1_local_coordinate, float2(0.0, 0.0)),
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_1_local_coordinate, float2(0.0, 0.0)),
+            variant_index
+        ),
         tex::wrap_clip,
         tex::wrap_clip
     );
     float4 slice_2_sample = tex::lookup_float4(
         room_atlas,
-        slice_atlas_coordinate(slice_2_local_coordinate, float2(0.0, 2.0 / 3.0)),
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_2_local_coordinate,
+                float2(0.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
         tex::wrap_clip,
         tex::wrap_clip
     );
     float4 slice_3_sample = tex::lookup_float4(
         room_atlas,
-        slice_atlas_coordinate(slice_3_local_coordinate, float2(2.0 / 3.0, 2.0 / 3.0)),
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_3_local_coordinate,
+                float2(2.0 / 3.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
         tex::wrap_clip,
         tex::wrap_clip
     );
     float4 slice_4_sample = tex::lookup_float4(
         room_atlas,
-        slice_atlas_coordinate(slice_4_local_coordinate, float2(2.0 / 3.0, 0.0)),
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_4_local_coordinate, float2(2.0 / 3.0, 0.0)),
+            variant_index
+        ),
         tex::wrap_clip,
         tex::wrap_clip
     );

@@ -2,11 +2,18 @@
 
 ## 🎯 **Objective**
 
-To engineer a custom **NVIDIA MDL (Material Definition Language)** shader that replicates the advanced logic of the **Houdini Karma Room Map Shader**. The goal is to simulate complex 3D interiors on flat surfaces using texture slicing and parallax mapping techniques, enabling the rendering of massive urban environments (Moskovsky Avenue) at 60 FPS without the geometry overhead of real interiors.
+To engineer a custom **NVIDIA MDL (Material Definition Language)** material for
+Parallax Interior Mapping. The goal is to simulate complex 3D interiors on
+flat surfaces using texture slicing and parallax mapping techniques, supporting
+large urban environments such as Moskovsky Avenue without the geometry overhead
+of real interiors. The performance target requires a dedicated benchmark.
 
 ## 🔬 **Research Core**
 
-This project is a direct port of imperative VEX code into the declarative/functional graph logic of MDL.
+This project develops a native MDL/OpenUSD implementation of a well-established
+rendering technique. The SideFX Karma Room Map workflow is an important
+reference implementation for geometry preparation, atlas conventions, and
+production constraints; its VEX code is neither copied nor directly translated.
 
 ### **Key Features**
 
@@ -17,7 +24,7 @@ This project is a direct port of imperative VEX code into the declarative/functi
 
 ## 🛠️ **Technical Challenges**
 
-* **Coordinate Systems**: Translating Houdini's Y-up / Z-front coordinate space to Omniverse/MDL conventions.
+* **Coordinate Systems**: Reconciling the reference Houdini export convention with OpenUSD and MDL coordinate contracts.
 * **Ray-Box Intersection**: Efficiently calculating the entry and exit points of the view ray within the virtual room volume in MDL.
 * **Tangent Space**: Correctly handling the tangent basis for realistic projections on deformed or rotated geometry.
 
