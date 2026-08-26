@@ -224,29 +224,85 @@ def _adf_paragraph(text):
 
 
 def _adf_document_from_text(text):
-    paragraphs = []
-    for line in text.splitlines():
-        if line.strip():
-            paragraphs.append(
+    """Convert a deliberately small Markdown subset to Jira ADF.
+
+    Issue descriptions need headings and grouped lists to remain readable in
+    Jira. Keep unsupported syntax as plain paragraph text rather than trying
+    to implement a broad Markdown renderer.
+    """
+    content = []
+    list_type = None
+    list_items = []
+
+    def flush_list():
+        nonlocal list_type, list_items
+        if list_items:
+            content.append(
+                {
+                    "type": list_type,
+                    "content": [
+                        {
+                            "type": "listItem",
+                            "content": [
+                                {
+                                    "type": "paragraph",
+                                    "content": [
+                                        {"text": item, "type": "text"}
+                                    ],
+                                }
+                            ],
+                        }
+                        for item in list_items
+                    ],
+                }
+            )
+        list_type = None
+        list_items = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            flush_list()
+            continue
+
+        heading = re.fullmatch(r"(#{1,3})\s+(.+)", line)
+        bullet = re.fullmatch(r"[-*]\s+(.+)", line)
+        ordered = re.fullmatch(r"\d+\.\s+(.+)", line)
+
+        if heading:
+            flush_list()
+            content.append(
+                {
+                    "type": "heading",
+                    "attrs": {"level": len(heading.group(1))},
+                    "content": [{"text": heading.group(2), "type": "text"}],
+                }
+            )
+        elif bullet or ordered:
+            next_list_type = "bulletList" if bullet else "orderedList"
+            if list_type and list_type != next_list_type:
+                flush_list()
+            list_type = next_list_type
+            list_items.append((bullet or ordered).group(1))
+        else:
+            flush_list()
+            content.append(
                 {
                     "type": "paragraph",
                     "content": [{"text": line, "type": "text"}],
                 }
             )
 
-    if not paragraphs:
-        paragraphs.append(
+    flush_list()
+    if not content:
+        content.append(
             {
                 "type": "paragraph",
                 "content": [{"text": "", "type": "text"}],
             }
         )
 
-    return {
-        "type": "doc",
-        "version": 1,
-        "content": paragraphs,
-    }
+    return {"type": "doc", "version": 1, "content": content}
 
 
 def _parse_worklog_timestamp(value, timezone_name):

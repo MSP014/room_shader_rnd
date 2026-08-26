@@ -75,3 +75,38 @@ def test_worklog_payload_rejects_an_incompatible_duration():
             "2026-08-18 05:24:00",
             "Asia/Yerevan",
         )
+
+
+def test_description_adf_supports_headings_and_grouped_lists():
+    jira_link = _load_jira_link()
+
+    document = jira_link._adf_document_from_text(
+        "# Objective\n"
+        "Keep the room proportionate.\n\n"
+        "## Controls\n"
+        "- Uniform room scale\n"
+        "- Aperture offset\n\n"
+        "1. Validate in RTX Real-Time\n"
+        "2. Validate in Path Tracing"
+    )
+
+    assert [node["type"] for node in document["content"]] == [
+        "heading",
+        "paragraph",
+        "heading",
+        "bulletList",
+        "orderedList",
+    ]
+    assert document["content"][0]["attrs"] == {"level": 1}
+    assert (
+        document["content"][3]["content"][1]["content"][0]["content"][0][
+            "text"
+        ]
+        == "Aperture offset"
+    )
+    assert (
+        document["content"][4]["content"][0]["content"][0]["content"][0][
+            "text"
+        ]
+        == "Validate in RTX Real-Time"
+    )

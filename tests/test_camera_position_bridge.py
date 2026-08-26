@@ -61,3 +61,7 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "ExtractTranslation" in bridge_source
     assert "stage.GetSessionLayer()" in bridge_source
     assert "camera_position_world" in bridge_source
+    assert "stage.Traverse()" in bridge_source
+    assert "inputs:camera_position_world" in bridge_source
+    assert "material_input_paths" in bridge_source
+    assert "self._missing_input_paths" in bridge_source

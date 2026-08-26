@@ -43,13 +43,23 @@ saving camera motion into the `.usda` scene.
    repository_root = Path(root_layer.realPath).parents[4]
    sys.path.append(str(repository_root / "tools" / "omniverse"))
 
+   import importlib
    import camera_position_bridge
+
+   camera_position_bridge.stop()
+   camera_position_bridge = importlib.reload(camera_position_bridge)
    camera_position_bridge.start()
    ```
 
 3. Move or orbit the active viewport camera. The grid colour must change.
 4. To stop the live update, run `camera_position_bridge.stop()`.
 5. Verify in RTX Real-Time and RTX Interactive (Path Tracing).
+
+With no argument, `start()` discovers every composed
+`inputs:camera_position_world` attribute in the active stage and updates all
+of them. This is the normal mode for validation scenes with multiple Room Map
+material instances. Pass one path, or a sequence of paths, to `start()` only
+when a deliberately restricted target is required.
 
 ## Contract for later Room Map logic
 

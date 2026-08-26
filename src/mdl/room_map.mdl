@@ -21,6 +21,11 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+float positive_extent(float value)
+{
+    return math::max(value, room_map_epsilon());
+}
+
 int positive_modulo(int value, int divisor)
 {
     int remainder = value % divisor;
@@ -59,6 +64,7 @@ float positive_plane_distance(
 
 float2 cross_atlas_coordinate(
     float3 hit_point,
+    float room_extent,
     float room_depth,
     float back_distance,
     float left_distance,
@@ -67,9 +73,13 @@ float2 cross_atlas_coordinate(
     float floor_distance
 ) = let {
     float tile_size = 1.0 / 3.0;
-    float depth_coordinate = saturate(-hit_point.z / room_depth);
-    float middle_v = tile_size * (1.0 + hit_point.y);
-    float middle_u = tile_size * (1.0 + hit_point.x);
+    float safe_room_extent = positive_extent(room_extent);
+    float safe_room_depth = positive_extent(room_depth);
+    float normalised_window_x = saturate(hit_point.x / safe_room_extent);
+    float normalised_window_y = saturate(hit_point.y / safe_room_extent);
+    float depth_coordinate = saturate(-hit_point.z / safe_room_depth);
+    float middle_v = tile_size * (1.0 + normalised_window_y);
+    float middle_u = tile_size * (1.0 + normalised_window_x);
 } in back_distance <= left_distance
         && back_distance <= right_distance
         && back_distance <= ceiling_distance
@@ -98,6 +108,31 @@ float2 transform_slice_coordinate(
     );
 }
 
+float2 aperture_coordinate(
+    float2 window_coordinate,
+    float room_extent,
+    float physical_window_width,
+    float physical_window_height,
+    float2 window_shift,
+    float2 aperture_scale,
+    float2 window_aperture_offset
+)
+{
+    float2 aperture_extent = float2(
+        physical_window_width * aperture_scale.x,
+        physical_window_height * aperture_scale.y
+    );
+
+    return float2(
+        (window_coordinate.x - 0.5) * aperture_extent.x
+        + 0.5 * room_extent
+        + (window_aperture_offset.x + window_shift.x) * room_extent,
+        (window_coordinate.y - 0.5) * aperture_extent.y
+        + 0.5 * room_extent
+        + (window_aperture_offset.y + window_shift.y) * room_extent
+    );
+}
+
 float2 slice_atlas_coordinate(
     float2 local_coordinate,
     float2 tile_origin
@@ -108,12 +143,12 @@ float2 slice_atlas_coordinate(
     return tile_origin + local_coordinate * tile_size;
 }
 
-bool point_is_in_unit_window(float3 point)
+bool point_is_in_room_extent(float3 point, float room_extent)
 {
     return point.x >= 0.0
-        && point.x <= 1.0
+        && point.x <= room_extent
         && point.y >= 0.0
-        && point.y <= 1.0;
+        && point.y <= room_extent;
 }
 
 bool coordinate_is_in_unit_tile(float2 coordinate)
@@ -151,7 +186,10 @@ export material room_map(
     uniform int variation_seed = 0,
     float3 camera_position_world = float3(0.0),
     float room_depth = 1.0,
+    float room_uniform_scale = 1.0,
     float2 window_shift = float2(0.0),
+    float2 window_aperture_scale = float2(1.0),
+    float2 window_aperture_offset = float2(0.0),
     bool enable_slice_1 = true,
     bool enable_slice_2 = true,
     bool enable_slice_3 = true,
@@ -192,8 +230,12 @@ export material room_map(
         "tangentv",
         float3(0.0)
     );
-    bool frame_is_valid = math::length(tangent_u_raw) > room_map_epsilon()
-        && math::length(tangent_v_raw) > room_map_epsilon()
+    float window_width = math::length(tangent_u_raw);
+    float window_height = math::length(tangent_v_raw);
+    float safe_room_extent = positive_extent(room_uniform_scale);
+    float safe_room_depth = positive_extent(room_depth) * safe_room_extent;
+    bool frame_is_valid = window_width > room_map_epsilon()
+        && window_height > room_map_epsilon()
         && room_depth > room_map_epsilon();
     float3 tangent_u = frame_is_valid
         ? math::normalize(tangent_u_raw)
@@ -219,6 +261,10 @@ export material room_map(
         math::dot(surface_from_room, tangent_v),
         math::dot(surface_from_room, room_normal)
     );
+    float2 safe_aperture_scale = float2(
+        positive_extent(window_aperture_scale.x),
+        positive_extent(window_aperture_scale.y)
+    );
     float3 ray_direction = math::normalize(
         surface_position_room - camera_position_room
     );
@@ -227,13 +273,22 @@ export material room_map(
             "roomUV",
             state::texture_coordinate(0)
         );
+    float2 aperture_uv = aperture_coordinate(
+        float2(window_coordinate.x, window_coordinate.y),
+        safe_room_extent,
+        window_width,
+        window_height,
+        window_shift,
+        safe_aperture_scale,
+        window_aperture_offset
+    );
     float3 ray_origin = float3(
-        saturate(window_coordinate.x + window_shift.x),
-        saturate(window_coordinate.y + window_shift.y),
+        aperture_uv.x,
+        aperture_uv.y,
         0.0
     );
     float back_distance = positive_plane_distance(
-        -room_depth,
+        -safe_room_depth,
         ray_origin.z,
         ray_direction.z
     );
@@ -243,12 +298,12 @@ export material room_map(
         ray_direction.x
     );
     float right_distance = positive_plane_distance(
-        1.0,
+        safe_room_extent,
         ray_origin.x,
         ray_direction.x
     );
     float ceiling_distance = positive_plane_distance(
-        1.0,
+        safe_room_extent,
         ray_origin.y,
         ray_direction.y
     );
@@ -270,7 +325,8 @@ export material room_map(
     float3 room_hit_point = ray_origin + room_hit_distance * ray_direction;
     float2 room_atlas_coordinate = cross_atlas_coordinate(
         room_hit_point,
-        room_depth,
+        safe_room_extent,
+        safe_room_depth,
         back_distance,
         left_distance,
         right_distance,
@@ -289,10 +345,14 @@ export material room_map(
         room_sample.z
     );
     color room_colour = frame_is_valid ? sampled_room_colour : fallback_colour;
-    float slice_1_depth = room_depth * saturate(slice_1_depth_percent / 100.0);
-    float slice_2_depth = room_depth * saturate(slice_2_depth_percent / 100.0);
-    float slice_3_depth = room_depth * saturate(slice_3_depth_percent / 100.0);
-    float slice_4_depth = room_depth * saturate(slice_4_depth_percent / 100.0);
+    float slice_1_depth =
+        safe_room_depth * saturate(slice_1_depth_percent / 100.0);
+    float slice_2_depth =
+        safe_room_depth * saturate(slice_2_depth_percent / 100.0);
+    float slice_3_depth =
+        safe_room_depth * saturate(slice_3_depth_percent / 100.0);
+    float slice_4_depth =
+        safe_room_depth * saturate(slice_4_depth_percent / 100.0);
     float slice_1_distance = slice_1_depth <= room_map_epsilon()
         ? 0.0
         : positive_plane_distance(-slice_1_depth, ray_origin.z, ray_direction.z);
@@ -310,22 +370,34 @@ export material room_map(
     float3 slice_3_hit_point = ray_origin + slice_3_distance * ray_direction;
     float3 slice_4_hit_point = ray_origin + slice_4_distance * ray_direction;
     float2 slice_1_local_coordinate = transform_slice_coordinate(
-        float2(slice_1_hit_point.x, slice_1_hit_point.y),
+        float2(
+            slice_1_hit_point.x / safe_room_extent,
+            slice_1_hit_point.y / safe_room_extent
+        ),
         slice_1_offset,
         slice_1_scale
     );
     float2 slice_2_local_coordinate = transform_slice_coordinate(
-        float2(slice_2_hit_point.x, slice_2_hit_point.y),
+        float2(
+            slice_2_hit_point.x / safe_room_extent,
+            slice_2_hit_point.y / safe_room_extent
+        ),
         slice_2_offset,
         slice_2_scale
     );
     float2 slice_3_local_coordinate = transform_slice_coordinate(
-        float2(slice_3_hit_point.x, slice_3_hit_point.y),
+        float2(
+            slice_3_hit_point.x / safe_room_extent,
+            slice_3_hit_point.y / safe_room_extent
+        ),
         slice_3_offset,
         slice_3_scale
     );
     float2 slice_4_local_coordinate = transform_slice_coordinate(
-        float2(slice_4_hit_point.x, slice_4_hit_point.y),
+        float2(
+            slice_4_hit_point.x / safe_room_extent,
+            slice_4_hit_point.y / safe_room_extent
+        ),
         slice_4_offset,
         slice_4_scale
     );
@@ -372,16 +444,16 @@ export material room_map(
         tex::wrap_clip
     );
     bool slice_1_is_visible = slice_1_distance <= room_hit_distance
-        && point_is_in_unit_window(slice_1_hit_point)
+        && point_is_in_room_extent(slice_1_hit_point, safe_room_extent)
         && coordinate_is_in_unit_tile(slice_1_local_coordinate);
     bool slice_2_is_visible = slice_2_distance <= room_hit_distance
-        && point_is_in_unit_window(slice_2_hit_point)
+        && point_is_in_room_extent(slice_2_hit_point, safe_room_extent)
         && coordinate_is_in_unit_tile(slice_2_local_coordinate);
     bool slice_3_is_visible = slice_3_distance <= room_hit_distance
-        && point_is_in_unit_window(slice_3_hit_point)
+        && point_is_in_room_extent(slice_3_hit_point, safe_room_extent)
         && coordinate_is_in_unit_tile(slice_3_local_coordinate);
     bool slice_4_is_visible = slice_4_distance <= room_hit_distance
-        && point_is_in_unit_window(slice_4_hit_point)
+        && point_is_in_room_extent(slice_4_hit_point, safe_room_extent)
         && coordinate_is_in_unit_tile(slice_4_local_coordinate);
     float slice_1_opacity = slice_opacity(
         slice_1_sample,

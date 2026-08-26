@@ -6,6 +6,8 @@ the USD session layer, so camera updates do not modify the opened stage file.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import carb
 import omni.kit.app
 import omni.usd
@@ -18,12 +20,21 @@ DEFAULT_CAMERA_POSITION_INPUT = (
 
 
 class CameraPositionBridge:
-    """Write the active viewport camera world position into an MDL input."""
+    """Write the active viewport camera world position into MDL inputs."""
 
     def __init__(
-        self, material_input_path: str = DEFAULT_CAMERA_POSITION_INPUT
+        self,
+        material_input_paths: str | Sequence[str] | None = None,
     ):
-        self._material_input_path = Sdf.Path(material_input_path)
+        self._auto_discover = material_input_paths is None
+        if isinstance(material_input_paths, str):
+            material_input_paths = (material_input_paths,)
+        self._material_input_paths = tuple(
+            Sdf.Path(path) for path in (material_input_paths or ())
+        )
+        self._stage_identifier: str | None = None
+        self._missing_input_paths: set[Sdf.Path] = set()
+        self._warned_no_inputs = False
         self._last_position: tuple[float, float, float] | None = None
         self._subscription = (
             omni.kit.app.get_app()
@@ -34,6 +45,30 @@ class CameraPositionBridge:
             )
         )
 
+    def _discover_material_input_paths(
+        self, stage: Usd.Stage
+    ) -> tuple[Sdf.Path, ...]:
+        """Find every composed MDL camera-position input in the stage."""
+        return tuple(
+            prim.GetAttribute("inputs:camera_position_world").GetPath()
+            for prim in stage.Traverse()
+            if prim.GetAttribute("inputs:camera_position_world")
+        )
+
+    def _refresh_material_input_paths(self, stage: Usd.Stage) -> None:
+        if not self._auto_discover:
+            return
+
+        stage_identifier = stage.GetRootLayer().identifier
+        if stage_identifier == self._stage_identifier:
+            return
+
+        self._material_input_paths = self._discover_material_input_paths(stage)
+        self._stage_identifier = stage_identifier
+        self._missing_input_paths.clear()
+        self._warned_no_inputs = False
+        self._last_position = None
+
     def _on_update(self, _event) -> None:
         stage = omni.usd.get_context().get_stage()
         viewport = get_active_viewport()
@@ -41,6 +76,15 @@ class CameraPositionBridge:
             getattr(viewport, "camera_path", None) if viewport else None
         )
         if not stage or not camera_path:
+            return
+
+        self._refresh_material_input_paths(stage)
+        if not self._material_input_paths:
+            if not self._warned_no_inputs:
+                carb.log_warn(
+                    "Room Map camera inputs were not found in the active stage."
+                )
+                self._warned_no_inputs = True
             return
 
         camera_prim = stage.GetPrimAtPath(camera_path)
@@ -56,18 +100,23 @@ class CameraPositionBridge:
             float(world_position[1]),
             float(world_position[2]),
         )
-        if position == self._last_position:
-            return
-
-        material_input = stage.GetAttributeAtPath(self._material_input_path)
-        if not material_input:
-            carb.log_warn(
-                f"Room Map camera input was not found: {self._material_input_path}"
-            )
+        if position == self._last_position and not self._missing_input_paths:
             return
 
         with Usd.EditContext(stage, stage.GetSessionLayer()):
-            material_input.Set(Gf.Vec3f(*position))
+            for material_input_path in self._material_input_paths:
+                material_input = stage.GetAttributeAtPath(material_input_path)
+                if not material_input:
+                    if material_input_path not in self._missing_input_paths:
+                        carb.log_warn(
+                            "Room Map camera input was not found: "
+                            f"{material_input_path}"
+                        )
+                    self._missing_input_paths.add(material_input_path)
+                    continue
+
+                material_input.Set(Gf.Vec3f(*position))
+                self._missing_input_paths.discard(material_input_path)
         self._last_position = position
 
     def stop(self) -> None:
@@ -78,12 +127,17 @@ _bridge: CameraPositionBridge | None = None
 
 
 def start(
-    material_input_path: str = DEFAULT_CAMERA_POSITION_INPUT,
+    material_input_paths: str | Sequence[str] | None = None,
 ) -> CameraPositionBridge:
-    """Start the singleton bridge and return it for interactive inspection."""
+    """Start the singleton bridge and return it for interactive inspection.
+
+    With no argument, all ``inputs:camera_position_world`` attributes in the
+    active stage are discovered. A path or a sequence of paths remains
+    available for a deliberately restricted update target.
+    """
     global _bridge
     stop()
-    _bridge = CameraPositionBridge(material_input_path)
+    _bridge = CameraPositionBridge(material_input_paths)
     return _bridge
 
 

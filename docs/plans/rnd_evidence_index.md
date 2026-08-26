@@ -35,6 +35,7 @@ diagnostic atlas copies are retained under `docs/img/`.
 | 9. Single-room cross-atlas parallax | KRM-88 | Rendered five correctly oriented virtual room faces | `tests/test_room_map_single.usda` |
 | 10. Depth slices and public material node | KRM-89 | Rendered four artist-controlled, depth-sorted alpha slices | `tests/test_room_map_slices.usda` |
 | 11. Deterministic room variants across Omniverse-authored and DCC-exported geometry | KRM-90 | Selected shared UDIM interiors by `roomID` through a dedicated `roomUV` export contract | `tests/test_room_map_variants_houdini.usda` |
+| 12. Window aperture scale and offset controls | KRM-94 | Preserved one centred virtual-room scale across square, landscape, and portrait apertures | `tests/test_room_map_apertures_houdini.usda` |
 
 ## 1. Building 150 Source Baseline
 
@@ -392,6 +393,37 @@ orbit across the 15-window grid. Hold on spatially separated windows sharing
 the same diagnostic colour, then switch the seed and show the distribution
 changing without breaking same-`roomID` consistency. Finish with the same view
 in RTX Real-Time and RTX Interactive.
+
+## 12. Window Aperture Scale and Offset Controls
+
+**Jira:** KRM-94 — Window Aperture Scale and Offset Controls.
+
+**Evidence level:** Renderer-validated on 26 August 2026 in both RTX Real-Time
+and RTX Interactive (Path Tracing); isolated and Houdini-export static
+contracts retained.
+
+**Result:** The MDL material separates the physical aperture dimensions from a
+uniform virtual-room extent. Square, landscape, and portrait openings retain
+one centred, proportionate interior room instead of stretching the cross-atlas.
+The material preserves five room-face and four slice lookups, supports an
+editable uniform room scale and independent aperture scale and offset inputs,
+and retains the camera bridge, room-frame, and UDIM-variant contracts.
+
+**Primary capture artefacts:**
+
+- `tests/test_room_map_apertures.usda`
+- `tests/test_room_map_apertures_houdini.usda`
+
+**Supporting artefacts:**
+
+- `hip/room map test 005.hiplc` — canonical Houdini source.
+- `assets/_external/usd/test_grid_wins_diff/test_grid_wins_diff.usd` —
+  exported component root; its payload, geometry, and material layers are
+  retained in the same directory.
+- `src/mdl/room_map.mdl`
+- `tests/test_room_map_apertures.py`
+- `tests/test_room_map_apertures_houdini.py`
+- `docs/knowledge_base/mdl/008_window_apertures.md`
 
 ## Known Capture Gaps
 

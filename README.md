@@ -170,7 +170,9 @@ visually consistent in both RTX renderers.*
 
 #### Validated now
 
-- Normalised `1 × 1` windows in Omniverse-authored and DCC-exported test assets.
+- A common centred virtual-room scale across square `1 × 1`, landscape `2 × 1`,
+  and portrait `1 × 2` windows in Omniverse-authored and Houdini-exported
+  test assets.
 - Five virtual room faces: Back, Left, Right, Ceiling, and Floor.
 - Four alpha-composited virtual depth slices: S1, S2, S3, and S4.
 - Named USD frame primvars: `roomP`, `tangentu`, and `tangentv`.
@@ -179,6 +181,7 @@ visually consistent in both RTX renderers.*
 - Three deterministic UDIM room variants selected from `roomID` and
   `variation_seed` through one material binding.
 - Active-camera runtime bridge and cross-atlas mapping.
+- Editable uniform room scale plus aperture scale and offset controls.
 - Editable per-slice enable, depth, offset, and scale controls.
 - Correct face assignment, orientation, and depth sorting in RTX Real-Time and
   RTX Interactive (Path Tracing).
@@ -187,7 +190,6 @@ visually consistent in both RTX renderers.*
 
 - Shared coherent room volumes across multiple or non-coplanar windows.
 - Production glass integration.
-- Arbitrary real-world window dimensions and aspect handling.
 - Full Building 150 façade integration.
 - A geometry-versus-Room-Map performance benchmark.
 
@@ -308,7 +310,8 @@ The validated integration contracts now include:
 
 The renderer-validated prototype supports:
 
-- Normalised windows in Omniverse-authored and DCC-exported test geometry.
+- A common centred virtual-room scale across square, landscape, and portrait
+  windows in Omniverse-authored and Houdini-exported test geometry.
 - Five virtual room faces and four alpha-composited S1–S4 depth slices.
 - Editable slice depth, offset, and scale controls.
 - Three deterministic UDIM room variants shared by repeated `roomID` values.
