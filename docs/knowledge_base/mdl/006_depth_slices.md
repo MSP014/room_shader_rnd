@@ -8,8 +8,9 @@ alpha-composited depth slices. It extends `room_map_single.mdl` without
 altering that accepted five-face reference implementation.
 
 The validation scene is `tests/test_room_map_slices.usda`. It uses the green
-diagnostic atlas `assets/_external/tex/roommap_debug.1002.png` so slice work
-is visually distinct from the red five-face baseline.
+diagnostic atlas
+`assets/_external/tex/room_map_debug/room_map_debug.1002.png` so slice work is
+visually distinct from the red five-face baseline.
 
 ## Material inputs
 
@@ -64,8 +65,9 @@ the readable near-to-far starting order. Equal depths use a deterministic
 S4-to-S1 tie order.
 
 This is analytic plane intersection and alpha compositing. It is not ray
-marching, and it does not yet implement a production multi-room or UDIM
-variation system.
+marching. This KRM-89 vertical slice did not implement a production multi-room
+or UDIM variation system; the later KRM-90 contract adds deterministic UDIM
+variation without changing the retained depth-slice baseline documented here.
 
 ## Runtime validation procedure
 

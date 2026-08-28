@@ -240,6 +240,8 @@ camera motion without persisting camera updates to the source layer.
 - `src/mdl/diagnostics/camera_direction_as_colour.mdl`
 - `tools/omniverse/camera_position_bridge.py`
 - `tests/test_camera_position_bridge.py`
+- `tools/omniverse/status_log.py`
+- `tests/test_room_map_status_log.py`
 - `docs/knowledge_base/mdl/003_camera_position_bridge.md`
 
 **Suggested capture:** Open the diagnostic scene, start the bridge using the
@@ -294,7 +296,7 @@ orientation were accepted in both RTX modes.
 **Supporting artefacts:**
 
 - `src/mdl/room_map_single.mdl`
-- `assets/_external/tex/roommap_debug.1001.png`
+- `assets/_external/tex/room_map_debug/room_map_debug.1001.png`
 - `tests/test_room_map_single.py`
 - `docs/knowledge_base/mdl/005_single_room_parallax.md`
 - `docs/img/krm88/roommap_debug.1001.png` — retained public atlas copy.
@@ -330,7 +332,7 @@ bounded analytic intersections rather than ray marching.
 **Supporting artefacts:**
 
 - `src/mdl/room_map.mdl`
-- `assets/_external/tex/roommap_debug.1002.png`
+- `assets/_external/tex/room_map_debug/room_map_debug.1002.png`
 - `tests/test_room_map_slices.py`
 - `docs/knowledge_base/mdl/006_depth_slices.md`
 - `docs/img/krm89/roommap_debug.1002.png` — retained public atlas copy.
@@ -374,9 +376,9 @@ ordinary packed UV layout to be replaced.
   component root; its payload, geometry, and material layers are retained in
   the same directory.
 - `src/mdl/room_map.mdl`
-- `assets/_external/tex/roommap_debug.1001.png`
-- `assets/_external/tex/roommap_debug.1002.png`
-- `assets/_external/tex/roommap_debug.1003.png`
+- `assets/_external/tex/room_map_debug/room_map_debug.1001.png`
+- `assets/_external/tex/room_map_debug/room_map_debug.1002.png`
+- `assets/_external/tex/room_map_debug/room_map_debug.1003.png`
 - `tests/test_room_map_variants.py`
 - `tests/test_room_map_variants_houdini.py`
 - `docs/knowledge_base/mdl/007_room_variants.md`

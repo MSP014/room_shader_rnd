@@ -6,7 +6,6 @@ from pxr import Sdf, Usd, UsdGeom, UsdShade
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_variants.usda"
 MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
-ATLAS_DIRECTORY = REPOSITORY_ROOT / "assets" / "_external" / "tex"
 
 ROOM_IDS = (0, 1, 2, 2, 0, 1)
 
@@ -74,12 +73,11 @@ def test_variant_stage_binds_one_material_and_a_udim_atlas():
         .Get()
         == "room_map"
     )
-    assert atlas_asset.path.endswith("roommap_debug.<UDIM>.png")
+    assert atlas_asset.path.endswith(
+        "assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png"
+    )
     assert shader.GetInput("room_variant_count").Get() == 3
     assert shader.GetInput("variation_seed").Get() == 0
-
-    for tile_number in range(1001, 1004):
-        assert (ATLAS_DIRECTORY / f"roommap_debug.{tile_number}.png").is_file()
 
 
 def test_variant_selection_is_deterministic_and_seedable():

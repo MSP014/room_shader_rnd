@@ -18,9 +18,12 @@ implementation for this research.
 
 **Why It Matters for Digital Twins**:
 
-- **Urban scale**: A city block has thousands of windows. Traditional geometry = performance death.
-- **Visual fidelity**: Parallax interiors maintain realism without polygon cost.
-- **Procedural variation**: UDIM randomization prevents repetitive "copy-paste" look.
+- **Urban scale**: Apparent interiors can reduce the amount of physical room
+  geometry and asset management required for exterior-facing scenes.
+- **Visual fidelity**: View-dependent apparent depth improves flat or repetitive
+  glazing without asserting that every visible room is physical geometry.
+- **Procedural variation**: Deterministic UDIM selection reduces repetitive
+  "copy-paste" treatment while retaining one material binding.
 
 ---
 
@@ -65,9 +68,11 @@ No Houdini-specific code is required.
 
 ### 3. **Parallax Projection is a Standard Technique**
 
-The core algorithm (ray marching through depth slices) exists in game engines,
+Room-box projection and layered depth representations exist in game engines,
 OSL, GLSL, and other rendering environments. SideFX did not invent the
-technique; their workflow is a useful implementation reference.
+underlying technique; their workflow is a useful implementation reference.
+The current ORMS depth-slice baseline uses analytic plane intersection and
+alpha compositing, not ray marching.
 
 **Implementation Strategy**: Apply parallax-interior mathematics in MDL. The
 key engineering challenge is the **data plumbing**: primvars, texture lookups,
@@ -117,9 +122,10 @@ dedicated `roomUV` channel preserving the model's ordinary texture layout.
 ## Current Implementation Contracts
 
 The [MDL knowledge base](mdl/) documents the validated primvar access,
-camera-position bridge, five-face parallax baseline, depth-slice contract, and
-the in-progress [deterministic room-variant contract](mdl/007_room_variants.md).
-The native implementation is not presented as a VEX translation.
+camera-position bridge, five-face parallax baseline, depth-slice contract,
+[deterministic room-variant contract](mdl/007_room_variants.md), and
+[aperture control contract](mdl/008_window_apertures.md). The native
+implementation is not presented as a VEX translation.
 
 ---
 

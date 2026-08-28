@@ -42,7 +42,7 @@ This contract deliberately separates two questions:
 The USD tiled texture path in the validation scene is:
 
 ```text
-../assets/_external/tex/roommap_debug.<UDIM>.png
+../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png
 ```
 
 Variant index zero selects tile 1001, index one selects tile 1002, and index
@@ -52,6 +52,12 @@ coordinate selects the tile and the fractional part addresses the texture
 inside it. The MDL specification also states that wrap and crop parameters are
 ignored for UV-tile textures, so retaining `tex::wrap_clip` does not alter tile
 selection.
+
+The hydrated texture inventory also contains the adjacent-window diagnostic
+families `room_map_debug_x2`, `room_map_debug_x3`, and `room_map_debug_x4`.
+Each family contains tiles 0001 through 0008 under `assets/_external/tex/`.
+Their presence is covered by the shared texture-assets test before those
+families are consumed by multi-window validation scenes.
 
 References:
 

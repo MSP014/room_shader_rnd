@@ -45,9 +45,9 @@ atlas.
 | Ceiling | Top centre | `U`, reverse depth |
 | Floor | Bottom centre | `U`, depth |
 
-`assets/_external/tex/roommap_debug.1001.png` supplies the labelled reference
-atlas. The labels make mirror, rotation, and wrong-face errors immediately
-visible during the renderer check.
+`assets/_external/tex/room_map_debug/room_map_debug.1001.png` supplies the
+labelled reference atlas. The labels make mirror, rotation, and wrong-face
+errors immediately visible during the renderer check.
 
 ## Runtime validation boundary
 

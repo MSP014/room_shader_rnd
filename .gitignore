@@ -62,6 +62,9 @@ docs/knowledge_base/houdini/
 # Planning - Tutorial (WIP, not for public repo)
 docs/plans/room_map_shader_tutorial/
 
+# Local publication drafts
+docs/knowledge_base/drafts/
+
 # --- Python ---
 __pycache__/
 *.py[cod]

@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-import carb
 import omni.kit.app
 import omni.usd
 from omni.kit.viewport.utility import get_active_viewport
 from pxr import Gf, Sdf, Usd, UsdGeom
+from status_log import log_room_map_warning
 
 DEFAULT_CAMERA_POSITION_INPUT = (
     "/World/Looks/CameraDirection/Shader.inputs:camera_position_world"
@@ -81,8 +81,15 @@ class CameraPositionBridge:
         self._refresh_material_input_paths(stage)
         if not self._material_input_paths:
             if not self._warned_no_inputs:
-                carb.log_warn(
-                    "Room Map camera inputs were not found in the active stage."
+                log_room_map_warning(
+                    owner="CAMERA POSITION BRIDGE",
+                    process="MATERIAL INPUT DISCOVERY",
+                    state="MISSING",
+                    details={
+                        "message": (
+                            "Camera inputs were not found in the active stage."
+                        )
+                    },
                 )
                 self._warned_no_inputs = True
             return
@@ -108,9 +115,11 @@ class CameraPositionBridge:
                 material_input = stage.GetAttributeAtPath(material_input_path)
                 if not material_input:
                     if material_input_path not in self._missing_input_paths:
-                        carb.log_warn(
-                            "Room Map camera input was not found: "
-                            f"{material_input_path}"
+                        log_room_map_warning(
+                            owner="CAMERA POSITION BRIDGE",
+                            process="MATERIAL INPUT UPDATE",
+                            state="MISSING",
+                            details={"input_path": material_input_path},
                         )
                     self._missing_input_paths.add(material_input_path)
                     continue

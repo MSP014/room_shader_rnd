@@ -65,3 +65,5 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "inputs:camera_position_world" in bridge_source
     assert "material_input_paths" in bridge_source
     assert "self._missing_input_paths" in bridge_source
+    assert "log_room_map_warning(" in bridge_source
+    assert "carb.log_warn(" not in bridge_source

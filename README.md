@@ -3,18 +3,28 @@
 > Building scalable parallax interiors with OpenUSD and NVIDIA MDL
 
 **Status**: MDL room, depth-slice, and UDIM-variation baselines validated •
-Production integration in progress
+Building 150 production integration is the next milestone
+
+**Project shorthand: ORMS — Omniverse Room Map Shader**
+
+**ORMS (Omniverse Room Map Shader)** is the shorthand used in this repository
+for the OpenUSD / NVIDIA MDL implementation described below. The underlying
+technique — Parallax Interior Mapping (PIM) — is well established and predates
+this project.
 
 ---
 
 ## The Problem
 
-Urban Digital Twins face a fundamental challenge: **realistic building interiors at scale**.
+Urban digital twins face a fundamental visual challenge: **believable building
+interiors at scale**.
 
-A single city block contains hundreds of windows. Each window reveals an
-interior — furniture, wall art, lighting fixtures. At façade scale, direct
-interior geometry creates a trade-off between scene detail, authoring effort,
-and runtime budgets:
+A technically detailed city can still feel lifeless at street level when
+hundreds of windows resolve to identical reflections, black glazing, simple
+curtain textures, or another repetitive façade treatment. Each visible room
+could instead contain furniture, wall art, lighting, and props, but that creates
+a trade-off between visual detail, authoring effort, scene complexity, storage,
+asset management, and potentially rendering cost:
 
 - **Full interior geometry**: Hundreds of visible rooms can require thousands
   of placed furniture and prop instances, even when the asset library is
@@ -22,6 +32,9 @@ and runtime budgets:
 - **Black windows**: Cheap to render, but visibly break immersion.
 - **Reflection-only or curtain fallbacks**: Acceptable from a distance, but
   unconvincing at street level.
+
+> **How can a city-scale digital twin gain believable visible interiors without
+> requiring full physical room geometry behind every window?**
 
 The rendering technique already exists. The research problem is carrying it
 cleanly through an artist-facing OpenUSD and NVIDIA MDL workflow.
@@ -55,8 +68,9 @@ efficiently in NVIDIA MDL.
 
 ## This Research: Parallax Interior Mapping in MDL/OpenUSD
 
-**Goal**: Develop a native PIM material for NVIDIA MDL and OpenUSD, enabling
-Omniverse-based Digital Twins to benefit from lightweight interior rendering.
+**Goal**: Develop ORMS as a native PIM material and artist-facing workflow for
+NVIDIA MDL and OpenUSD, enabling Omniverse-based digital twins to use apparent
+interiors without requiring every visible room to exist as full geometry.
 
 **Why this matters:**
 
@@ -71,7 +85,59 @@ Omniverse-based Digital Twins to benefit from lightweight interior rendering.
 >
 > This research develops a native PIM implementation for MDL and OpenUSD. The SideFX workflow informs the reference geometry, frame-data, and atlas contracts; it is not copied or directly translated.
 >
+> No readily available public Omniverse/MDL Room Mapping implementation was
+> found during this project's research. This is not a claim that ORMS is the
+> first implementation of the technique in Omniverse or elsewhere.
+>
 > Credit to SideFX for their excellent documentation and implementation, which serve as an important reference for this work.
+
+---
+
+## Where ORMS Fits in an Urban Digital Twin
+
+A city-scale digital twin may need several representations of the same building
+depending on viewing distance, task, and simulation requirements:
+
+```text
+City massing
+    ↓
+Detailed exterior / façade
+    ↓
+Detailed façade + ORMS apparent interiors
+    ↓
+Full physical interior geometry where required
+```
+
+This is an illustrative representation hierarchy, not an official CityGML,
+OpenUSD, or NVIDIA LOD specification. ORMS occupies the space between an
+exterior-only building and a fully modelled interior: it adds believable
+apparent depth and variation where the camera remains outside, while physical
+geometry remains available wherever the rooms themselves matter.
+
+## Relevant Urban Digital Twin Use Cases
+
+| Digital-twin context | Where ORMS can add value |
+| --- | --- |
+| Urban planning and masterplanning | Street- and neighbourhood-scale reviews where façade realism matters but users do not need to enter every room. |
+| Smart-city operational visualisation | A more believable inhabited context for traffic, transit, sensor, CCTV, utility, flood, and public-space dashboards whose operational data is not room topology. |
+| Transportation, pedestrian, and logistics twins | Street-level context for roads, deliveries, public transit, curbside operations, and outdoor pedestrian flows. |
+| Geospatial and GIS city twins | An apparent-interior layer for photogrammetry, procedural cities, 3D Tiles, and aggregated OpenUSD buildings that otherwise end at flat glazing. |
+| Architecture and real estate | Exterior neighbourhood walkthroughs where modelling hundreds of secondary interiors would add little functional value. |
+| Public communication | Planning reviews, exhibitions, consultations, executive demonstrations, and presentation material where visual plausibility supports comprehension. |
+| Exterior-focused simulation | A presentation layer around urban airflow, flooding, traffic, outdoor sensor, or telecom visualisation. ORMS must remain separate from the physical simulation ground truth. |
+
+## Where ORMS Is Not a Substitute for Geometry
+
+**ORMS is a visual representation technique, not a substitute for physical
+interior geometry when that geometry participates in simulation, navigation,
+collision, engineering analysis, or operational state.**
+
+Physical interiors remain necessary for indoor robotics and navigation;
+evacuation and indoor pedestrian simulation; CFD and HVAC analysis; RF and
+wireless propagation; BIM/FM workflows that require rooms and equipment;
+interior collision or physics; physically correct sensor simulation; and any
+workflow where walls, doors, furniture, or internal topology are simulation
+inputs rather than presentation content.
 
 ---
 
@@ -192,6 +258,31 @@ visually consistent in both RTX renderers.*
 - Production glass integration.
 - Full Building 150 façade integration.
 - A geometry-versus-Room-Map performance benchmark.
+
+---
+
+## Upstream Room Map Content Factory
+
+The material-side R&D is complemented by an existing Houdini content-generation
+workflow. A procedural Solaris / Karma XPU / PDG / Copernicus pipeline can
+generate Room Map libraries by varying wallpaper, lighting, curtains, props,
+and depth-slice content. The current living-room dataset contains 256 generated
+atlas variations, and Houdini PDG can scale the same approach to hundreds or
+thousands of variants when required. This content factory is a separate
+upstream authoring system, not part of the MDL shader itself. Current renderer
+validation uses the diagnostic UDIM variants shown above; the living-room
+library is an input to the future Building 150 integration, not current
+renderer evidence.
+
+## Next Production Milestone: Building 150 Integration
+
+1. Apply the current ORMS material contract to real Building 150 window geometry.
+2. Validate real window proportions and orientation.
+3. Integrate multiple real room atlases.
+4. Use deterministic variation across the façade.
+5. Add production glass integration.
+6. Capture an exterior camera move demonstrating visible parallax.
+7. Only then move into performance benchmarking.
 
 ---
 
@@ -322,15 +413,17 @@ The renderer-validated prototype supports:
 
 ## Planned Performance Validation
 
-This benchmark is planned; no performance result is claimed yet. Building 150
-will be the fixed test asset, with approximately 250 visible windows or
-apparent rooms. A conventional reference will use procedurally distributed
-instanced proxy interior assets whose geometry budgets are derived from
-representative real-time or low-poly furniture assets. The PIM version will use
-the same building and camera path.
+This benchmark is planned; no performance result is claimed yet. ORMS is
+designed to reduce the amount of physical interior geometry and scene
+complexity required for exterior-facing urban visualisation. Building 150 will
+be the fixed test asset, with approximately 250 visible windows or apparent
+rooms. A conventional reference will use procedurally distributed instanced
+proxy interior assets whose geometry budgets are derived from representative
+real-time or low-poly furniture assets. The PIM version will use the same
+building, camera path, and render settings.
 
 The comparison will record GPU frame time or FPS, VRAM, scene load time, and
-USD prim or instance count.
+USD prim or instance count, plus geometry statistics where practical.
 
 ---
 
@@ -410,7 +503,7 @@ Composer and follow the
 
 **Development Tools**:
 
-- Pre-commit hooks (markdown linting, Python formatting)
+- Pre-commit hooks (source hygiene, Python formatting, security, and tests)
 - pytest (validation framework)
 - Git LFS (for binary assets, if needed)
 
@@ -432,7 +525,7 @@ Your support funds:
 
 ## 📜 Changelog
 
-* **Week of 24 August, 2026:** Established the first renderer-validated MDL parallax room with named OpenUSD frame primvars, an active-camera bridge, five-face cross-atlas projection, and four alpha-composited depth slices.
+* **Week of 24 August, 2026:** Established the project's first renderer-validated MDL parallax room with named OpenUSD frame primvars, an active-camera bridge, five-face cross-atlas projection, and four alpha-composited depth slices.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.
 * **Week of 16 February, 2026:** Refined the public project narrative, knowledge base, technical stack, support information, and privacy boundary for a clearer recruiter and engineer reading path.

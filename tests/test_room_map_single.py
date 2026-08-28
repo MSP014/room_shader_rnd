@@ -65,7 +65,9 @@ def test_single_room_stage_binds_the_mdl_material_and_debug_atlas():
         .Get()
         == "room_map_single"
     )
-    assert atlas_asset.path.endswith("roommap_debug.1001.png")
+    assert atlas_asset.path.endswith(
+        "assets/_external/tex/room_map_debug/room_map_debug.1001.png"
+    )
     assert tuple(shader.GetInput("camera_position_world").Get()) == (
         2.0,
         0.5,

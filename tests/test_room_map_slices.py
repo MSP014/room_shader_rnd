@@ -34,7 +34,9 @@ def test_depth_slice_stage_binds_the_public_material_and_green_atlas():
         .Get()
         == "room_map"
     )
-    assert atlas_asset.path.endswith("roommap_debug.1002.png")
+    assert atlas_asset.path.endswith(
+        "assets/_external/tex/room_map_debug/room_map_debug.1002.png"
+    )
 
 
 def test_depth_slice_stage_exposes_ordered_artist_controls():

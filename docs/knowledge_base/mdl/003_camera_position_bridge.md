@@ -25,9 +25,15 @@ coordinate system.
 | `src/mdl/diagnostics/camera_direction_as_colour.mdl` | Declares `camera_position_world` and visualises the derived direction. |
 | `assets/_external/usd/test_grid/camera_direction_bridge.usda` | Binds the diagnostic material to the Houdini-exported UV grid. |
 | `tools/omniverse/camera_position_bridge.py` | Obtains the active viewport camera and writes its world position into the material input. |
+| `tools/omniverse/status_log.py` | Formats Room Map-owned warnings and errors as timestamped diagnostic blocks in the Kit console. |
 
 The bridge writes to the USD session layer. It changes the live stage without
 saving camera motion into the `.usda` scene.
+
+Missing camera inputs are reported through the shared Room Map console helper.
+Each warning is one visually isolated Kit log entry with an owner, process,
+state, technical details, and a host-local timestamp. Native Kit, USD, RTX, and
+MDL diagnostics retain their own logger formatting.
 
 ## Running in USD Composer
 

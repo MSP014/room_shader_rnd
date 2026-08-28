@@ -4,6 +4,13 @@
 
 Accepted
 
+> **Superseding evidence note — 28 August 2026:** The performance language below
+> records the original design hypothesis. It has not yet been validated at
+> Building 150 scale. Current public claims are limited to the intent to reduce
+> physical interior geometry and scene complexity until the planned benchmark
+> is complete. Later renderer evidence also established named primvar lookup as
+> the validated frame-data path; the dynamic-frame path remains unproven.
+
 ## Context
 
 The SideFX Karma Room Map reference workflow uses local vector attributes
