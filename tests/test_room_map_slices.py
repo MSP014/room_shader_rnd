@@ -77,7 +77,10 @@ def test_depth_slice_module_defines_cross_atlas_sampling_and_depth_ordering():
     assert "float2(0.0, 2.0 / 3.0)" in source
     assert "float2(2.0 / 3.0, 2.0 / 3.0)" in source
     assert "float2(2.0 / 3.0, 0.0)" in source
-    assert "transmittance_from_nearer_slice" in source
-    assert "slice_2_depth <= slice_1_depth" in source
-    assert "slice_4_depth <= slice_3_depth" in source
+    assert "float slice_2_transmittance = 1.0 - slice_1_opacity" in source
+    assert "float slice_3_transmittance = slice_2_transmittance" in source
+    assert "float slice_4_transmittance = slice_3_transmittance" in source
+    assert "float room_transmittance = slice_4_transmittance" in source
+    assert "slice_2_colour * slice_2_opacity * slice_2_transmittance" in source
+    assert "slice_4_colour * slice_4_opacity * slice_4_transmittance" in source
     assert "ray marching" not in source.lower()

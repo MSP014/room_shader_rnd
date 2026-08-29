@@ -1,0 +1,13 @@
+[package]
+title = "ORMS KRM-93 Fixture Launcher"
+version = "0.1.0"
+description = "Open the default KRM-93 validation stage after Kit startup."
+category = "Internal"
+support_level = "Sample"
+
+[dependencies]
+"omni.usd" = {}
+"omni.kit.viewport.ready" = {}
+
+[[python.module]]
+name = "orms_krm93_fixture_launcher"

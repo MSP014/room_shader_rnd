@@ -121,11 +121,11 @@ dedicated `roomUV` channel preserving the model's ordinary texture layout.
 
 ## Current Implementation Contracts
 
-The [MDL knowledge base](mdl/) documents the validated primvar access,
-camera-position bridge, five-face parallax baseline, depth-slice contract,
-[deterministic room-variant contract](mdl/007_room_variants.md), and
-[aperture control contract](mdl/008_window_apertures.md). The native
-implementation is not presented as a VEX translation.
+The [MDL research-record index](mdl/README.md) documents the validated primvar
+access, camera-position bridge, five-face parallax baseline, depth slices,
+deterministic room variants, aperture controls, and the pending-renderer
+[shared multi-window contract](mdl/009_shared_multi_window_rooms.md). The
+native implementation is not presented as a VEX translation.
 
 ---
 

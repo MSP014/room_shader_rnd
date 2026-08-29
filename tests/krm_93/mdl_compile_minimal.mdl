@@ -1,0 +1,37 @@
+mdl 1.7;
+
+import ::df::*;
+
+export material room_map(
+    uniform texture_2d room_atlas = texture_2d(),
+    uniform int room_variant_count = 1,
+    uniform int variation_seed = 0,
+    float3 camera_position_world = float3(0.0),
+    float room_depth = 1.0,
+    float room_uniform_scale = 1.0,
+    float2 window_shift = float2(0.0),
+    float2 window_aperture_scale = float2(1.0),
+    float2 window_aperture_offset = float2(0.0),
+    bool enable_slice_1 = true,
+    bool enable_slice_2 = true,
+    bool enable_slice_3 = true,
+    bool enable_slice_4 = true,
+    float slice_1_depth_percent = 20.0,
+    float slice_2_depth_percent = 40.0,
+    float slice_3_depth_percent = 60.0,
+    float slice_4_depth_percent = 80.0,
+    float2 slice_1_offset = float2(0.0),
+    float2 slice_2_offset = float2(0.0),
+    float2 slice_3_offset = float2(0.0),
+    float2 slice_4_offset = float2(0.0),
+    float2 slice_1_scale = float2(1.0),
+    float2 slice_2_scale = float2(1.0),
+    float2 slice_3_scale = float2(1.0),
+    float2 slice_4_scale = float2(1.0),
+    color fallback_colour = color(1.0, 0.0, 1.0),
+    float emission_strength = 1.0
+) = material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: fallback_colour)
+    )
+);

@@ -1,0 +1,672 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (0, 0, 500)
+                double radius = 500
+            }
+            dictionary Perspective = {
+                double3 position = (-3.4013226190576082, 6.641026467229131, 8.982489997706463)
+                double3 target = (3.9204605478021453, 6.555843859715957, 10.297080335916224)
+            }
+            dictionary Right = {
+                double3 position = (-500, 0, 0)
+                double radius = 500
+            }
+            dictionary Top = {
+                double3 position = (0, 500, 0)
+                double radius = 500
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        string "orms:fixtureOrigin" = "Omniverse-authored isolated geometry"
+        dictionary renderSettings = {
+            bool "rtx:hydra:faceCulling:enabled" = 1
+        }
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def DomeLight "KRM93Environment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Xform "Building" (
+        kind = "component"
+    )
+    {
+        def Mesh "RoomX1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 0, -0.4), (0, 1, -0.4), (0, 1, 0.4), (0, 0, 0.4)]
+            uniform int[] primvars:roomID = [800] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 0.5, 0), (0, 0.5, 0), (0, 0.5, 0), (0, 0.5, 0)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "RoomX2" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 0, 1.6), (0, 1, 1.6), (0, 1, 2.4), (0, 0, 2.4), (0, 0, 2.6), (0, 1, 2.6), (0, 1, 3.4), (0, 0, 3.4)]
+            uniform int[] primvars:roomID = [805, 805] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 0.5, 2), (0, 0.5, 2), (0, 0.5, 2), (0, 0.5, 2), (0, 0.5, 3), (0, 0.5, 3), (0, 0.5, 3), (0, 0.5, 3)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "RoomX3DifferentWidths" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 0, 4.7), (0, 1, 4.7), (0, 1, 5.3), (0, 0, 5.3), (0, 0, 5.5), (0, 1, 5.5), (0, 1, 6.3), (0, 0, 6.3), (0, 0, 6.5), (0, 1, 6.5), (0, 1, 7.5), (0, 0, 7.5)]
+            uniform int[] primvars:roomID = [802, 802, 802] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 0.5, 5), (0, 0.5, 5), (0, 0.5, 5), (0, 0.5, 5), (0, 0.5, 5.9), (0, 0.5, 5.9), (0, 0.5, 5.9), (0, 0.5, 5.9), (0, 0.5, 7), (0, 0.5, 7), (0, 0.5, 7), (0, 0.5, 7)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.6), (0, 0, 0.6), (0, 0, 0.6), (0, 0, 0.6), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner2x2" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 0, 8.6), (0, 1, 8.6), (0, 1, 9.4), (0, 0, 9.4), (0, 0, 9.6), (0, 1, 9.6), (0, 1, 10.4), (0, 0, 10.4), (0.1, 0, 10.6), (0.1, 1, 10.6), (0.9, 1, 10.6), (0.9, 0, 10.6), (1.1, 0, 10.6), (1.1, 1, 10.6), (1.9, 1, 10.6), (1.9, 0, 10.6)]
+            uniform int[] primvars:roomID = [807, 807, 807, 807] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 0.5, 9), (0, 0.5, 9), (0, 0.5, 9), (0, 0.5, 9), (0, 0.5, 10), (0, 0.5, 10), (0, 0.5, 10), (0, 0.5, 10), (0.5, 0.5, 10.6), (0.5, 0.5, 10.6), (0.5, 0.5, 10.6), (0.5, 0.5, 10.6), (1.5, 0.5, 10.6), (1.5, 0.5, 10.6), (1.5, 0.5, 10.6), (1.5, 0.5, 10.6)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "RoomX3Bay30" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 2, 1.4), (0, 3, 1.4), (-0.4, 3, 2.09282), (-0.4, 2, 2.09282), (-0.451764, 2, 2.286005), (-0.451764, 3, 2.286005), (-0.451764, 3, 3.086005), (-0.451764, 2, 3.086005), (-0.4, 2, 3.279191), (-0.4, 3, 3.279191), (0, 3, 3.972011), (0, 2, 3.972011)]
+            uniform int[] primvars:roomID = [804, 804, 804] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(-0.2, 2.5, 1.74641), (-0.2, 2.5, 1.74641), (-0.2, 2.5, 1.74641), (-0.2, 2.5, 1.74641), (-0.451764, 2.5, 2.686005), (-0.451764, 2.5, 2.686005), (-0.451764, 2.5, 2.686005), (-0.451764, 2.5, 2.686005), (-0.2, 2.5, 3.625601), (-0.2, 2.5, 3.625601), (-0.2, 2.5, 3.625601), (-0.2, 2.5, 3.625601)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(-0.4, 0, 0.69282), (-0.4, 0, 0.69282), (-0.4, 0, 0.69282), (-0.4, 0, 0.69282), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0.4, 0, 0.69282), (0.4, 0, 0.69282), (0.4, 0, 0.69282), (0.4, 0, 0.69282)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "RoomX4Bay45" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 2, 5.5), (0, 3, 5.5), (-0.565685, 3, 6.065685), (-0.565685, 2, 6.065685), (-0.642222, 2, 6.250461), (-0.642222, 3, 6.250461), (-0.642222, 3, 7.050461), (-0.642222, 2, 7.050461), (-0.642222, 2, 7.250461), (-0.642222, 3, 7.250461), (-0.642222, 3, 8.050461), (-0.642222, 2, 8.050461), (-0.565685, 2, 8.235237), (-0.565685, 3, 8.235237), (0, 3, 8.800923), (0, 2, 8.800923)]
+            uniform int[] primvars:roomID = [801, 801, 801, 801] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(-0.282843, 2.5, 5.782843), (-0.282843, 2.5, 5.782843), (-0.282843, 2.5, 5.782843), (-0.282843, 2.5, 5.782843), (-0.642222, 2.5, 6.650461), (-0.642222, 2.5, 6.650461), (-0.642222, 2.5, 6.650461), (-0.642222, 2.5, 6.650461), (-0.642222, 2.5, 7.650461), (-0.642222, 2.5, 7.650461), (-0.642222, 2.5, 7.650461), (-0.642222, 2.5, 7.650461), (-0.282843, 2.5, 8.51808), (-0.282843, 2.5, 8.51808), (-0.282843, 2.5, 8.51808), (-0.282843, 2.5, 8.51808)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(-0.565685, 0, 0.565685), (-0.565685, 0, 0.565685), (-0.565685, 0, 0.565685), (-0.565685, 0, 0.565685), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0.565685, 0, 0.565685), (0.565685, 0, 0.565685), (0.565685, 0, 0.565685), (0.565685, 0, 0.565685)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "RoomX4Arc8" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 4, 3.2), (0, 5, 3.2), (-0.166329, 5, 3.982518), (-0.166329, 4, 3.982518), (-0.194164, 4, 4.180572), (-0.194164, 5, 4.180572), (-0.249969, 5, 4.978623), (-0.249969, 4, 4.978623), (-0.249969, 4, 5.178623), (-0.249969, 5, 5.178623), (-0.194164, 5, 5.976674), (-0.194164, 4, 5.976674), (-0.166329, 4, 6.174728), (-0.166329, 5, 6.174728), (0, 5, 6.957246), (0, 4, 6.957246)]
+            uniform int[] primvars:roomID = [806, 806, 806, 806] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(-0.083165, 4.5, 3.591259), (-0.083165, 4.5, 3.591259), (-0.083165, 4.5, 3.591259), (-0.083165, 4.5, 3.591259), (-0.222067, 4.5, 4.579597), (-0.222067, 4.5, 4.579597), (-0.222067, 4.5, 4.579597), (-0.222067, 4.5, 4.579597), (-0.222067, 4.5, 5.577649), (-0.222067, 4.5, 5.577649), (-0.222067, 4.5, 5.577649), (-0.222067, 4.5, 5.577649), (-0.083165, 4.5, 6.565987), (-0.083165, 4.5, 6.565987), (-0.083165, 4.5, 6.565987), (-0.083165, 4.5, 6.565987)] (
+                interpolation = "vertex"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(-0.166329, 0, 0.782518), (-0.166329, 0, 0.782518), (-0.166329, 0, 0.782518), (-0.166329, 0, 0.782518), (-0.055805, 0, 0.798051), (-0.055805, 0, 0.798051), (-0.055805, 0, 0.798051), (-0.055805, 0, 0.798051), (0.055805, 0, 0.798051), (0.055805, 0, 0.798051), (0.055805, 0, 0.798051), (0.055805, 0, 0.798051), (0.166329, 0, 0.782518), (0.166329, 0, 0.782518), (0.166329, 0, 0.782518), (0.166329, 0, 0.782518)] (
+                interpolation = "vertex"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner1x1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 6, -0.4), (0, 7, -0.4), (0, 7, 0.4), (0, 6, 0.4), (0.1, 6, 0.6), (0.1, 7, 0.6), (0.9, 7, 0.6), (0.9, 6, 0.6)]
+            uniform int[] primvars:roomID = [813, 813] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 6.5, 0), (0.5, 6.5, 0.6)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner1x2" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 6, 2), (0, 7, 2), (0, 7, 2.8), (0, 6, 2.8), (0.1, 6, 3), (0.1, 7, 3), (0.9, 7, 3), (0.9, 6, 3), (1.1, 6, 3), (1.1, 7, 3), (1.9, 7, 3), (1.9, 6, 3)]
+            uniform int[] primvars:roomID = [818, 818, 818] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 6.5, 2.4), (0.5, 6.5, 3), (1.5, 6.5, 3)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0.8, 0, 0), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner2x1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 6, 5), (0, 7, 5), (0, 7, 5.8), (0, 6, 5.8), (0, 6, 6), (0, 7, 6), (0, 7, 6.8), (0, 6, 6.8), (0.1, 6, 7), (0.1, 7, 7), (0.9, 7, 7), (0.9, 6, 7)]
+            uniform int[] primvars:roomID = [822, 822, 822] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 6.5, 5.4), (0, 6.5, 6.4), (0.5, 6.5, 7)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner1x3" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 6, 9), (0, 7, 9), (0, 7, 9.8), (0, 6, 9.8), (0.1, 6, 10), (0.1, 7, 10), (0.9, 7, 10), (0.9, 6, 10), (1.1, 6, 10), (1.1, 7, 10), (1.9, 7, 10), (1.9, 6, 10), (2.1, 6, 10), (2.1, 7, 10), (2.9, 7, 10), (2.9, 6, 10)]
+            uniform int[] primvars:roomID = [823, 823, 823, 823] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 6.5, 9.4), (0.5, 6.5, 10), (1.5, 6.5, 10), (2.5, 6.5, 10)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner3x1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 8, -0.4), (0, 9, -0.4), (0, 9, 0.4), (0, 8, 0.4), (0, 8, 0.6), (0, 9, 0.6), (0, 9, 1.4), (0, 8, 1.4), (0, 8, 1.6), (0, 9, 1.6), (0, 9, 2.4), (0, 8, 2.4), (0.1, 8, 2.6), (0.1, 9, 2.6), (0.9, 9, 2.6), (0.9, 8, 2.6)]
+            uniform int[] primvars:roomID = [825, 825, 825, 825] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 8.5, 0), (0, 8.5, 1), (0, 8.5, 2), (0.5, 8.5, 2.6)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner1x4" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 8, 4), (0, 9, 4), (0, 9, 4.8), (0, 8, 4.8), (0.1, 8, 5), (0.1, 9, 5), (0.9, 9, 5), (0.9, 8, 5), (1.1, 8, 5), (1.1, 9, 5), (1.9, 9, 5), (1.9, 8, 5), (2.1, 8, 5), (2.1, 9, 5), (2.9, 9, 5), (2.9, 8, 5), (3.1, 8, 5), (3.1, 9, 5), (3.9, 9, 5), (3.9, 8, 5)]
+            uniform int[] primvars:roomID = [835, 835, 835, 835, 835] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 8.5, 4.4), (0.5, 8.5, 5), (1.5, 8.5, 5), (2.5, 8.5, 5), (3.5, 8.5, 5)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "Corner4x1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+            rel material:binding = </World/Building/Looks/RoomMapSource>
+            point3f[] points = [(0, 8, 7), (0, 9, 7), (0, 9, 7.8), (0, 8, 7.8), (0, 8, 8), (0, 9, 8), (0, 9, 8.8), (0, 8, 8.8), (0, 8, 9), (0, 9, 9), (0, 9, 9.8), (0, 8, 9.8), (0, 8, 10), (0, 9, 10), (0, 9, 10.8), (0, 8, 10.8), (0.1, 8, 11), (0.1, 9, 11), (0.9, 9, 11), (0.9, 8, 11)]
+            uniform int[] primvars:roomID = [836, 836, 836, 836, 836] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:roomP = [(0, 8.5, 7.4), (0, 8.5, 8.4), (0, 8.5, 9.4), (0, 8.5, 10.4), (0.5, 8.5, 11)] (
+                interpolation = "uniform"
+            )
+            texCoord3f[] primvars:roomUV = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            float3[] primvars:tangentu = [(0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0, 0, 0.8), (0.8, 0, 0)] (
+                interpolation = "uniform"
+            )
+            float3[] primvars:tangentv = [(0, 1, 0)] (
+                interpolation = "constant"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Scope "Looks"
+        {
+            def Material "RoomMapSource"
+            {
+                token outputs:mdl:surface.connect = </World/Building/Looks/RoomMapSource/Shader.outputs:out>
+
+                def Shader "Shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../../src/mdl/room_map.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "room_map"
+                    float3 inputs:camera_position_world = (8, 3, 5)
+                    float inputs:emission_strength = 1
+                    asset inputs:room_atlas = @../../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                    float inputs:room_depth = 1
+                    float inputs:room_uniform_scale = 1
+                    int inputs:room_variant_count = 8
+                    int inputs:variation_seed = 0
+                    token outputs:out
+                }
+            }
+        }
+    }
+}
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:ambientOcclusion:denoiserMode = "none"
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
+                bool omni:rtx:dlss:frameGeneration = 1
+                float3 omni:rtx:domeLight:rotationAxis = (0, 1, 0)
+                bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:adaptiveSampling:filterError = 0
+                uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                bool omni:rtx:reflections:denoiser:enabled = 0
+                token omni:rtx:rendermode = "RealTimePathTracing"
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                int omni:rtx:rt:sss:samples = 1
+                uint omni:rtx:rtpt:maxVolumeBounces = 15
+                float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1378, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+            uniform token sourceType = "raw"
+        }
+    }
+}
+
+over "OmniverseKit_Persp" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float focalLength = 18.147562
+    float focusDistance = 400
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -7.439348934984031)
+    float3 xformOp:rotateXYZ = (179.34393, -79.82127, 180)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (-3.4013226190576082, 6.641026467229131, 8.982489997706463)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "__ORMSRuntime"
+{
+    over "Looks"
+    {
+        over "RoomMapX2" (
+            customData = {
+                dictionary omni = {
+                    dictionary ui = {
+                        dictionary nodegraph = {
+                            dictionary node = {
+                                dictionary pos = {
+                                    dictionary output = {
+                                        float2 mdl = (-100, 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                float2 "omni:ui:nodegraph:node:pos:output:mdl" = (-100, 0)
+                string userDocBrief = '''A Material provides a container into which multiple "render contexts"
+    can add data that defines a "shading material" for a renderer.'''
+            }
+        )
+        {
+            over "Shader" (
+                prepend apiSchemas = ["NodeGraphNodeAPI"]
+            )
+            {
+                float2 inputs:window_aperture_offset = (0, 0.1)
+                float2 inputs:window_aperture_scale = (0.75, 0.75)
+                uniform float2 ui:nodegraph:node:pos = (-500, 0)
+            }
+        }
+
+        over "RoomMapX1"
+        {
+            over "Shader"
+            {
+                float2 inputs:window_aperture_offset = (0, 0.1)
+                float2 inputs:window_aperture_scale = (0.75, 0.75)
+            }
+        }
+
+        over "RoomMapX3"
+        {
+            over "Shader"
+            {
+                float2 inputs:window_aperture_offset = (0, 0.1)
+                float2 inputs:window_aperture_scale = (0.75, 0.75)
+            }
+        }
+
+        over "RoomMapX4"
+        {
+            over "Shader"
+            {
+                float2 inputs:window_aperture_offset = (0, 0.1)
+                float2 inputs:window_aperture_scale = (0.75, 0.75)
+            }
+        }
+    }
+}
+
+over "OmniverseKit_Front" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (-0, 0, -0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 500)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Right" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (0, -90, -0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (-500, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Top" (
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float horizontalAperture = 5000
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -500)
+    token projection = "orthographic"
+    float verticalAperture = 5000
+    float3 xformOp:rotateXYZ = (90, -4.961563e-15, 180)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 500, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}

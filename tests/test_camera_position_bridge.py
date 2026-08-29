@@ -66,4 +66,10 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "material_input_paths" in bridge_source
     assert "self._missing_input_paths" in bridge_source
     assert "log_room_map_warning(" in bridge_source
+    assert (
+        "carb.eventdispatcher.get_eventdispatcher().observe_event("
+        in bridge_source
+    )
+    assert "omni.kit.app.GLOBAL_EVENT_UPDATE" in bridge_source
+    assert "get_update_event_stream" not in bridge_source
     assert "carb.log_warn(" not in bridge_source

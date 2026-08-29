@@ -118,24 +118,40 @@ def test_aperture_module_keeps_virtual_room_aspect_independent_from_geometry():
     assert "float2 window_aperture_scale = float2(1.0)" in source
     assert "float2 window_aperture_offset = float2(0.0)" in source
     assert "float room_uniform_scale = 1.0" in source
-    assert "float2 aperture_coordinate(" in source
-    assert "float window_width = math::length(tangent_u_raw)" in source
-    assert "float window_height = math::length(tangent_v_raw)" in source
-    assert "float2 aperture_extent = float2(" in source
-    assert "physical_window_width * aperture_scale.x" in source
-    assert "physical_window_height * aperture_scale.y" in source
     assert "float safe_room_extent = positive_extent(" in source
     assert "positive_extent(room_uniform_scale)" in source
-    assert "float2 aperture_uv = aperture_coordinate(" in source
+    assert "float3 shared_aperture_position(" in source
+    assert '"ormsRoomMapPosition"' in source
     assert (
-        "float3 ray_origin = float3(\n        aperture_uv.x,\n        aperture_uv.y,"
+        "float3 scaled_position = physical_position * room_scale * room_extent"
         in source
     )
+    assert "bool depth_aligned_portal = math::abs(portal_mode) > 1.5" in source
+    assert (
+        "float front_position_x = scaled_position.x * aperture_scale.x"
+        in source
+    )
+    assert "float side_position_z =" in source
+    assert (
+        "(scaled_position.z + 0.5 * mapped_room_depth) * aperture_scale.x"
+        in source
+    )
+    assert (
+        "side_axis_direction * horizontal_control * mapped_room_depth"
+        in source
+    )
+    assert "scaled_position.x + 0.5 * room_width" in source
+    assert "float3 derived_room_scale" in source
+    assert "ray_vector_room * safe_room_scale" in source
+    assert "float3 shared_ray_origin = shared_aperture_position(" in source
+    assert "float3 ray_origin = shared_ray_origin" in source
+    assert "scaled_position.z" in source
     assert "surface_position_room - camera_position_room" in source
     assert "aperture_is_in_unit_room" not in source
     assert "saturate(\n            (window_coordinate.x" not in source
     assert "point_is_in_room_extent(" in source
     assert "physical_aperture_coordinate" not in source
+    assert "float2 aperture_coordinate(" not in source
     assert "tex::lookup_float4(" in source
     assert source.count("tex::lookup_float4(") == 5
 

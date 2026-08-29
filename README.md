@@ -2,8 +2,9 @@
 
 > Building scalable parallax interiors with OpenUSD and NVIDIA MDL
 
-**Status**: MDL room, depth-slice, and UDIM-variation baselines validated •
-Building 150 production integration is the next milestone
+**Status**: MDL room, depth-slice, UDIM-variation, and Omniverse shared-room
+baselines validated • Houdini fixture validation and Building 150 integration
+are the next milestones
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
@@ -251,10 +252,12 @@ visually consistent in both RTX renderers.*
 - Editable per-slice enable, depth, offset, and scale controls.
 - Correct face assignment, orientation, and depth sorting in RTX Real-Time and
   RTX Interactive (Path Tracing).
+- Shared coherent room volumes across automatically classified flat, bay, and
+  right-angle window groups in the Omniverse KRM-93 validation fixture.
 
 #### Not implemented yet
 
-- Shared coherent room volumes across multiple or non-coplanar windows.
+- Houdini-exported validation of the runtime multi-window classifier.
 - Production glass integration.
 - Full Building 150 façade integration.
 - A geometry-versus-Room-Map performance benchmark.
@@ -408,6 +411,8 @@ The renderer-validated prototype supports:
 - Three deterministic UDIM room variants shared by repeated `roomID` values.
 - A dedicated `roomUV` export contract that leaves ordinary mesh UVs intact.
 - View-dependent parallax in RTX Real-Time and RTX Interactive (Path Tracing).
+- Automatic shared-room classification for flat, bay, and right-angle window
+  groups without permanent edits to source USD assets.
 
 ---
 
@@ -455,11 +460,12 @@ tools/
 ## For NVIDIA Recruiters
 
 The project now includes a renderer-validated MDL parallax prototype with five
-room faces, four depth slices, and deterministic UDIM variation across both
-Omniverse-authored and DCC-exported window geometry. A dedicated `roomUV`
-contract preserves ordinary asset UVs, while repeated `roomID` values keep
-spatially separated windows visually consistent. Production façade integration
-and performance measurement remain separate planned work.
+room faces, four depth slices, deterministic UDIM variation, and coherent
+virtual rooms shared across flat, bay, and right-angle window groups in an
+Omniverse validation fixture. A dedicated `roomUV` contract preserves ordinary
+asset UVs, while the runtime classifier derives shared-room mappings without
+permanent edits to source USD assets. Houdini fixture validation, production
+façade integration, and performance measurement remain separate planned work.
 
 This project demonstrates:
 
@@ -488,8 +494,8 @@ Composer and follow the
 [single-room parallax contract](docs/knowledge_base/mdl/005_single_room_parallax.md).
 
 **Current multi-window proof**: Open
-`tests/test_room_map_variants_houdini.usda` and follow the
-[room-variant contract](docs/knowledge_base/mdl/007_room_variants.md).
+`tests/krm_93/test_room_map_shared_rooms_omniverse.usda` and follow the
+[shared-room contract](docs/knowledge_base/mdl/009_shared_multi_window_rooms.md).
 
 ---
 
@@ -525,7 +531,7 @@ Your support funds:
 
 ## 📜 Changelog
 
-* **Week of 24 August, 2026:** Established the project's first renderer-validated MDL parallax room with named OpenUSD frame primvars, an active-camera bridge, five-face cross-atlas projection, and four alpha-composited depth slices.
+* **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.
 * **Week of 16 February, 2026:** Refined the public project narrative, knowledge base, technical stack, support information, and privacy boundary for a clearer recruiter and engineer reading path.

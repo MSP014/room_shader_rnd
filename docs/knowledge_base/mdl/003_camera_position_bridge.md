@@ -1,80 +1,86 @@
 # Camera Position Bridge for MDL
 
+## Record
+
+| Field | Value |
+| --- | --- |
+| Jira | KRM-86 — MDL State Functions, runtime follow-up |
+| Implementation | `tools/omniverse/camera_position_bridge.py`, `src/mdl/diagnostics/camera_direction_as_colour.mdl`, `tools/omniverse/status_log.py` |
+| Automated evidence | `tests/test_camera_position_bridge.py`, `tests/test_room_map_status_log.py` |
+| Validation scene | `assets/_external/usd/test_grid/camera_direction_bridge.usda` |
+| Evidence state | Renderer-validated R&D bridge |
+| Last validated | 18 August 2026 |
+
 ## Purpose
 
-MDL material definitions do not expose a camera/view vector. The Room Map
-material therefore receives the active Kit camera position as a dynamic
-`float3` input and derives a world-space view direction from the current
-surface position.
-
-`camera_direction_as_colour.mdl` is a diagnostic material, not Room Map
-parallax logic. It makes the derived vector visible as RGB:
+MDL material definitions do not expose the required camera/view vector. The
+bridge supplies the active Kit viewport camera position as a dynamic `float3`
+material input so MDL can derive:
 
 ```mdl
 normalize(camera_position_world - surface_position_world)
 ```
 
-The surface position is explicitly transformed from MDL internal space to
-world space before subtraction. This keeps both operands in the same
-coordinate system.
+## Accepted contract
 
-## Prototype components
+`camera_position_world` is runtime-owned and uniform for the active viewport.
+The bridge discovers all composed attributes named
+`inputs:camera_position_world`, writes their world-space values into the stage
+Session Layer, and does not save camera motion into source USD.
+
+The shaded surface position is explicitly transformed from MDL internal space
+to world space before subtraction. `roomP`, `N`, `tangentu`, `tangentv`, and
+texture coordinates remain geometry or material data; later Room Map code must
+transform the derived direction into its room frame explicitly.
+
+Warnings use one formatted ORMS console entry with owner, process, state,
+details, and host-local timestamp. Native Kit, USD, RTX, and MDL diagnostics
+retain their own logger formatting.
+
+## Evidence
 
 | Component | Responsibility |
 | --- | --- |
-| `src/mdl/diagnostics/camera_direction_as_colour.mdl` | Declares `camera_position_world` and visualises the derived direction. |
-| `assets/_external/usd/test_grid/camera_direction_bridge.usda` | Binds the diagnostic material to the Houdini-exported UV grid. |
-| `tools/omniverse/camera_position_bridge.py` | Obtains the active viewport camera and writes its world position into the material input. |
-| `tools/omniverse/status_log.py` | Formats Room Map-owned warnings and errors as timestamped diagnostic blocks in the Kit console. |
+| `camera_direction_as_colour.mdl` | Visualises the derived world-space direction. |
+| `camera_direction_bridge.usda` | Binds the diagnostic to Houdini-exported geometry. |
+| `camera_position_bridge.py` | Tracks the active viewport and writes the Session Layer input. |
+| `status_log.py` | Formats ORMS-owned warnings and errors. |
 
-The bridge writes to the USD session layer. It changes the live stage without
-saving camera motion into the `.usda` scene.
+## Reproduction
 
-Missing camera inputs are reported through the shared Room Map console helper.
-Each warning is one visually isolated Kit log entry with an owner, process,
-state, technical details, and a host-local timestamp. Native Kit, USD, RTX, and
-MDL diagnostics retain their own logger formatting.
+Open `assets/_external/usd/test_grid/camera_direction_bridge.usda`, then run:
 
-## Running in USD Composer
+```python
+from pathlib import Path
+import sys
+import omni.usd
 
-1. Open `assets/_external/usd/test_grid/camera_direction_bridge.usda`.
-2. In the Script Editor, run:
+root_layer = omni.usd.get_context().get_stage().GetRootLayer()
+repository_root = Path(root_layer.realPath).parents[4]
+sys.path.append(str(repository_root / "tools" / "omniverse"))
 
-   ```python
-   from pathlib import Path
-   import sys
-   import omni.usd
+import camera_position_bridge
 
-   root_layer = omni.usd.get_context().get_stage().GetRootLayer()
-   repository_root = Path(root_layer.realPath).parents[4]
-   sys.path.append(str(repository_root / "tools" / "omniverse"))
+camera_position_bridge.stop()
+camera_position_bridge.start()
+```
 
-   import importlib
-   import camera_position_bridge
+Orbit or move the active viewport camera. The grid colour must change. Repeat
+in RTX Real-Time and RTX Interactive (Path Tracing), then run
+`camera_position_bridge.stop()`.
 
-   camera_position_bridge.stop()
-   camera_position_bridge = importlib.reload(camera_position_bridge)
-   camera_position_bridge.start()
-   ```
-
-3. Move or orbit the active viewport camera. The grid colour must change.
-4. To stop the live update, run `camera_position_bridge.stop()`.
-5. Verify in RTX Real-Time and RTX Interactive (Path Tracing).
-
-With no argument, `start()` discovers every composed
-`inputs:camera_position_world` attribute in the active stage and updates all
-of them. This is the normal mode for validation scenes with multiple Room Map
-material instances. Pass one path, or a sequence of paths, to `start()` only
-when a deliberately restricted target is required.
-
-## Contract for later Room Map logic
-
-`camera_position_world` is runtime-owned and uniform for the active viewport.
-`roomP`, `N`, `tangentu`, `tangentv`, and `st` remain geometry/material data
-coming from USD. The parallax implementation must transform the derived
-world-space direction into the room's required coordinate frame explicitly.
+With no argument, `start()` discovers all camera inputs. A path or sequence of
+paths may be supplied only for a deliberately restricted check.
 
 ## Validation record
 
-Static USD and source contracts are covered by
-`tests/test_camera_position_bridge.py`. Visual validation completed on 18 August 2026. In RTX Real-Time and RTX Interactive (Path Tracing), the grid colour changed as the active viewport camera moved. The Script Editor reported no bridge or MDL errors.
+On 18 August 2026, the diagnostic colour changed with active viewport camera
+motion in both required renderer modes. The Script Editor reported no bridge
+or MDL errors. Static source and USD checks are retained by the automated
+tests.
+
+## Boundary
+
+This is a manually started R&D singleton, not a packaged extension and not a
+multi-camera rendering contract. KRM-91 owns packaging it together with the
+KRM-93 runtime classifier.

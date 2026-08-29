@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import carb.eventdispatcher
 import omni.kit.app
 import omni.usd
 from omni.kit.viewport.utility import get_active_viewport
@@ -37,11 +38,10 @@ class CameraPositionBridge:
         self._warned_no_inputs = False
         self._last_position: tuple[float, float, float] | None = None
         self._subscription = (
-            omni.kit.app.get_app()
-            .get_update_event_stream()
-            .create_subscription_to_pop(
-                self._on_update,
-                name="room_map_camera_position_bridge",
+            carb.eventdispatcher.get_eventdispatcher().observe_event(
+                event_name=omni.kit.app.GLOBAL_EVENT_UPDATE,
+                on_event=self._on_update,
+                observer_name="orms.camera_position_bridge.update",
             )
         )
 
@@ -129,6 +129,9 @@ class CameraPositionBridge:
         self._last_position = position
 
     def stop(self) -> None:
+        reset = getattr(self._subscription, "reset", None)
+        if callable(reset):
+            reset()
         self._subscription = None
 
 

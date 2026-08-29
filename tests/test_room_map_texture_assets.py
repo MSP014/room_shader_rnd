@@ -35,22 +35,27 @@ EXPECTED_TEXTURE_PATHS = frozenset(
 
 
 def _authored_atlas_paths(stage_path):
-    stage = Usd.Stage.Open(str(stage_path), load=Usd.Stage.LoadNone)
+    stage = Usd.Stage.Open(str(stage_path), load=Usd.Stage.LoadAll)
 
     assert stage, f"Could not open Room Map test stage: {stage_path.name}"
 
     atlas_paths = []
-    for prim in stage.Traverse():
-        atlas_attribute = prim.GetAttribute("inputs:room_atlas")
-        if (
-            not atlas_attribute
-            or not atlas_attribute.HasAuthoredValueOpinion()
-        ):
-            continue
+    prim_ranges = [stage.Traverse()]
+    prim_ranges.extend(
+        Usd.PrimRange(prototype) for prototype in stage.GetPrototypes()
+    )
+    for prim_range in prim_ranges:
+        for prim in prim_range:
+            atlas_attribute = prim.GetAttribute("inputs:room_atlas")
+            if (
+                not atlas_attribute
+                or not atlas_attribute.HasAuthoredValueOpinion()
+            ):
+                continue
 
-        atlas_asset = atlas_attribute.Get()
-        if atlas_asset and atlas_asset.path:
-            atlas_paths.append(atlas_asset.path)
+            atlas_asset = atlas_attribute.Get()
+            if atlas_asset and atlas_asset.path:
+                atlas_paths.append(atlas_asset.path)
 
     return atlas_paths
 

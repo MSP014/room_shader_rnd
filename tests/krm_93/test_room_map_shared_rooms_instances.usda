@@ -1,0 +1,40 @@
+#usda 1.0
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Referenced and instanceable Omniverse geometry"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def DomeLight "KRM93Environment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Xform "BuildingA" (
+        instanceable = true
+        prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building>
+    )
+    {
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+
+    def Xform "BuildingB" (
+        instanceable = true
+        prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building>
+    )
+    {
+        double3 xformOp:translate = (0, 2, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

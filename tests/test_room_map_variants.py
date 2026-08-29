@@ -97,8 +97,8 @@ def test_mdl_uses_room_id_for_all_five_existing_atlas_lookups():
     source = MDL_PATH.read_text(encoding="utf-8")
 
     assert (
-        'data_lookup_float3(\n            "roomUV",\n'
-        "            state::texture_coordinate(0)\n        )"
+        'data_lookup_float3(\n            "ormsRoomMapPosition",\n'
+        "            float3(0.0)\n        )"
     ) in source
     assert 'data_lookup_int(\n        "roomID",\n        0\n    )' in source
     assert "uniform int room_variant_count = 1" in source

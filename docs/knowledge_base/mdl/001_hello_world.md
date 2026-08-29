@@ -1,5 +1,16 @@
 # MDL Hello World in Omniverse
 
+## Record
+
+| Field | Value |
+| --- | --- |
+| Jira | KRM-85 — MDL Hello World |
+| Implementation | `src/mdl/hello_world.mdl` |
+| Automated evidence | `tests/test_hello_world_material.py` |
+| Validation scene | `assets/_external/usd/hello_world_material.usda` |
+| Evidence state | Renderer-validated |
+| Last validated | 18 August 2026 |
+
 ## Purpose
 
 `src/mdl/hello_world.mdl` is the minimal material-authoring proof for the
@@ -10,7 +21,7 @@ against MDL 1.7.
 bounds a cube to this material. The MDL source asset is addressed relative to
 the test stage, so the scene remains portable inside this repository.
 
-## Material contract
+## Accepted contract
 
 The material deliberately has one artist-facing parameter:
 
@@ -21,7 +32,20 @@ The material deliberately has one artist-facing parameter:
 The material uses `df::diffuse_reflection_bsdf` with zero roughness. It has no
 textures, primvars, or Room Map logic; those belong to later tasks.
 
-## Assigning the material in Omniverse
+## Evidence
+
+The retained MDL module, portable USDA stage, material binding, dome light,
+and automated source checks are sufficient to reproduce the proof locally.
+
+Important failure checks are:
+
+- the module must remain reachable through the USD asset resolver;
+- the material connection is `outputs:mdl:surface`, not a generic
+  `outputs:surface`;
+- `info:mdl:sourceAsset:subIdentifier` must resolve to `hello_world`;
+- a diffuse result requires illumination, supplied here by the `DomeLight`.
+
+## Reproduction
 
 1. Open `assets/_external/usd/hello_world_material.usda` in USD Composer.
 2. Confirm that `/World/Cube` has the material binding
@@ -33,18 +57,6 @@ textures, primvars, or Room Map logic; those belong to later tasks.
 5. Select **RTX - Interactive (Path Tracing)** and confirm the cube remains
    red after accumulation.
 
-## Known gotchas
-
-- MDL modules must be reachable through the USD asset resolver. Keep the test
-  stage and `src/mdl/hello_world.mdl` in their repository-relative locations.
-- The USD material connection uses `outputs:mdl:surface`; a generic
-  `outputs:surface` connection is not the MDL renderer contract used here.
-- A diffuse material requires scene illumination. The test stage includes a
-  `DomeLight` for this reason.
-- If the module or subidentifier does not resolve, inspect the Shader prim's
-  `info:mdl:sourceAsset` and `info:mdl:sourceAsset:subIdentifier` fields
-  before changing the material code.
-
 ## Validation record
 
 The stage and its material binding are checked by
@@ -55,3 +67,9 @@ Visual validation completed on 18 August 2026:
 - **RTX - Real-Time:** the illuminated cube rendered red.
 - **RTX - Interactive (Path Tracing):** the illuminated cube remained red
   during path-tracing accumulation.
+
+## Boundary
+
+This record proves MDL source resolution, material binding, and basic renderer
+compilation only. It contains no textures, primvars, camera bridge, or Room Map
+projection logic.
