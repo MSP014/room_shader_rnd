@@ -96,7 +96,25 @@ module filename. The warning stream records `SHADER_NODE_BEGIN`,
 timeout containing the last native loading message. This identifies whether a
 regression comes from runtime primvar access, shared-aperture mapping,
 camera/ray math, wall tracing, slice geometry, texture lookups, or final
-composition. It is a compiler diagnostic only and does not claim renderer or
-production-extension readiness.
+composition. The `minimal` phase also compiles the production binary physical-
+aperture backface cutout and its fail-open camera fallback, so a cutout backend
+regression is reported before any atlas lookup is introduced. The
+`front_exit_cutout` phase separately compiles the corner side-portal path that
+opens up to four exact primary-facade aperture spans authored from the real
+window geometry in `ormsPrimaryApertureMinU` and
+`ormsPrimaryApertureMaxU`. This preserves unequal widths and facade gaps rather
+than reconstructing a regular grid in MDL. Physical backfaces and the virtual
+front exit both retain a binary geometry cutout; neither slice texture lookups
+nor full room tracing enter `material_geometry`. The front-exit mask follows a
+separate geometry-derived ray origin, so artistic aperture scale, offset, and
+window shift continue to affect the virtual interior without moving the real
+window cutouts. Corner depth is measured from the actual primary-window plane,
+not from the nearest edge of the side aperture, so a physical gap between the
+two facade legs remains part of the side-view projection. The virtual room box
+may still snap to its logical corner boundary, but `ormsApertureMaskOffsetU`
+retains the exact physical side-window plane for cutout projection; facade
+thickness or an authored gap therefore cannot shift the primary-window holes.
+It is a compiler diagnostic only and does not claim renderer or production-
+extension readiness.
 Pass `--keep-logs` only when the complete native Kit output is needed; the
 files are written to the ignored `tests/krm_93/compile_probe_logs` directory.

@@ -385,6 +385,55 @@ def test_corner_mapping_keeps_a_distinct_portal_normal_for_each_facade_leg():
     ) == pytest.approx(0.0)
 
 
+def test_corner_packs_exact_primary_aperture_spans_with_real_gaps():
+    primary_specs = (
+        (0.0, 0.6),
+        (0.75, 0.9),
+        (1.9, 0.7),
+        (2.7, 1.0),
+    )
+    apertures = [
+        _window(
+            f"w{index}",
+            441,
+            0.0,
+            z=start + width * 0.5,
+            width=width,
+            tangent_u=(0.0, 0.0, width),
+        )
+        for index, (start, width) in enumerate(primary_specs)
+    ]
+    apertures.append(
+        _window(
+            "w4",
+            441,
+            0.4,
+            z=3.7,
+            width=0.8,
+            tangent_u=(0.8, 0.0, 0.0),
+        )
+    )
+
+    result = classify_apertures(reversed(apertures))
+
+    expected_minimums = tuple(start / 3.7 for start, _width in primary_specs)
+    expected_maximums = tuple(
+        (start + width) / 3.7 for start, width in primary_specs
+    )
+    assert len(result.groups) == 1
+    assert (result.groups[0].room_size, result.groups[0].room_depth_size) == (
+        4,
+        1,
+    )
+    for mapping in result.mappings:
+        assert mapping.primary_aperture_min_u == pytest.approx(
+            expected_minimums
+        )
+        assert mapping.primary_aperture_max_u == pytest.approx(
+            expected_maximums
+        )
+
+
 def test_disabled_corner_family_partitions_each_straight_leg_separately():
     apertures = _window_run_from_angles(
         (0.0, 90.0, 90.0, 90.0, 90.0),

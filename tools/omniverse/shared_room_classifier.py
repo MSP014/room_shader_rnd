@@ -56,6 +56,9 @@ DERIVED_MAP_AXIS_V = "ormsRoomMapAxisV"
 DERIVED_SLICE_START_DEPTH = "ormsSliceStartDepth"
 DERIVED_ROOM_PARAMETERS = "ormsRoomParameters"
 DERIVED_MAP_POSITION = "ormsRoomMapPosition"
+DERIVED_PRIMARY_APERTURE_MIN_U = "ormsPrimaryApertureMinU"
+DERIVED_PRIMARY_APERTURE_MAX_U = "ormsPrimaryApertureMaxU"
+DERIVED_APERTURE_MASK_OFFSET_U = "ormsApertureMaskOffsetU"
 
 DERIVED_PRIMVAR_NAMES = frozenset(
     {
@@ -72,6 +75,9 @@ DERIVED_PRIMVAR_NAMES = frozenset(
         DERIVED_SLICE_START_DEPTH,
         DERIVED_ROOM_PARAMETERS,
         DERIVED_MAP_POSITION,
+        DERIVED_PRIMARY_APERTURE_MIN_U,
+        DERIVED_PRIMARY_APERTURE_MAX_U,
+        DERIVED_APERTURE_MASK_OFFSET_U,
     }
 )
 
@@ -94,7 +100,7 @@ _TRACE_RUN_IDS = count(1)
 _TRACE_PATH_LIMIT = 16
 _FIRST_FRAME_SIGNAL = "StageRenderingEventType.NEW_FRAME"
 _RTX_FACE_CULLING_SETTING = "/rtx/hydra/faceCulling/enabled"
-_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "krm93_packed_mapping_v12"
+_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "krm93_exact_corner_mask_origin_v15"
 _RUNTIME_FAMILY_SHADER_PATHS = tuple(
     Sdf.Path(f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader")
     for room_size in range(1, 5)
@@ -849,6 +855,9 @@ def _mapping_defaults(face_count: int) -> dict[str, list[object]]:
         DERIVED_MAP_AXIS_V: [(0.0, 1.0, 0.0)] * face_count,
         DERIVED_SLICE_START_DEPTH: [0.0] * face_count,
         DERIVED_ROOM_PARAMETERS: [(11.0, 0.0, 0.0)] * face_count,
+        DERIVED_PRIMARY_APERTURE_MIN_U: [(0.0, -1.0, -1.0, -1.0)] * face_count,
+        DERIVED_PRIMARY_APERTURE_MAX_U: [(1.0, -1.0, -1.0, -1.0)] * face_count,
+        DERIVED_APERTURE_MASK_OFFSET_U: [0.0] * face_count,
     }
 
 
@@ -868,6 +877,15 @@ def _set_mapping_values(
     values[DERIVED_MAP_AXIS_U][face_index] = mapping.map_axis_u
     values[DERIVED_MAP_AXIS_V][face_index] = mapping.map_axis_v
     values[DERIVED_SLICE_START_DEPTH][face_index] = mapping.slice_start_depth
+    values[DERIVED_PRIMARY_APERTURE_MIN_U][
+        face_index
+    ] = mapping.primary_aperture_min_u
+    values[DERIVED_PRIMARY_APERTURE_MAX_U][
+        face_index
+    ] = mapping.primary_aperture_max_u
+    values[DERIVED_APERTURE_MASK_OFFSET_U][
+        face_index
+    ] = mapping.aperture_mask_offset_u
     depth_aligned_portal = (
         abs(mapping.map_axis_u[0]) <= 1.0e-6
         and abs(mapping.map_axis_u[2]) > 1.0e-6
@@ -908,6 +926,18 @@ def _author_uniform_float3_primvar(
         Sdf.ValueTypeNames.Float3Array,
         UsdGeom.Tokens.uniform,
     ).Set(Vt.Vec3fArray([Gf.Vec3f(*value) for value in values]))
+
+
+def _author_uniform_float4_primvar(
+    primvars: UsdGeom.PrimvarsAPI,
+    name: str,
+    values: Sequence[object],
+) -> None:
+    primvars.CreatePrimvar(
+        name,
+        Sdf.ValueTypeNames.Float4Array,
+        UsdGeom.Tokens.uniform,
+    ).Set(Vt.Vec4fArray([Gf.Vec4f(*value) for value in values]))
 
 
 def _author_uniform_float_primvar(
@@ -1032,11 +1062,21 @@ def author_derived_primvars(
                 DERIVED_SLICE_START_DEPTH,
                 values[DERIVED_SLICE_START_DEPTH],
             )
+            _author_uniform_float_primvar(
+                primvars,
+                DERIVED_APERTURE_MASK_OFFSET_U,
+                values[DERIVED_APERTURE_MASK_OFFSET_U],
+            )
             _author_uniform_float3_primvar(
                 primvars,
                 DERIVED_ROOM_PARAMETERS,
                 values[DERIVED_ROOM_PARAMETERS],
             )
+            for name in (
+                DERIVED_PRIMARY_APERTURE_MIN_U,
+                DERIVED_PRIMARY_APERTURE_MAX_U,
+            ):
+                _author_uniform_float4_primvar(primvars, name, values[name])
             for name in (
                 DERIVED_ROOM_AXIS_U,
                 DERIVED_ROOM_AXIS_V,

@@ -1,6 +1,34 @@
 mdl 1.7;
 
 import ::df::*;
+import ::math::*;
+import ::state::*;
+
+float room_map_epsilon()
+{
+    return 0.0001;
+}
+
+float physical_aperture_cutout_opacity(
+    float3 camera_position_world,
+    float3 surface_position_world,
+    float3 physical_aperture_normal_world
+) = let {
+    float3 camera_from_surface =
+        camera_position_world - surface_position_world;
+    float camera_distance = math::length(camera_from_surface);
+    float normal_length = math::length(physical_aperture_normal_world);
+    bool facing_input_is_valid = camera_distance > room_map_epsilon()
+        && normal_length > room_map_epsilon();
+    float facing_cosine = facing_input_is_valid
+        ? math::dot(
+            camera_from_surface / camera_distance,
+            physical_aperture_normal_world / normal_length
+        )
+        : 1.0;
+} in !facing_input_is_valid || facing_cosine > room_map_epsilon()
+    ? 1.0
+    : 0.0;
 
 export material room_map(
     uniform texture_2d room_atlas = texture_2d(),
@@ -30,7 +58,26 @@ export material room_map(
     float2 slice_4_scale = float2(1.0),
     color fallback_colour = color(1.0, 0.0, 1.0),
     float emission_strength = 1.0
-) = material(
+) = let {
+    float3 surface_position_world = state::transform_point(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::position()
+    );
+    float3 physical_aperture_normal_world = state::transform_normal(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::geometry_normal()
+    );
+    float room_cutout_opacity = physical_aperture_cutout_opacity(
+        camera_position_world,
+        surface_position_world,
+        physical_aperture_normal_world
+    );
+} in material(
+    geometry: material_geometry(
+        cutout_opacity: room_cutout_opacity
+    ),
     surface: material_surface(
         scattering: df::diffuse_reflection_bsdf(tint: fallback_colour)
     )

@@ -31,6 +31,7 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
     for phase in (
         "minimal",
         "shared_aperture",
+        "front_exit_cutout",
         "walls_geometry",
         "one_slice_lookup",
         "five_lookups",
@@ -41,6 +42,38 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
     assert "SHADER_NODE_COMPLETE" in observer
     assert "LOADING_HEARTBEAT" in observer
     assert "fixture_timeout" in observer
+    assert '"MDLC   comp error:"' in runner
+    assert '"Unable to find SdrShaderNode"' in runner
+    assert 'terminal = "COMPILE_ERROR"' in runner
+
+
+def test_minimal_compile_probe_covers_fail_open_binary_backface_cutout():
+    source = (KRM93_ROOT / "mdl_compile_minimal.mdl").read_text(
+        encoding="utf-8"
+    )
+    production_source = (
+        KRM93_ROOT.parents[1] / "src" / "mdl" / "room_map.mdl"
+    ).read_text(encoding="utf-8")
+
+    function_marker = "float physical_aperture_cutout_opacity("
+    probe_function_start = source.index(function_marker)
+    production_function_start = production_source.index(function_marker)
+    probe_function_end = source.index("\n\n", probe_function_start) + 2
+    production_function_end = (
+        production_source.index("\n\n", production_function_start) + 2
+    )
+
+    assert (
+        source[probe_function_start:probe_function_end]
+        == production_source[production_function_start:production_function_end]
+    )
+    assert "state::geometry_normal()" in source
+    assert "state::transform_normal(" in source
+    assert "bool facing_input_is_valid" in source
+    assert "!facing_input_is_valid || facing_cosine" in source
+    assert "? 1.0\n    : 0.0;" in source
+    assert "geometry: material_geometry(" in source
+    assert "cutout_opacity: room_cutout_opacity" in source
 
 
 def test_launcher_passes_the_stage_to_a_test_only_startup_extension():

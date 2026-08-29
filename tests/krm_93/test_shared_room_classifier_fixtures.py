@@ -6,6 +6,7 @@ import pytest
 from pxr import Usd, UsdGeom, UsdLux, UsdShade
 
 from tools.omniverse.shared_room_classifier import (
+    DERIVED_APERTURE_MASK_OFFSET_U,
     DERIVED_MAP_AXIS_U,
     DERIVED_MAP_AXIS_V,
     DERIVED_MAP_ORIGIN,
@@ -349,6 +350,37 @@ def test_omniverse_fixture_classifies_flat_corner_and_bay_rooms():
     assert _scaled_depth_extent(
         stage.GetPrimAtPath("/World/Building/Corner4x1")
     ) == pytest.approx((-1.0, 0.0))
+
+    corner_1x4 = UsdGeom.PrimvarsAPI(
+        stage.GetPrimAtPath("/World/Building/Corner1x4")
+    )
+    corner_1x4_origins = corner_1x4.GetPrimvar(DERIVED_MAP_ORIGIN).Get()
+    corner_1x4_axes = corner_1x4.GetPrimvar(DERIVED_MAP_AXIS_U).Get()
+    corner_1x4_mask_offsets = corner_1x4.GetPrimvar(
+        DERIVED_APERTURE_MASK_OFFSET_U
+    ).Get()
+    assert corner_1x4_origins[0][2] == pytest.approx(-1.0)
+    assert corner_1x4_axes[0][2] == pytest.approx(0.8)
+    assert (corner_1x4_origins[0][2] + corner_1x4_axes[0][2]) == pytest.approx(
+        -0.2
+    )
+    assert tuple(corner_1x4_mask_offsets) == pytest.approx(
+        (-0.1, 0.0, 0.0, 0.0, 0.0)
+    )
+
+    corner_4x1_origins = corner_4x1.GetPrimvar(DERIVED_MAP_ORIGIN).Get()
+    corner_4x1_axes = corner_4x1.GetPrimvar(DERIVED_MAP_AXIS_U).Get()
+    corner_4x1_mask_offsets = corner_4x1.GetPrimvar(
+        DERIVED_APERTURE_MASK_OFFSET_U
+    ).Get()
+    assert corner_4x1_origins[4][2] == pytest.approx(-0.1)
+    assert corner_4x1_axes[4][2] == pytest.approx(-0.8)
+    assert (corner_4x1_origins[4][2] + corner_4x1_axes[4][2]) == pytest.approx(
+        -0.9
+    )
+    assert tuple(corner_4x1_mask_offsets) == pytest.approx(
+        (0.0, 0.0, 0.0, 0.0, 0.2)
+    )
     corner_4x1_mesh = UsdGeom.Mesh(
         stage.GetPrimAtPath("/World/Building/Corner4x1")
     )

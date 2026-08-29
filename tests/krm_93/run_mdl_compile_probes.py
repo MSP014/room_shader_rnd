@@ -23,6 +23,12 @@ _SOURCE_ASSET_PATTERN = re.compile(
 )
 _TINT_EXPRESSION = "tint: composited_room_colour"
 _EMISSION_EXPRESSION = "intensity: composited_room_colour * emission_strength"
+_COMPILE_ERROR_PATTERNS = (
+    "MDLC   comp error:",
+    "Unable to find SdrShaderNode",
+    "Loading MdlModule to DB",
+    "USD_MDL (secondary thread)",
+)
 
 _PROBE_EXPRESSIONS = {
     "minimal": None,
@@ -43,6 +49,11 @@ _PROBE_EXPRESSIONS = {
         "saturate(math::abs(ray_direction.x)), "
         "saturate(math::abs(ray_direction.y)), "
         "saturate(math::abs(ray_direction.z)))"
+    ),
+    "front_exit_cutout": (
+        "front_exit_hits_primary_aperture "
+        "? color(0.0, 1.0, 0.0) "
+        ": color(1.0, 0.0, 0.0)"
     ),
     "shared_frame": (
         "color("
@@ -293,6 +304,8 @@ def _run_probe(
             else f"EXIT_{process.returncode}"
         ),
     )
+    if any(pattern in output for pattern in _COMPILE_ERROR_PATTERNS):
+        terminal = "COMPILE_ERROR"
     try:
         stage_path.unlink()
     except FileNotFoundError:

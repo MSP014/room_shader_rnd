@@ -8,9 +8,12 @@ from tools.omniverse import room_run_classifier as core_classifier_module
 from tools.omniverse import shared_room_classifier as classifier_module
 from tools.omniverse.room_run_classifier import classify_apertures
 from tools.omniverse.shared_room_classifier import (
+    DERIVED_APERTURE_MASK_OFFSET_U,
     DERIVED_MAP_AXIS_U,
     DERIVED_MAP_POSITION,
     DERIVED_MAPPING_VALID,
+    DERIVED_PRIMARY_APERTURE_MAX_U,
+    DERIVED_PRIMARY_APERTURE_MIN_U,
     DERIVED_ROOM_DEPTH_SIZE,
     DERIVED_ROOM_GROUP_ID,
     DERIVED_ROOM_PARAMETERS,
@@ -40,7 +43,7 @@ def test_runtime_contract_versions_are_synchronised():
         classifier_module._EXPECTED_CLASSIFIER_CONTRACT_VERSION,
         reload_room_map_runtime._CONTRACT_VERSION,
     }
-    assert versions == {"krm93_packed_mapping_v12"}
+    assert versions == {"krm93_exact_corner_mask_origin_v15"}
 
 
 def _window_stage(room_ids=(1, 1, 2, 1, 1)):
@@ -213,10 +216,46 @@ def test_session_sublayer_owns_only_derived_primvars_and_is_reversible():
     assert group_ids[3] == group_ids[4]
     assert group_ids[0] != group_ids[3]
     assert len(primvars.GetPrimvar(DERIVED_MAP_AXIS_U).Get()) == 5
+    primary_minimums = primvars.GetPrimvar(DERIVED_PRIMARY_APERTURE_MIN_U)
+    primary_maximums = primvars.GetPrimvar(DERIVED_PRIMARY_APERTURE_MAX_U)
+    assert primary_minimums.GetTypeName() == Sdf.ValueTypeNames.Float4Array
+    assert primary_maximums.GetTypeName() == Sdf.ValueTypeNames.Float4Array
+    assert primary_minimums.GetInterpolation() == UsdGeom.Tokens.uniform
+    assert primary_maximums.GetInterpolation() == UsdGeom.Tokens.uniform
+    expected_minimums = (
+        (0.0, 1.1 / 2.1, -1.0, -1.0),
+        (0.0, 1.1 / 2.1, -1.0, -1.0),
+        (0.0, -1.0, -1.0, -1.0),
+        (0.0, 1.1 / 2.1, -1.0, -1.0),
+        (0.0, 1.1 / 2.1, -1.0, -1.0),
+    )
+    expected_maximums = (
+        (1.0 / 2.1, 1.0, -1.0, -1.0),
+        (1.0 / 2.1, 1.0, -1.0, -1.0),
+        (1.0, -1.0, -1.0, -1.0),
+        (1.0 / 2.1, 1.0, -1.0, -1.0),
+        (1.0 / 2.1, 1.0, -1.0, -1.0),
+    )
+    for authored, expected in zip(
+        primary_minimums.Get(),
+        expected_minimums,
+        strict=True,
+    ):
+        assert tuple(authored) == pytest.approx(expected)
+    for authored, expected in zip(
+        primary_maximums.Get(),
+        expected_maximums,
+        strict=True,
+    ):
+        assert tuple(authored) == pytest.approx(expected)
     slice_start_primvar = primvars.GetPrimvar(DERIVED_SLICE_START_DEPTH)
     assert slice_start_primvar.GetTypeName() == Sdf.ValueTypeNames.FloatArray
     assert slice_start_primvar.GetInterpolation() == UsdGeom.Tokens.uniform
     assert tuple(slice_start_primvar.Get()) == (0.0,) * 5
+    mask_offset_primvar = primvars.GetPrimvar(DERIVED_APERTURE_MASK_OFFSET_U)
+    assert mask_offset_primvar.GetTypeName() == Sdf.ValueTypeNames.FloatArray
+    assert mask_offset_primvar.GetInterpolation() == UsdGeom.Tokens.uniform
+    assert tuple(mask_offset_primvar.Get()) == (0.0,) * 5
     room_parameters = primvars.GetPrimvar(DERIVED_ROOM_PARAMETERS)
     assert room_parameters.GetTypeName() == Sdf.ValueTypeNames.Float3Array
     assert room_parameters.GetInterpolation() == UsdGeom.Tokens.uniform
@@ -905,20 +944,58 @@ def test_mdl_consumes_direct_shared_mapping_with_the_existing_lookup_budget():
     assert source.count("tex::lookup_float4(") == 5
 
 
-def test_mdl_keeps_aperture_culling_out_of_the_material_program():
+def test_mdl_uses_binary_physical_and_corner_front_exit_cutouts():
     source = MDL_PATH.read_text(encoding="utf-8")
 
     assert "bool point_is_in_room_depth(" not in source
     assert "bool back_hit_is_in_room_extent =" not in source
     assert "candidate_back_distance" not in source
-    assert "front_exit" not in source
-    assert "visible_room_limit_distance" not in source
-    assert source.count("<= room_hit_distance") == 4
     assert "physical_aperture_tangent_u_world" not in source
-    assert "physical_aperture_normal_world" not in source
-    assert "physical_aperture_is_back_facing" not in source
-    assert "room_cutout_opacity" not in source
-    assert "open_exit_has_visible_slice" not in source
-    assert "geometry: material_geometry(" not in source
-    assert "cutout_opacity" not in source
+    assert "float physical_aperture_cutout_opacity(" in source
+    assert "state::geometry_normal()" in source
+    assert "state::transform_normal(" in source
+    assert "float3 physical_aperture_normal_world" in source
+    assert "bool facing_input_is_valid" in source
+    assert "!facing_input_is_valid || facing_cosine" in source
+    assert "? 1.0\n    : 0.0;" in source
+    assert "float physical_surface_cutout_opacity =" in source
+    assert "bool front_exit_ray_is_valid = depth_aligned_portal" in source
+    assert "float3 aperture_mask_scaled_position =" in source
+    assert '"ormsApertureMaskOffsetU"' in source
+    assert "float3(aperture_mask_offset_u, 0.0, 0.0)" in source
+    assert "float3 aperture_mask_ray_origin = float3(" in source
+    assert "aperture_mask_scaled_position.z" in source
+    assert "aperture_mask_ray_origin.z" in source
+    assert "aperture_mask_ray_origin + front_exit_distance" in source
+    assert "float front_exit_distance =" in source
+    assert "bool front_exit_is_open =" in source
+    assert "front_exit_distance < room_hit_distance" not in source
+    assert source.count("data_lookup_float4(") == 2
+    assert '"ormsPrimaryApertureMinU"' in source
+    assert '"ormsPrimaryApertureMaxU"' in source
+    assert "int primary_aperture_count = math::max(" not in source
+    assert "bool coordinate_is_in_primary_aperture_intervals(" in source
+    assert "float mullion_half_width = 0.035" not in source
+    assert (
+        "bool front_exit_hits_primary_aperture = front_exit_is_open" in source
+    )
+    assert source.count("coordinate_is_in_primary_aperture_intervals(") == 2
+    assert source.count("<= room_hit_distance") == 4
+    assert "visible_room_limit_distance" not in source
+    assert "float virtual_front_cutout_opacity =" in source
+    assert "bool front_exit_has_slice_surface" not in source
+    assert (
+        "float room_cutout_opacity = physical_surface_cutout_opacity" in source
+    )
+    assert "* virtual_front_cutout_opacity" in source
+    assert (
+        "color composited_room_colour = front_exit_hits_primary_aperture"
+        in source
+    )
+    assert "thin_walled: true" not in source
+    assert "mode: df::scatter_transmit" not in source
+    assert "scattering: df::diffuse_reflection_bsdf(" in source
+    assert "intensity: composited_room_colour * emission_strength" in source
+    assert "geometry: material_geometry(" in source
+    assert "cutout_opacity: room_cutout_opacity" in source
     assert source.count("tex::lookup_float4(") == 5

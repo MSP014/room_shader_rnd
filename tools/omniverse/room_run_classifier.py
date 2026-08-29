@@ -15,8 +15,9 @@ from dataclasses import dataclass
 from typing import Iterable
 
 Vector3 = tuple[float, float, float]
+Float4 = tuple[float, float, float, float]
 
-CLASSIFIER_CONTRACT_VERSION = "krm93_packed_mapping_v12"
+CLASSIFIER_CONTRACT_VERSION = "krm93_exact_corner_mask_origin_v15"
 
 _EPSILON = 1.0e-8
 _DERIVED_ID_LIMIT = 2_147_483_647
@@ -90,6 +91,9 @@ class DerivedApertureMapping:
     map_axis_u: Vector3
     map_axis_v: Vector3
     mapping_valid: bool
+    primary_aperture_min_u: Float4 = (0.0, -1.0, -1.0, -1.0)
+    primary_aperture_max_u: Float4 = (1.0, -1.0, -1.0, -1.0)
+    aperture_mask_offset_u: float = 0.0
     slice_start_depth: float = 0.0
     fallback_state: str | None = None
 
@@ -126,6 +130,41 @@ def _multiply(vector: Vector3, scalar: float) -> Vector3:
 
 def _dot(left: Vector3, right: Vector3) -> float:
     return sum(a * b for a, b in zip(left, right))
+
+
+def _normalised_aperture_intervals(
+    apertures: tuple[ApertureDescriptor, ...],
+    room_axis_u: Vector3,
+    group_min_u: float,
+    group_width: float,
+) -> tuple[Float4, Float4]:
+    """Pack up to four real aperture spans into the logical room width."""
+
+    intervals = []
+    for aperture in apertures:
+        centre_u = _dot(aperture.centre_metres, room_axis_u)
+        half_width_u = 0.5 * _dot(
+            aperture.tangent_u_metres,
+            room_axis_u,
+        )
+        endpoint_a = centre_u - half_width_u
+        endpoint_b = centre_u + half_width_u
+        minimum = (min(endpoint_a, endpoint_b) - group_min_u) / group_width
+        maximum = (max(endpoint_a, endpoint_b) - group_min_u) / group_width
+        intervals.append(
+            (
+                min(max(minimum, 0.0), 1.0),
+                min(max(maximum, 0.0), 1.0),
+            )
+        )
+    intervals.sort()
+    intervals = intervals[:4]
+    while len(intervals) < 4:
+        intervals.append((-1.0, -1.0))
+    return (
+        tuple(interval[0] for interval in intervals),  # type: ignore[return-value]
+        tuple(interval[1] for interval in intervals),  # type: ignore[return-value]
+    )
 
 
 def _cross(left: Vector3, right: Vector3) -> Vector3:
@@ -582,12 +621,45 @@ def _corner_group_mappings(
     primary_apertures = tuple(
         aperture_by_index[index] for index in primary_indices
     )
+    secondary_apertures = tuple(
+        aperture_by_index[index] for index in secondary_indices
+    )
     room_axis_u, room_axis_v, _reference_indices = _shared_room_basis(
         primary_apertures,
         up_axis,
     )
     room_normal = _normalise(_cross(room_axis_u, room_axis_v))
     room_interior_axis = _multiply(room_normal, -1.0)
+    primary_centre = _multiply(
+        tuple(
+            sum(
+                aperture.centre_metres[component]
+                for aperture in primary_apertures
+            )
+            for component in range(3)
+        ),
+        1.0 / len(primary_apertures),
+    )
+    secondary_centre = _multiply(
+        tuple(
+            sum(
+                aperture.centre_metres[component]
+                for aperture in secondary_apertures
+            )
+            for component in range(3)
+        ),
+        1.0 / len(secondary_apertures),
+    )
+    if (
+        _dot(
+            _subtract(secondary_centre, primary_centre),
+            room_interior_axis,
+        )
+        < 0.0
+    ):
+        room_axis_u = _multiply(room_axis_u, -1.0)
+        room_normal = _normalise(_cross(room_axis_u, room_axis_v))
+        room_interior_axis = _multiply(room_normal, -1.0)
 
     primary_u_endpoints = tuple(
         _dot(aperture.centre_metres, room_axis_u)
@@ -599,6 +671,14 @@ def _corner_group_mappings(
     group_max_u = max(primary_u_endpoints)
     group_centre_u = (group_min_u + group_max_u) * 0.5
     group_width = max(group_max_u - group_min_u, _EPSILON)
+    primary_aperture_min_u, primary_aperture_max_u = (
+        _normalised_aperture_intervals(
+            primary_apertures,
+            room_axis_u,
+            group_min_u,
+            group_width,
+        )
+    )
 
     all_v_endpoints = tuple(
         _dot(aperture.centre_metres, room_axis_v)
@@ -611,18 +691,19 @@ def _corner_group_mappings(
     group_centre_v = (group_min_v + group_max_v) * 0.5
     group_height = max(group_max_v - group_min_v, _EPSILON)
 
-    secondary_apertures = tuple(
-        aperture_by_index[index] for index in secondary_indices
-    )
+    primary_plane_coordinate = sum(
+        _dot(aperture.centre_metres, room_interior_axis)
+        for aperture in primary_apertures
+    ) / len(primary_apertures)
     secondary_depth_endpoints = tuple(
         _dot(aperture.centre_metres, room_interior_axis)
         + sign * 0.5 * _dot(aperture.tangent_u_metres, room_interior_axis)
+        - primary_plane_coordinate
         for aperture in secondary_apertures
         for sign in (-1.0, 1.0)
     )
-    group_min_depth = min(secondary_depth_endpoints)
     group_max_depth = max(secondary_depth_endpoints)
-    group_depth = max(group_max_depth - group_min_depth, _EPSILON)
+    group_depth = max(group_max_depth, _EPSILON)
 
     primary_corner_index = (
         primary_indices[-1] if primary_is_first else primary_indices[0]
@@ -644,6 +725,15 @@ def _corner_group_mappings(
         if connected_u < group_centre_u
         else 0.5 * group_width
     )
+    physical_side_coordinate = (
+        sum(
+            _dot(aperture.centre_metres, room_axis_u)
+            for aperture in secondary_apertures
+        )
+        / len(secondary_apertures)
+        - group_centre_u
+    )
+    aperture_mask_offset_u = physical_side_coordinate - side_coordinate
 
     room_size = len(primary_indices)
     room_depth_size = len(secondary_indices)
@@ -684,6 +774,8 @@ def _corner_group_mappings(
                 map_axis_u=(axis_u, 0.0, 0.0),
                 map_axis_v=(0.0, axis_v, 0.0),
                 mapping_valid=True,
+                primary_aperture_min_u=primary_aperture_min_u,
+                primary_aperture_max_u=primary_aperture_max_u,
             )
         )
 
@@ -697,7 +789,7 @@ def _corner_group_mappings(
                 ),
                 room_interior_axis,
             )
-            - group_min_depth
+            - primary_plane_coordinate
         )
         depth_axis = _dot(
             aperture.tangent_u_metres,
@@ -727,6 +819,9 @@ def _corner_group_mappings(
                 map_axis_u=(0.0, 0.0, -depth_axis),
                 map_axis_v=(0.0, axis_v, 0.0),
                 mapping_valid=True,
+                primary_aperture_min_u=primary_aperture_min_u,
+                primary_aperture_max_u=primary_aperture_max_u,
+                aperture_mask_offset_u=aperture_mask_offset_u,
             )
         )
     return tuple(mappings)
@@ -811,6 +906,14 @@ def _group_mappings(
     group_centre_v = (group_min_v + group_max_v) * 0.5
     group_width = max(group_max_u - group_min_u, _EPSILON)
     group_height = max(group_max_v - group_min_v, _EPSILON)
+    primary_aperture_min_u, primary_aperture_max_u = (
+        _normalised_aperture_intervals(
+            group_apertures,
+            room_axis_u,
+            group_min_u,
+            group_width,
+        )
+    )
     room_scale = (
         room_size / group_width,
         1.0 / group_height,
@@ -862,6 +965,8 @@ def _group_mappings(
                 map_axis_u=axis_u,
                 map_axis_v=axis_v,
                 mapping_valid=True,
+                primary_aperture_min_u=primary_aperture_min_u,
+                primary_aperture_max_u=primary_aperture_max_u,
                 slice_start_depth=slice_start_depth,
             )
         )

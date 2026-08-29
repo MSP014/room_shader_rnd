@@ -26,6 +26,27 @@ float positive_extent(float value)
     return math::max(value, room_map_epsilon());
 }
 
+float physical_aperture_cutout_opacity(
+    float3 camera_position_world,
+    float3 surface_position_world,
+    float3 physical_aperture_normal_world
+) = let {
+    float3 camera_from_surface =
+        camera_position_world - surface_position_world;
+    float camera_distance = math::length(camera_from_surface);
+    float normal_length = math::length(physical_aperture_normal_world);
+    bool facing_input_is_valid = camera_distance > room_map_epsilon()
+        && normal_length > room_map_epsilon();
+    float facing_cosine = facing_input_is_valid
+        ? math::dot(
+            camera_from_surface / camera_distance,
+            physical_aperture_normal_world / normal_length
+        )
+        : 1.0;
+} in !facing_input_is_valid || facing_cosine > room_map_epsilon()
+    ? 1.0
+    : 0.0;
+
 int positive_modulo(int value, int divisor)
 {
     int remainder = value % divisor;
@@ -212,6 +233,50 @@ bool point_is_in_room_extent(
         && point.y <= room_height;
 }
 
+bool coordinate_x_is_in_aperture_interval(
+    float coordinate_x,
+    float minimum_u,
+    float maximum_u
+)
+{
+    return minimum_u >= 0.0
+        && maximum_u >= minimum_u
+        && coordinate_x >= minimum_u
+        && coordinate_x <= maximum_u;
+}
+
+bool coordinate_is_in_primary_aperture_intervals(
+    float2 coordinate,
+    float4 aperture_minimum_u,
+    float4 aperture_maximum_u
+)
+{
+    return coordinate.y >= 0.0
+        && coordinate.y <= 1.0
+        && (
+            coordinate_x_is_in_aperture_interval(
+                coordinate.x,
+                aperture_minimum_u.x,
+                aperture_maximum_u.x
+            )
+            || coordinate_x_is_in_aperture_interval(
+                coordinate.x,
+                aperture_minimum_u.y,
+                aperture_maximum_u.y
+            )
+            || coordinate_x_is_in_aperture_interval(
+                coordinate.x,
+                aperture_minimum_u.z,
+                aperture_maximum_u.z
+            )
+            || coordinate_x_is_in_aperture_interval(
+                coordinate.x,
+                aperture_minimum_u.w,
+                aperture_maximum_u.w
+            )
+        );
+}
+
 bool coordinate_is_in_unit_tile(float2 coordinate)
 {
     return coordinate.x >= 0.0
@@ -305,6 +370,21 @@ export material room_map(
             "ormsRoomMapPosition",
             float3(0.0)
         );
+    float4 primary_aperture_minimum_u =
+        nvidia::support_definitions::data_lookup_float4(
+            "ormsPrimaryApertureMinU",
+            float4(0.0, -1.0, -1.0, -1.0)
+        );
+    float4 primary_aperture_maximum_u =
+        nvidia::support_definitions::data_lookup_float4(
+            "ormsPrimaryApertureMaxU",
+            float4(1.0, -1.0, -1.0, -1.0)
+        );
+    float aperture_mask_offset_u =
+        nvidia::support_definitions::data_lookup_float(
+            "ormsApertureMaskOffsetU",
+            0.0
+        );
     int active_room_size = derived_room_size;
     int active_room_depth_size = derived_room_depth_size;
     float3 safe_room_scale = float3(
@@ -332,6 +412,16 @@ export material room_map(
         state::coordinate_internal,
         state::coordinate_world,
         state::position()
+    );
+    float3 physical_aperture_normal_world = state::transform_normal(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::geometry_normal()
+    );
+    float physical_surface_cutout_opacity = physical_aperture_cutout_opacity(
+        camera_position_world,
+        surface_position_world,
+        physical_aperture_normal_world
     );
     float3 camera_from_room = camera_position_world - room_position;
     float3 surface_from_room = surface_position_world - room_position;
@@ -366,6 +456,14 @@ export material room_map(
         window_aperture_offset
     );
     float3 ray_origin = shared_ray_origin;
+    float3 aperture_mask_scaled_position =
+        (derived_map_position + float3(aperture_mask_offset_u, 0.0, 0.0))
+        * safe_room_scale * safe_room_extent;
+    float3 aperture_mask_ray_origin = float3(
+        aperture_mask_scaled_position.x + 0.5 * safe_room_width,
+        aperture_mask_scaled_position.y + 0.5 * safe_room_height,
+        aperture_mask_scaled_position.z
+    );
     bool has_bay_extension = bay_extension_depth > room_map_epsilon();
     bool bay_ray_points_inward = ray_direction.z < -room_map_epsilon();
     float throat_projection_distance = has_bay_extension
@@ -395,6 +493,33 @@ export material room_map(
     );
     float2 room_atlas_coordinate = float2(room_trace.x, room_trace.y);
     float room_hit_distance = room_trace.z;
+    bool front_exit_ray_is_valid = depth_aligned_portal
+        && ray_direction.z > room_map_epsilon();
+    float front_exit_distance = front_exit_ray_is_valid
+        ? positive_plane_distance(
+            0.0,
+            aperture_mask_ray_origin.z,
+            ray_direction.z
+        )
+        : room_map_far_distance();
+    float3 front_exit_point =
+        aperture_mask_ray_origin + front_exit_distance * ray_direction;
+    bool front_exit_is_open = front_exit_ray_is_valid
+        && point_is_in_room_extent(
+            front_exit_point,
+            safe_room_width,
+            safe_room_height
+        );
+    float2 front_exit_coordinate = float2(
+        front_exit_point.x / safe_room_width,
+        front_exit_point.y / safe_room_height
+    );
+    bool front_exit_hits_primary_aperture = front_exit_is_open
+        && coordinate_is_in_primary_aperture_intervals(
+            front_exit_coordinate,
+            primary_aperture_minimum_u,
+            primary_aperture_maximum_u
+        );
     float4 room_sample = tex::lookup_float4(
         room_atlas,
         udim_atlas_coordinate(room_atlas_coordinate, variant_index),
@@ -594,13 +719,22 @@ export material room_map(
         * (1.0 - slice_3_opacity);
     float room_transmittance = slice_4_transmittance
         * (1.0 - slice_4_opacity);
+    float virtual_front_cutout_opacity = front_exit_hits_primary_aperture
+        ? 0.0
+        : 1.0;
+    float room_cutout_opacity = physical_surface_cutout_opacity
+        * virtual_front_cutout_opacity;
     color composited_slice_colour = slice_1_colour * slice_1_opacity
         + slice_2_colour * slice_2_opacity * slice_2_transmittance
         + slice_3_colour * slice_3_opacity * slice_3_transmittance
         + slice_4_colour * slice_4_opacity * slice_4_transmittance;
-    color composited_room_colour = room_colour * room_transmittance
-        + composited_slice_colour;
+    color composited_room_colour = front_exit_hits_primary_aperture
+        ? composited_slice_colour
+        : room_colour * room_transmittance + composited_slice_colour;
 } in material(
+    geometry: material_geometry(
+        cutout_opacity: room_cutout_opacity
+    ),
     surface: material_surface(
         scattering: df::diffuse_reflection_bsdf(
             tint: composited_room_colour
