@@ -19,7 +19,7 @@ proof.
 | [006 — Depth Slices](006_depth_slices.md) | KRM-89 | Four analytic alpha depth slices | Renderer-validated |
 | [007 — Room Variants](007_room_variants.md) | KRM-90 | Deterministic roomID-to-UDIM selection | Renderer-validated |
 | [008 — Window Apertures](008_window_apertures.md) | KRM-94 | Physical aperture scale and offset | Renderer-validated |
-| [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Automated evidence complete; renderer validation pending |
+| [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Renderer-validated; final repository quality gate reserved for pre-commit |
 
 ## Record contract
 

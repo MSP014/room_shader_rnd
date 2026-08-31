@@ -8,7 +8,14 @@ from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
 
-_CONTRACT_VERSION = "krm93_exact_corner_mask_origin_v15"
+_CONTRACT_VERSION = "shared_room_runtime_v46"
+_RUNTIME_CAMERA_INPUT_PATHS = (
+    "/World.primvars:ormsCameraPositionWorld",
+) + tuple(
+    f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader"
+    ".inputs:camera_position_world"
+    for room_size in range(1, 5)
+)
 
 
 def _stop_loaded_module(name: str) -> None:
@@ -111,7 +118,7 @@ def reload_and_start(repository_root: str | Path):
         source_paths["camera_position_bridge"],
     )
     shared.log_room_map_warning(
-        owner="KRM-93 CLASSIFIER",
+        owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME SOURCE LOAD",
         state="SOURCE_MODULES_LOADED",
         details={
@@ -122,6 +129,46 @@ def reload_and_start(repository_root: str | Path):
             "stage_load_probe": stage_probe.__file__,
         },
     )
+    import omni.usd
+
+    stage = omni.usd.get_context().get_stage()
+    initial_camera_position = bridge.active_camera_world_position(stage)
+    camera_primvar_preexisting = bool(
+        stage is not None and shared.camera_position_primvar_exists(stage)
+    )
+    if stage is not None and initial_camera_position is not None:
+        camera_primvar_path = shared.seed_camera_position_primvar(
+            stage,
+            initial_camera_position,
+        )
+        shared.log_room_map_warning(
+            owner="CAMERA POSITION BRIDGE",
+            process="INITIAL CAMERA POSITION SEED",
+            state="ACTIVE",
+            details={
+                "attribute_path": camera_primvar_path or "unavailable",
+                "world_position": initial_camera_position,
+                "before_classifier_start": True,
+                "preexisting_before_runtime": camera_primvar_preexisting,
+                "source_contract": (
+                    "predeclared"
+                    if camera_primvar_preexisting
+                    else "late_runtime_authored"
+                ),
+            },
+        )
+    else:
+        shared.log_room_map_warning(
+            owner="CAMERA POSITION BRIDGE",
+            process="INITIAL CAMERA POSITION SEED",
+            state="UNAVAILABLE",
+            details={
+                "stage_available": stage is not None,
+                "camera_available": initial_camera_position is not None,
+                "before_classifier_start": True,
+                "preexisting_before_runtime": camera_primvar_preexisting,
+            },
+        )
     classifier = shared.start(root)
     classification = classifier.last_classification
     corner_summaries = []
@@ -206,7 +253,7 @@ def reload_and_start(repository_root: str | Path):
                 f"side_u_offsets_m={side_u_offsets_metres}"
             )
     shared.log_room_map_warning(
-        owner="KRM-93 CLASSIFIER",
+        owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME SOURCE LOAD",
         state="CORNER_BOXES_AUTHORED",
         details={
@@ -214,7 +261,7 @@ def reload_and_start(repository_root: str | Path):
             "corners": "; ".join(corner_summaries),
         },
     )
-    camera_bridge = bridge.start()
+    camera_bridge = bridge.start(_RUNTIME_CAMERA_INPUT_PATHS)
     return classifier, camera_bridge
 
 

@@ -21,6 +21,9 @@ from queue import Empty, Queue
 _SOURCE_ASSET_PATTERN = re.compile(
     r"uniform asset info:mdl:sourceAsset = @[^@]+@"
 )
+_SOURCE_SUB_IDENTIFIER_PATTERN = re.compile(
+    r'uniform token info:mdl:sourceAsset:subIdentifier = "[^"]+"'
+)
 _TINT_EXPRESSION = "tint: composited_room_colour"
 _EMISSION_EXPRESSION = "intensity: composited_room_colour * emission_strength"
 _COMPILE_ERROR_PATTERNS = (
@@ -74,14 +77,8 @@ _PROBE_EXPRESSIONS = {
         "saturate(slice_1_local_coordinate.y), "
         "slice_1_is_visible ? 1.0 : 0.0)"
     ),
-    "one_slice_lookup": (
-        "room_colour * (1.0 - slice_1_opacity) "
-        "+ slice_1_colour * slice_1_opacity"
-    ),
-    "five_lookups": (
-        "(room_colour + slice_1_colour + slice_2_colour "
-        "+ slice_3_colour + slice_4_colour) / 5.0"
-    ),
+    "one_slice_lookup": "composited_slice_colour",
+    "five_lookups": ("(room_colour + composited_slice_colour) / 2.0"),
     "full_emission_only": "composited_room_colour",
     "full_diffuse_only": "composited_room_colour",
     "full_composition": "composited_room_colour",
@@ -125,7 +122,10 @@ def _write_probe_assets(
     expression = _PROBE_EXPRESSIONS[probe_name]
     if expression is None:
         mdl_source = (
-            repository_root / "tests" / "krm_93" / "mdl_compile_minimal.mdl"
+            repository_root
+            / "tests"
+            / "shared_room_runtime"
+            / "mdl_compile_minimal.mdl"
         ).read_text(encoding="utf-8")
     else:
         tint_expression = expression
@@ -146,7 +146,7 @@ def _write_probe_assets(
     fixture_path = (
         repository_root
         / "tests"
-        / "krm_93"
+        / "shared_room_runtime"
         / "test_room_map_shared_rooms_omniverse.usda"
     )
     stage_source = fixture_path.read_text(encoding="utf-8")
@@ -159,6 +159,15 @@ def _write_probe_assets(
     if replacement_count != 1:
         raise RuntimeError(
             "Fixture MDL sourceAsset was not replaced exactly once"
+        )
+    stage_source, replacement_count = _SOURCE_SUB_IDENTIFIER_PATTERN.subn(
+        'uniform token info:mdl:sourceAsset:subIdentifier = "room_map"',
+        stage_source,
+        count=1,
+    )
+    if replacement_count != 1:
+        raise RuntimeError(
+            "Fixture MDL sourceAsset subIdentifier was not replaced exactly once"
         )
 
     # Keep the generated stage beside the source fixture so all existing
@@ -193,9 +202,14 @@ def _run_probe(
         / "apps"
         / "msp.case03.blackwell.kit"
     )
-    extension_folder = repository_root / "tests" / "krm_93" / "kit_exts"
+    extension_folder = (
+        repository_root / "tests" / "shared_room_runtime" / "kit_exts"
+    )
     observer_path = (
-        repository_root / "tests" / "krm_93" / "mdl_compile_probe_observer.py"
+        repository_root
+        / "tests"
+        / "shared_room_runtime"
+        / "mdl_compile_probe_observer.py"
     )
     command = [
         str(kit_executable),
@@ -203,10 +217,10 @@ def _run_probe(
         "--ext-folder",
         str(extension_folder),
         "--enable",
-        "msp.orms.krm93.fixture_launcher",
+        "msp.orms.fixture_launcher",
         "--/app/content/emptyStageOnStart=true",
         (
-            "--/exts/msp.orms.krm93.fixture_launcher/stagePath="
+            "--/exts/msp.orms.fixture_launcher/stagePath="
             + stage_path.resolve().as_posix()
         ),
         "--/app/window/enabled=false",
@@ -216,11 +230,9 @@ def _run_probe(
     environment = os.environ.copy()
     environment.update(
         {
-            "KRM93_COMPILE_PROBE_NAME": probe_name,
-            "KRM93_COMPILE_PROBE_STAGE": stage_path.name.lower(),
-            "KRM93_COMPILE_PROBE_TIMEOUT_SECONDS": str(
-                fixture_timeout_seconds
-            ),
+            "ORMS_COMPILE_PROBE_NAME": probe_name,
+            "ORMS_COMPILE_PROBE_STAGE": stage_path.name.lower(),
+            "ORMS_COMPILE_PROBE_TIMEOUT_SECONDS": str(fixture_timeout_seconds),
         }
     )
     log_path = temporary_directory / f"{probe_name}.log"
@@ -258,7 +270,7 @@ def _run_probe(
         if line is None:
             break
         output_lines.append(line)
-        if "KRM93_COMPILE_PROBE" in line and any(
+        if "ORMS_COMPILE_PROBE" in line and any(
             f"state={state}" in line
             for state in ("COMPLETE", "TIMEOUT", "OBSERVER_TIMEOUT")
         ):
@@ -280,7 +292,7 @@ def _run_probe(
         if line is not None:
             output_lines.append(line)
     if not terminal_marker_seen and time.monotonic() >= process_deadline:
-        output_lines.append("KRM93_COMPILE_PROBE state=PROCESS_KILLED\n")
+        output_lines.append("ORMS_COMPILE_PROBE state=PROCESS_KILLED\n")
     output = "".join(output_lines)
     duration = time.monotonic() - started_at
     log_path.write_text(output, encoding="utf-8")
@@ -288,7 +300,7 @@ def _run_probe(
     marker_lines = [
         line.strip()
         for line in output.splitlines()
-        if "KRM93_COMPILE_PROBE" in line
+        if "ORMS_COMPILE_PROBE" in line
     ]
     for line in marker_lines:
         print(line, flush=True)
@@ -325,7 +337,10 @@ def main() -> int:
     parser.add_argument(
         "--keep-logs",
         action="store_true",
-        help="Retain complete Kit logs under tests/krm_93/compile_probe_logs.",
+        help=(
+            "Retain complete Kit logs under "
+            "tests/shared_room_runtime/compile_probe_logs."
+        ),
     )
     parser.add_argument(
         "--probe",
@@ -338,7 +353,7 @@ def main() -> int:
     probe_names = arguments.probe or list(_PROBE_EXPRESSIONS)
     results: list[tuple[str, str, float, Path | None]] = []
 
-    runtime_parent = repository_root / "tests" / "krm_93"
+    runtime_parent = repository_root / "tests" / "shared_room_runtime"
     with tempfile.TemporaryDirectory(
         prefix="_mdl_compile_probe_runtime_",
         dir=runtime_parent,
@@ -346,7 +361,7 @@ def main() -> int:
         temporary_directory = Path(raw)
         for probe_name in probe_names:
             print(
-                "KRM93_COMPILE_BISECTION"
+                "ORMS_COMPILE_BISECTION"
                 f" state=PROBE_BEGIN probe={probe_name}",
                 flush=True,
             )
@@ -361,7 +376,10 @@ def main() -> int:
             durable_log_path = None
             if arguments.keep_logs:
                 log_directory = (
-                    repository_root / "tests" / "krm_93" / "compile_probe_logs"
+                    repository_root
+                    / "tests"
+                    / "shared_room_runtime"
+                    / "compile_probe_logs"
                 )
                 log_directory.mkdir(exist_ok=True)
                 durable_log_path = log_directory / f"{probe_name}.log"
@@ -371,14 +389,14 @@ def main() -> int:
                 )
             results.append((probe_name, terminal, duration, durable_log_path))
             print(
-                "KRM93_COMPILE_BISECTION"
+                "ORMS_COMPILE_BISECTION"
                 f" state=PROBE_END probe={probe_name}"
                 f" result={terminal} process_seconds={duration:.3f}"
                 f" log={durable_log_path or 'not_retained'}",
                 flush=True,
             )
 
-    print("KRM93_COMPILE_BISECTION state=SUMMARY", flush=True)
+    print("ORMS_COMPILE_BISECTION state=SUMMARY", flush=True)
     for probe_name, terminal, duration, log_path in results:
         print(
             f"probe={probe_name} result={terminal}"

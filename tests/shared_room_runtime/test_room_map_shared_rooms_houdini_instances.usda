@@ -1,0 +1,46 @@
+#usda 1.0
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Referenced and instanceable Houdini-exported geometry"
+        string "orms:houdiniExport" = "assets/_external/usd/test_bld/test_bld.usd"
+        string "orms:instanceSource" = "tests/shared_room_runtime/test_room_map_shared_rooms_houdini_instance_source.usda"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    float3 primvars:ormsCameraPositionWorld = (8, 3, 5) (
+        interpolation = "constant"
+    )
+
+    def DomeLight "RoomMapEnvironment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Xform "HoudiniBuildingA" (
+        instanceable = true
+        prepend references = @test_room_map_shared_rooms_houdini_instance_source.usda@</HoudiniBuilding>
+    )
+    {
+        double3 xformOp:translate = (-3, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+
+    def Xform "HoudiniBuildingB" (
+        instanceable = true
+        prepend references = @test_room_map_shared_rooms_houdini_instance_source.usda@</HoudiniBuilding>
+    )
+    {
+        double3 xformOp:translate = (3, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

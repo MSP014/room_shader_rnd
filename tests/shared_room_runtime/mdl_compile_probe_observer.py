@@ -1,4 +1,4 @@
-"""Headless observer used by the KRM-93 MDL compile bisection."""
+"""Headless observer used by the Room Map MDL compile bisection."""
 
 import asyncio
 import os
@@ -12,10 +12,10 @@ async def _monitor() -> None:
     app = omni.kit.app.get_app()
     context = omni.usd.get_context()
     started_at = time.monotonic()
-    probe_name = os.environ.get("KRM93_COMPILE_PROBE_NAME", "unnamed")
-    expected_stage = os.environ.get("KRM93_COMPILE_PROBE_STAGE", "").lower()
+    probe_name = os.environ.get("ORMS_COMPILE_PROBE_NAME", "unnamed")
+    expected_stage = os.environ.get("ORMS_COMPILE_PROBE_STAGE", "").lower()
     fixture_timeout = float(
-        os.environ.get("KRM93_COMPILE_PROBE_TIMEOUT_SECONDS", "35")
+        os.environ.get("ORMS_COMPILE_PROBE_TIMEOUT_SECONDS", "35")
     )
     saw_fixture = False
     saw_pending = False
@@ -28,7 +28,7 @@ async def _monitor() -> None:
     idle_since = None
 
     print(
-        "KRM93_COMPILE_PROBE"
+        "ORMS_COMPILE_PROBE"
         f" state=OBSERVER_STARTED probe={probe_name}"
         f" fixture_timeout_seconds={fixture_timeout:.1f}"
     )
@@ -47,7 +47,7 @@ async def _monitor() -> None:
                 last_progress_at = now
                 last_heartbeat_at = now
                 print(
-                    "KRM93_COMPILE_PROBE"
+                    "ORMS_COMPILE_PROBE"
                     f" state=STAGE_DETECTED probe={probe_name}"
                     f" process_elapsed_ms={(now - started_at) * 1000.0:.3f}"
                     f" stage_identifier={identifier}"
@@ -70,7 +70,7 @@ async def _monitor() -> None:
                     shader_node_started_at = now
                     shader_node_message = message
                     print(
-                        "KRM93_COMPILE_PROBE"
+                        "ORMS_COMPILE_PROBE"
                         f" state=SHADER_NODE_BEGIN probe={probe_name}"
                         f" fixture_elapsed_ms={(now - fixture_started_at) * 1000.0:.3f}"
                         f" shader_node={message}"
@@ -82,7 +82,7 @@ async def _monitor() -> None:
                 and previous_status[3]
             ):
                 print(
-                    "KRM93_COMPILE_PROBE"
+                    "ORMS_COMPILE_PROBE"
                     f" state=SHADER_NODE_COMPLETE probe={probe_name}"
                     f" shader_node_ms={(now - shader_node_started_at) * 1000.0:.3f}"
                     f" shader_node={shader_node_message}"
@@ -93,7 +93,7 @@ async def _monitor() -> None:
                 else "not_observed"
             )
             print(
-                "KRM93_COMPILE_PROBE"
+                "ORMS_COMPILE_PROBE"
                 f" state=LOADING_STATUS_CHANGED probe={probe_name}"
                 f" fixture_elapsed_ms={(now - fixture_started_at) * 1000.0:.3f}"
                 f" pending={pending} files_loaded={files_loaded}"
@@ -104,7 +104,7 @@ async def _monitor() -> None:
         if saw_fixture and now - last_heartbeat_at >= 15.0:
             last_heartbeat_at = now
             print(
-                "KRM93_COMPILE_PROBE"
+                "ORMS_COMPILE_PROBE"
                 f" state=LOADING_HEARTBEAT probe={probe_name}"
                 f" fixture_elapsed_ms={(now - fixture_started_at) * 1000.0:.3f}"
                 f" stalled_ms={(now - last_progress_at) * 1000.0:.3f}"
@@ -119,7 +119,7 @@ async def _monitor() -> None:
             idle_since = idle_since or time.monotonic()
             if time.monotonic() - idle_since >= 3.0:
                 print(
-                    "KRM93_COMPILE_PROBE"
+                    "ORMS_COMPILE_PROBE"
                     f" state=COMPLETE probe={probe_name}"
                     f" fixture_elapsed_ms={(now - fixture_started_at) * 1000.0:.3f}"
                 )
@@ -137,7 +137,7 @@ async def _monitor() -> None:
                 else "not_observed"
             )
             print(
-                "KRM93_COMPILE_PROBE"
+                "ORMS_COMPILE_PROBE"
                 f" state=TIMEOUT probe={probe_name}"
                 f" fixture_elapsed_ms={(now - fixture_started_at) * 1000.0:.3f}"
                 f" stalled_ms={(now - last_progress_at) * 1000.0:.3f}"
@@ -152,7 +152,7 @@ async def _monitor() -> None:
         await app.next_update_async()
 
     print(
-        "KRM93_COMPILE_PROBE"
+        "ORMS_COMPILE_PROBE"
         f" state=OBSERVER_TIMEOUT probe={probe_name}"
         f" process_elapsed_ms={(time.monotonic() - started_at) * 1000.0:.3f}"
     )

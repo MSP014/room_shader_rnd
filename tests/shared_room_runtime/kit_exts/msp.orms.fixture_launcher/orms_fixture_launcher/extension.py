@@ -1,4 +1,4 @@
-"""Open the requested KRM-93 validation stage after Kit startup."""
+"""Open the requested Room Map validation stage after Kit startup."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ import omni.kit.app
 import omni.usd
 from omni.kit.viewport.ready.viewport_ready import ViewportReady
 
-_SETTINGS_ROOT = "/exts/msp.orms.krm93.fixture_launcher"
+_SETTINGS_ROOT = "/exts/msp.orms.fixture_launcher"
 _SEPARATOR = "=" * 20
 
 
 def _log(state: str, **details: object) -> None:
     lines = [
-        "ROOM MAP KRM-93 FIXTURE LAUNCHER",
+        "ROOM MAP VALIDATION FIXTURE LAUNCHER",
         f"process=KIT STAGE OPEN | state={state}",
     ]
     lines.extend(f"{name}={value}" for name, value in details.items())
@@ -42,7 +42,7 @@ class _ViewportReadySignal:
             self._future.set_result(None)
 
 
-class KRM93FixtureLauncherExtension(omni.ext.IExt):
+class RoomMapFixtureLauncherExtension(omni.ext.IExt):
     """Schedule one stage-open request without starting the ORMS runtime."""
 
     def __init__(self) -> None:

@@ -20,6 +20,30 @@ DEFAULT_CAMERA_POSITION_INPUT = (
 )
 
 
+def active_camera_world_position(
+    stage: Usd.Stage | None = None,
+) -> tuple[float, float, float] | None:
+    """Return the active viewport camera position in world space."""
+
+    stage = stage or omni.usd.get_context().get_stage()
+    viewport = get_active_viewport()
+    camera_path = getattr(viewport, "camera_path", None) if viewport else None
+    if not stage or not camera_path:
+        return None
+    camera_prim = stage.GetPrimAtPath(camera_path)
+    if not camera_prim:
+        return None
+    world_transform = UsdGeom.Xformable(
+        camera_prim
+    ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    world_position = world_transform.ExtractTranslation()
+    return (
+        float(world_position[0]),
+        float(world_position[1]),
+        float(world_position[2]),
+    )
+
+
 class CameraPositionBridge:
     """Write the active viewport camera world position into MDL inputs."""
 
@@ -35,6 +59,7 @@ class CameraPositionBridge:
         )
         self._stage_identifier: str | None = None
         self._missing_input_paths: set[Sdf.Path] = set()
+        self._reported_active_paths: set[Sdf.Path] = set()
         self._warned_no_inputs = False
         self._last_position: tuple[float, float, float] | None = None
         self._subscription = (
@@ -48,11 +73,12 @@ class CameraPositionBridge:
     def _discover_material_input_paths(
         self, stage: Usd.Stage
     ) -> tuple[Sdf.Path, ...]:
-        """Find every composed MDL camera-position input in the stage."""
+        """Find writable composed MDL camera-position inputs in the stage."""
         return tuple(
             prim.GetAttribute("inputs:camera_position_world").GetPath()
             for prim in stage.Traverse()
             if prim.GetAttribute("inputs:camera_position_world")
+            and not prim.IsInstanceProxy()
         )
 
     def _refresh_material_input_paths(self, stage: Usd.Stage) -> None:
@@ -66,16 +92,13 @@ class CameraPositionBridge:
         self._material_input_paths = self._discover_material_input_paths(stage)
         self._stage_identifier = stage_identifier
         self._missing_input_paths.clear()
+        self._reported_active_paths.clear()
         self._warned_no_inputs = False
         self._last_position = None
 
     def _on_update(self, _event) -> None:
         stage = omni.usd.get_context().get_stage()
-        viewport = get_active_viewport()
-        camera_path = (
-            getattr(viewport, "camera_path", None) if viewport else None
-        )
-        if not stage or not camera_path:
+        if not stage:
             return
 
         self._refresh_material_input_paths(stage)
@@ -94,19 +117,9 @@ class CameraPositionBridge:
                 self._warned_no_inputs = True
             return
 
-        camera_prim = stage.GetPrimAtPath(camera_path)
-        if not camera_prim:
+        position = active_camera_world_position(stage)
+        if position is None:
             return
-
-        world_transform = UsdGeom.Xformable(
-            camera_prim
-        ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-        world_position = world_transform.ExtractTranslation()
-        position = (
-            float(world_position[0]),
-            float(world_position[1]),
-            float(world_position[2]),
-        )
         if position == self._last_position and not self._missing_input_paths:
             return
 
@@ -124,8 +137,30 @@ class CameraPositionBridge:
                     self._missing_input_paths.add(material_input_path)
                     continue
 
+                if material_input.GetPrim().IsInstanceProxy():
+                    if material_input_path not in self._missing_input_paths:
+                        log_room_map_warning(
+                            owner="CAMERA POSITION BRIDGE",
+                            process="MATERIAL INPUT UPDATE",
+                            state="INSTANCE_PROXY_SKIPPED",
+                            details={"input_path": material_input_path},
+                        )
+                    self._missing_input_paths.add(material_input_path)
+                    continue
+
                 material_input.Set(Gf.Vec3f(*position))
                 self._missing_input_paths.discard(material_input_path)
+                if material_input_path not in self._reported_active_paths:
+                    log_room_map_warning(
+                        owner="CAMERA POSITION BRIDGE",
+                        process="CAMERA POSITION ATTRIBUTE UPDATE",
+                        state="ACTIVE",
+                        details={
+                            "attribute_path": material_input_path,
+                            "world_position": position,
+                        },
+                    )
+                    self._reported_active_paths.add(material_input_path)
         self._last_position = position
 
     def stop(self) -> None:

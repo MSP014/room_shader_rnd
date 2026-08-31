@@ -45,16 +45,12 @@ def test_mdl_records_are_clean_utf8_without_known_mojibake():
         assert "\ufffd" not in source, path.name
 
 
-def test_shared_room_record_keeps_renderer_evidence_pending():
+def test_shared_room_record_keeps_renderer_acceptance_evidence():
     source = (KNOWLEDGE_BASE / "009_shared_multi_window_rooms.md").read_text(
         encoding="utf-8"
     )
 
-    assert (
-        "Automated contract complete; RTX renderer validation pending"
-        in source
-    )
-    assert (
-        "RTX renderer compilation and visual continuity have not yet been recorded"
-        in source
-    )
+    assert "Renderer-accepted in both required RTX modes" in source
+    assert "accepted in RTX Real-Time and RTX Interactive" in source
+    assert "docs/img/krm93/krm93_01.png" in source
+    assert "docs/img/krm93/krm93_02.png" in source

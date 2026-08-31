@@ -1,5 +1,5 @@
 # Pre-commit Guardrails - Room Map Shader RnD
-# Environment: shader_rnd (Python 3.10)
+# Environment: shader_rnd (Python 3.12)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

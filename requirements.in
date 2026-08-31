@@ -1,5 +1,5 @@
 # Standard Dependency Stack (Shader RnD)
-# Python 3.10.x baseline
+# Python 3.12.x baseline
 
 # --- DevOps & Tools ---
 pip-tools>=7.3.0

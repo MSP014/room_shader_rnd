@@ -1,0 +1,61 @@
+#usda 1.0
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Omniverse capture layer over Houdini-exported test_bld component asset"
+        string "orms:houdiniExport" = "assets/_external/usd/test_bld/test_bld.usd"
+        string "orms:houdiniSource" = "hip/room map test 005.hiplc"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def DomeLight "RoomMapEnvironment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Xform "HoudiniBuilding" (
+        prepend references = @../../assets/_external/usd/test_bld/test_bld.usd@</test_bld>
+    )
+    {
+        over "geo"
+        {
+            over "windows" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                rel material:binding = </World/Looks/RoomMapSource>
+            }
+        }
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMapSource"
+        {
+            token outputs:mdl:surface.connect = </World/Looks/RoomMapSource/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../../src/mdl/room_map_single.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
+                float3 inputs:camera_position_world = (8, 3, 5)
+                float inputs:emission_strength = 1
+                asset inputs:room_atlas = @../../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                float inputs:room_depth = 1
+                int inputs:room_variant_count = 8
+                int inputs:variation_seed = 0
+                token outputs:out
+            }
+        }
+    }
+}

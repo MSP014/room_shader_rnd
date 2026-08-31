@@ -124,6 +124,17 @@ def _expected_slice_start_depth(mappings):
     return max(0.0, -min(mapped_depths))
 
 
+def _mapped_scaled_depth_extent(mappings):
+    mapped_depths = []
+    for mapping in mappings:
+        for u in (0.0, 1.0):
+            for v in (0.0, 1.0):
+                mapped_depths.append(
+                    _mapped_position(mapping, u, v)[2] * mapping.room_scale[2]
+                )
+    return min(mapped_depths), max(mapped_depths)
+
+
 def test_equal_room_id_forms_only_geometrically_contiguous_runs():
     apertures = [
         _window("w0", 1, 0.0),
@@ -554,6 +565,11 @@ def test_even_arc_without_parallel_windows_uses_mean_shared_room_basis():
         )
     assert result.mappings[0].slice_start_depth > 0.0
     _assert_mapped_seams_are_continuous(result, ("w0", "w1", "w2", "w3"))
+    minimum_depth, maximum_depth = _mapped_scaled_depth_extent(result.mappings)
+    assert maximum_depth == pytest.approx(0.0)
+    assert minimum_depth == pytest.approx(
+        -result.mappings[0].slice_start_depth
+    )
 
 
 def test_disconnected_equal_room_ids_and_building_roots_do_not_merge():

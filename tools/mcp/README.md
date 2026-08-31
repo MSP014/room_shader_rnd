@@ -13,7 +13,7 @@ This is a lightweight development/reference tool, not a runtime dependency.
   - USD Code MCP: `localhost:9903`;
   - Kit MCP: `localhost:9902`;
   - OmniUI MCP: `localhost:9901`.
-- Python 3.10+ through the `shader_rnd` Conda environment.
+- Python 3.12 through the `shader_rnd` Conda environment.
 - `KIT_USD_AGENTS_ROOT` pointing to a local clone of
   `NVIDIA-Omniverse/kit-usd-agents`.
 - Required credentials configured locally for `kit-usd-agents`.

@@ -1,0 +1,11 @@
+name: shader_rnd
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  # pip-tools 7.6 still imports pip internals removed in pip 26.
+  - pip<26
+  - pip:
+      - -r requirements.txt

@@ -81,4 +81,5 @@ venv/
 *.code-workspace
 .DS_Store
 Thumbs.db
-tests/krm_93/compile_probe_logs/
+tests/shared_room_runtime/compile_probe_logs/
+tests/shared_room_runtime/_mdl_compile_probe_runtime_*/

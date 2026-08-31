@@ -18,6 +18,106 @@ except ImportError:
 _RUN_IDS = count(1)
 _HEARTBEAT_SECONDS = 15.0
 _PROGRESS_BUCKET_PERCENT = 5
+_RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
+_MDL_ENABLE_OPACITY_INPUT = "inputs:enable_opacity"
+
+
+def _renderer_snapshot(
+    *,
+    settings: Any | None = None,
+    stage: Any | None = None,
+) -> dict[str, object]:
+    """Report renderer mode and runtime cutout classification at low rate."""
+
+    try:
+        if settings is None:
+            import carb.settings
+
+            settings = carb.settings.get_settings()
+        if stage is None:
+            import omni.usd
+
+            stage = omni.usd.get_context().get_stage()
+
+        setting_paths = {
+            "renderer_mode": "/rtx/rendermode",
+            "fractional_cutout_opacity": (
+                "/rtx/pathtracing/fractionalCutoutOpacity"
+            ),
+            "opacity_override": ("/rtx/material/omniRtxEnableOpacityOverride"),
+        }
+        details: dict[str, object] = {
+            name: (
+                value if (value := settings.get(path)) is not None else "unset"
+            )
+            for name, path in setting_paths.items()
+        }
+        if stage is None:
+            details.update(
+                {
+                    "runtime_material_count": 0,
+                    "cutout_contract_applicable_material_count": 0,
+                    "cutout_opt_in_material_count": 0,
+                    "cutout_opt_in_complete": False,
+                    "cutout_opt_in_values": "stage_unavailable",
+                    "mdl_enable_opacity_material_count": 0,
+                    "mdl_enable_opacity_complete": False,
+                    "mdl_enable_opacity_values": "stage_unavailable",
+                }
+            )
+            return details
+
+        looks = stage.GetPrimAtPath("/__ORMSRuntime/Looks")
+        materials = (
+            tuple(
+                child
+                for child in looks.GetChildren()
+                if child.GetTypeName() == "Material"
+            )
+            if looks and looks.IsValid()
+            else ()
+        )
+        cutout_contract_paths = set()
+        values = {}
+        mdl_enable_opacity_values = {}
+        for material in materials:
+            material_path = str(material.GetPath())
+            shader = material.GetChild("Shader")
+            enable_opacity = shader.GetAttribute(_MDL_ENABLE_OPACITY_INPUT)
+            if enable_opacity:
+                cutout_contract_paths.add(material_path)
+                values[material_path] = material.GetAttribute(
+                    _RTX_CUTOUT_OPT_IN_ATTRIBUTE
+                ).Get()
+                mdl_enable_opacity_values[material_path] = enable_opacity.Get()
+            else:
+                values[material_path] = "not_applicable"
+                mdl_enable_opacity_values[material_path] = "not_applicable"
+        enabled_count = sum(value is True for value in values.values())
+        mdl_enabled_count = sum(
+            value is True for value in mdl_enable_opacity_values.values()
+        )
+        details.update(
+            {
+                "runtime_material_count": len(materials),
+                "cutout_contract_applicable_material_count": len(
+                    cutout_contract_paths
+                ),
+                "cutout_opt_in_material_count": enabled_count,
+                "cutout_opt_in_complete": bool(materials)
+                and enabled_count == len(cutout_contract_paths),
+                "cutout_opt_in_values": values or "no_runtime_materials",
+                "mdl_enable_opacity_material_count": mdl_enabled_count,
+                "mdl_enable_opacity_complete": bool(materials)
+                and mdl_enabled_count == len(cutout_contract_paths),
+                "mdl_enable_opacity_values": (
+                    mdl_enable_opacity_values or "no_runtime_materials"
+                ),
+            }
+        )
+        return details
+    except Exception as error:
+        return {"renderer_metrics": f"unavailable: {error!r}"}
 
 
 def _windows_memory_snapshot() -> dict[str, object]:
@@ -159,6 +259,7 @@ def _hydra_memory_snapshot() -> dict[str, object]:
 def _resource_snapshot() -> dict[str, object]:
     details = _windows_memory_snapshot()
     details.update(_hydra_memory_snapshot())
+    details.update(_renderer_snapshot())
     return details
 
 

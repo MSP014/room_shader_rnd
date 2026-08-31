@@ -83,4 +83,4 @@ tests.
 
 This is a manually started R&D singleton, not a packaged extension and not a
 multi-camera rendering contract. KRM-91 owns packaging it together with the
-KRM-93 runtime classifier.
+shared-room runtime classifier.

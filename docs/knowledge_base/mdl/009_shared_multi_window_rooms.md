@@ -5,11 +5,11 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-93 — Shared Multi-Window Room Volume and Aspect Controls |
-| Implementation | `tools/omniverse/room_run_classifier.py`, `tools/omniverse/shared_room_classifier.py`, `tools/omniverse/shared_room_preferences.py`, `src/mdl/room_map.mdl` |
-| Automated evidence | `tests/krm_93/test_room_run_classifier.py`, `tests/krm_93/test_shared_room_classifier_usd.py`, `tests/krm_93/test_shared_room_classifier_fixtures.py`, `tests/krm_93/test_stage_load_probe.py`, `tests/krm_93/test_fixture_launcher_bundle.py` |
-| Validation scenes | `tests/krm_93/test_room_map_shared_rooms_omniverse.usda`, `tests/krm_93/test_room_map_shared_rooms_houdini.usda`, `tests/krm_93/test_room_map_shared_rooms_instances.usda` |
-| Evidence state | Automated contract complete; RTX renderer validation pending |
-| Last reviewed | 29 August 2026 |
+| Implementation | `tools/omniverse/room_run_classifier.py`, `tools/omniverse/shared_room_classifier.py`, `tools/omniverse/shared_room_preferences.py`, `tools/omniverse/reload_room_map_runtime.py`, `tools/omniverse/camera_position_bridge.py`, `tools/omniverse/stage_load_probe.py`, `src/mdl/room_map.mdl`, `src/mdl/room_map_single.mdl` |
+| Automated evidence | `tests/shared_room_runtime/test_room_run_classifier.py`, `tests/shared_room_runtime/test_shared_room_classifier_usd.py`, `tests/shared_room_runtime/test_shared_room_classifier_fixtures.py`, `tests/shared_room_runtime/test_stage_load_probe.py`, `tests/shared_room_runtime/test_fixture_launcher_bundle.py`, `tests/test_camera_position_bridge.py` |
+| Validation scenes | `tests/shared_room_runtime/test_room_map_shared_rooms_omniverse.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_instances.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini_instances.usda` |
+| Evidence state | Renderer-accepted in both required RTX modes; focused automated evidence recorded; final repository quality gate reserved for pre-commit |
+| Last reviewed | 31 August 2026 |
 
 ## Purpose
 
@@ -26,8 +26,9 @@ Houdini-authored identity attributes.
 
 ### Source asset contract
 
-Eligible window meshes retain the existing ORMS data and an effective binding
-to `src/mdl/room_map.mdl`:
+Eligible window meshes retain the existing ORMS data and a source x1 binding.
+The retained fixtures use the renderer-validated `src/mdl/room_map_single.mdl`;
+classified faces receive an ephemeral binding to `src/mdl/room_map.mdl`:
 
 | Primvar | Type | Normal interpolation | Responsibility |
 | --- | --- | --- | --- |
@@ -93,19 +94,27 @@ beneath the stage Session Layer. The detailed affine fields remain available
 for diagnostics, while the last two rows are the compact compiler-facing
 contract consumed by MDL:
 
-| Derived primvar | Type | Meaning |
-| --- | --- | --- |
-| `ormsRoomSize` | `int[]` | Width of the one shared x1–x4 room box. |
-| `ormsRoomDepthSize` | `int[]` | Depth multiplier of that same box; x1 for ordinary runs. |
-| `ormsRoomGroupId` | `int[]` | Deterministic runtime group identity. |
-| `ormsMappingValid` | `int[]` | Whether the shared affine map is safe to consume. |
-| `ormsRoomAxisU`, `ormsRoomAxisV` | `float3[]` | One shared orthonormal basis for every aperture in the logical room. |
-| `ormsRoomScale` | `float3[]` | World-to-room scale that fits the complete classified box. |
-| `ormsRoomMapOrigin` | `float3[]` | Per-aperture corner in the centred pre-scale room mapping frame, in metres. |
-| `ormsRoomMapAxisU`, `ormsRoomMapAxisV` | `float3[]` | Full 3D affine embedding of source `roomUV` tangents into that shared frame, in metres. |
-| `ormsSliceStartDepth` | `float[]` | Shared normalised depth at which the rectangular rear volume begins; zero for flat and corner rooms. |
-| `ormsRoomParameters` | uniform `float3[]` | Packed `(10 * width + depth, slice start depth, portal mode)`. Portal mode is `0` for fallback, `1` for a front aperture, and signed `2` for a depth-aligned side aperture. |
-| `ormsRoomMapPosition` | face-varying `float3[]` | The affine `roomUV` embedding evaluated at every aperture vertex. Linear interpolation preserves the exact shared mapping without rebuilding origin and two axes in MDL. |
+| Derived primvar | USD type | Interpolation | Space and default | Meaning |
+| --- | --- | --- | --- | --- |
+| `ormsRoomSize` | `int[]` | `uniform` | Unitless; `1` | Width of the shared x1–x4 room box. |
+| `ormsRoomDepthSize` | `int[]` | `uniform` | Unitless; `1` | Depth multiplier of the same box; x1 for ordinary runs. |
+| `ormsRoomGroupId` | `int[]` | `uniform` | Unitless; `0` | Deterministic runtime group identity. |
+| `ormsMappingValid` | `int[]` | `uniform` | Boolean integer; `0` | Whether the shared affine map is safe to consume. |
+| `ormsRoomAxisU` | `float3[]` | `uniform` | World-space direction; `(1, 0, 0)` | Horizontal axis of the shared room basis. |
+| `ormsRoomAxisV` | `float3[]` | `uniform` | World-space direction; `(0, 1, 0)` | Vertical axis of the shared room basis. |
+| `ormsRoomPositionWorld` | `float3[]` | `uniform` | World-space point; `(0, 0, 0)` | Shared room-frame origin consumed directly by MDL. |
+| `ormsRoomScale` | `float3[]` | `uniform` | Shared-room scale; `(1, 1, 1)` | World-to-room scale that fits the complete classified box. |
+| `ormsRoomMapOrigin` | `float3[]` | `uniform` | Centred pre-scale room frame in metres; `(0, 0, 0)` | Per-aperture corner of the affine `roomUV` embedding. |
+| `ormsRoomMapAxisU` | `float3[]` | `uniform` | Centred pre-scale room frame in metres; `(1, 0, 0)` | Full 3D embedding of the source `roomUV` U tangent. |
+| `ormsRoomMapAxisV` | `float3[]` | `uniform` | Centred pre-scale room frame in metres; `(0, 1, 0)` | Full 3D embedding of the source `roomUV` V tangent. |
+| `ormsPhysicalNormal` | `float3[]` | `uniform` | World-space normal; `(0, 0, 1)` | Stable aperture normal used by both RT and PT for physical backface cutout. |
+| `ormsSliceStartDepth` | `float[]` | `uniform` | Normalised room depth; `0` | Depth at which the rectangular rear volume begins; zero for flat and corner rooms. |
+| `ormsRoomParameters` | `float3[]` | `uniform` | Packed unitless values; `(11, 0, 0)` | `(10 * width + depth, slice start depth, portal mode)`. Portal mode is `0` for fallback, `1` for a front aperture, and signed `2` for a depth-aligned side aperture. |
+| `ormsRoomMapPosition` | `float3[]` | `faceVarying` | Shared room-mapping coordinates; `(0, 0, 0)` on unmapped face vertices | Affine `roomUV` embedding evaluated at every face vertex. |
+| `ormsPrimaryApertureMinU012` | `float3[]` | `uniform` | Shared room U; `(0, -1, -1)` | Minimum U bounds for physical primary-aperture intervals 0–2; negative values disable unused intervals. |
+| `ormsPrimaryApertureMaxU012` | `float3[]` | `uniform` | Shared room U; `(1, -1, -1)` | Maximum U bounds for physical primary-aperture intervals 0–2. |
+| `ormsPrimaryApertureU3` | `float3[]` | `uniform` | Shared room U; `(-1, -1, 0)` | Minimum and maximum U bounds for interval 3, with the third component reserved. |
+| `ormsApertureMaskOffsetU` | `float[]` | `uniform` | Shared room U; `0` | Per-face U offset used when evaluating the physical aperture mask. |
 
 This is a direct coordinate map, not an editable window index. Physical window
 widths, heights, gaps, facade turns, and depth offsets are projected into a
@@ -177,9 +186,10 @@ camera-dependent parallax, aperture controls, wall tracing, and slice sampling.
 The room shell is traced once and returns both cross-atlas coordinates and the
 nearest distance, avoiding repeated wall-selection expression trees.
 
-For a bay room, the classifier derives `ormsSliceStartDepth` from the rearmost
-aperture corner in the shared room frame. This separates the projecting bay
-from the rectangular rear volume without a hand-authored bay parameter. The
+For a bay room, the classifier places the shared room-frame front plane at the
+frontmost aperture corner and derives `ormsSliceStartDepth` as the complete
+projected depth to the rearmost aperture corner. This separates the projecting
+bay from the rectangular rear volume without a hand-authored bay parameter. The
 authored `room_depth` remains the complete depth of that rear volume; the bay
 extension is added in front of it. The back wall therefore lies at
 `ormsSliceStartDepth + room_depth`, while the four artist percentages are
@@ -190,14 +200,38 @@ zero and keep their existing full-depth distribution. This adds no texture
 lookup and remains one identical derived value for every aperture in a group.
 
 The shared room shell extends continuously across the complete combined depth.
-Its left wall, right wall, floor, and ceiling begin at the physical window and
-continue to the back wall, so the projecting bay cannot expose an unfilled
-strip of the room envelope. All four surfaces use one depth coordinate over
+Its left wall, right wall, floor, and ceiling span from the frontmost bay extent
+to the back wall, so a bay with no aperture on the shared reference plane cannot
+expose an unfilled or atlas-clamped strip of the room envelope. All four
+surfaces use one depth coordinate over
 `ormsSliceStartDepth + room_depth`. The throat remains a separate visibility
 boundary only for the four depth slices: the shared camera ray must enter the
 rear room before a slice may contribute. This keeps slice cards out of the
 narrow bay while preserving a closed shell and one perspective across central
 and angled apertures. Flat and corner paths remain unchanged.
+
+For a depth-aligned corner portal, the exact physical primary-aperture
+intervals also bound slice visibility. A slice contributes only when its ray
+intersection lies before the primary-window exit plane. The four existing
+slice alpha values are composited into one coverage value; a binary threshold
+keeps a covered slice pixel on the virtual surface and cuts only an uncovered
+physical window opening. This prevents the primary-window cutout from removing
+a foreground slice, preserves the exact gaps between adjacent apertures, and
+does not add a sixth atlas lookup or a new USD primvar.
+
+The classifier marks every ephemeral family Material prim with
+`omni:rtx:enableCutoutOpacity = true`. While the manual R&D runtime is active,
+it also owns `/rtx/material/omniRtxEnableOpacityOverride = true`: NVIDIA defines
+the Material attribute as inactive unless that renderer setting is enabled.
+The MDL definition also exposes the renderer-recognised
+`uniform bool enable_opacity = true` convention and gates its binary
+`geometry.cutout_opacity` expression with that parameter.
+The previous setting is restored on stop/reload. Without the complete pair,
+RTX may classify a custom MDL material as opaque and skip the any-hit cutout
+path, leaving virtual primary-window openings black in RTX Interactive / Path
+Tracing even when the same binary mask is correct in RTX Real-Time. The
+15-second scene-load heartbeat records the active renderer mode, global
+override, and cutout opt-in state of every runtime family material.
 
 ### Stage metrics, instances, and local settings
 
@@ -208,16 +242,49 @@ or Z-up with an explicit metres-per-unit value, again without changing the
 source stage.
 
 The default instance policy is `Preserve`. A preserved instance that contains
-eligible Room Map meshes retains its source x1 behaviour and emits an
-`INSTANCE_PRESERVED_X1_FALLBACK` diagnostic. `Session de-instance` authors
-`instanceable = false` only in the owned runtime layer and classifies each
-reference independently; removing the layer restores instancing.
+eligible Room Map meshes emits an `INSTANCE_PRESERVED_X1_FALLBACK` diagnostic
+and creates one camera-bridgeable runtime x1 material. A collection binding on
+each instance root targets only mesh proxies carrying the complete Room Map
+source-primvar contract. It does not author descendants of instance proxies,
+and non-window descendants retain their Houdini-exported material bindings.
+The lightweight x1 shader reads `tangentu`, `tangentv`, and `roomUV` without
+compiling the classified five-lookup/cutout graph inside a prototype.
+It also reads `roomID` and applies the same seeded eight-way UDIM selection as
+the classified material, so Preserve keeps stable per-room texture variation
+instead of sampling x1 tile `1001` for every aperture.
+Instanceable wrapper stages predeclare the inherited uniform
+`ormsCameraPositionWorld` primvar on `/World`, before Hydra first syncs the
+prototype-bound x1 material. Runtime camera motion changes only that primvar's
+Session Layer value. A primvar created for the first time after the prototype
+has rendered is not accepted as a reliable Preserve startup contract because
+the material may not discover that late scene-data channel until its render
+representation is rebuilt.
+`Session de-instance` authors `instanceable = false` only in the owned runtime
+layer and classifies each reference independently; removing the layer restores
+instancing.
 
 The manually registered `ORMS Classifier` Preferences page stores room-family
 switches, partition seed, instance policy, metrics policy, local metrics,
 geometric tolerances, and the corner threshold under
 `/persistent/exts/orms/classifier`. Kit persists these settings in the user's
 local configuration, not in USD.
+
+x1 remains visibly enabled and locked because it is the mandatory fallback;
+x2, x3, and x4 are independently switchable. An optional family that is
+disabled or whose complete eight-tile atlas cannot be resolved is removed from
+the usable partition set before classification. This rule is size-agnostic:
+missing x2 repartitions through the remaining usable sizes in the same way as
+missing x3 or x4. Missing x1 produces `MISSING_X1_ATLAS` and delegates to the
+standard KRM-92 missing-room-atlas material and UI fallback instead of
+constructing an invalid shared room.
+
+Fallback and metrics diagnostics use the common ORMS formatter and expose the
+same degraded state through the runtime inspection path and Preferences UI.
+Records include owner, process, state, affected prim path where applicable,
+and the relevant measured or configured values. The accepted manual settings
+sequence covered independent x2/x3/x4 disablement, unavailable optional atlas
+families, missing x1, valid Auto metrics, the local metrics override, and the
+corresponding warning and UI states without mutating stage metadata.
 
 ### Runtime lifecycle
 
@@ -230,6 +297,11 @@ bindings, instancing, and transforms of eligible-window ancestors remain
 classification triggers. Stage open and close events replace or remove the
 active classifier. Stopping removes only the ORMS-owned anonymous sublayer and
 Preferences page.
+
+Repeated start, stop, reload, stage replacement, and Preferences changes leave
+one active classifier, one owned stage-event subscription set, and one
+Preferences subscription set. The accepted lifecycle log showed no duplicate
+subscription-driven classification after the instance-policy round trip.
 
 Info-only ancestor paths emitted alongside an excluded material-input change
 do not independently trigger classification. A true resync of the same prim
@@ -284,7 +356,7 @@ KRM-91.
 ### Runtime phase trace
 
 Each manually started classification pass emits correlated, formatted ORMS
-console records with diagnostic code `ORMS-KRM93-TRACE`. The records currently
+console records with diagnostic code `ORMS-RUNTIME-TRACE`. The records currently
 use warning severity because the R&D application's Console shows warnings and
 errors only. This severity is a visibility workaround for profiling, not an
 assertion that a successful phase is faulty.
@@ -315,7 +387,7 @@ frame after the update. It does **not** prove that MDL compilation, PNG decoding
 mip generation, texture upload, shader-cache work, or the native status-bar
 operation has completed.
 
-The Kit 108.0 status bar implements `Loading material...` inside the native
+The Kit 110.1.2 status bar implements `Loading material...` inside the native
 `omni.kit.window.status_bar` plugin and waits through
 `omni::kit::renderer::IRenderer::waitIdle`. That completion state has no public
 Python read/event API. The public status-bar message-bus events set third-party
@@ -325,6 +397,15 @@ must not report a material-loading duration. If registration of the independent
 first-frame observation fails, it emits `FIRST_FRAME_OBSERVATION_UNAVAILABLE`
 with the exception.
 
+The classifier retains an internal object-space pose cache for each aperture,
+but the authored `ormsRoomPositionWorld`, `ormsRoomAxisU`, `ormsRoomAxisV`, and
+`ormsPhysicalNormal` primvars are world-space values consumed directly by MDL.
+A rigid translation or rotation of a classified building root refreshes those
+uniform values from the object-space cache without rerunning geometric
+classification or replacing the runtime layer. Scale, child transforms,
+points, topology, source primvars, and material bindings remain structural
+changes and do trigger classification.
+
 ## Evidence
 
 The retained evidence covers:
@@ -332,7 +413,8 @@ The retained evidence covers:
 - exact x1–x4 runs and the sequences `01 01 02 01 01`,
   `01 02 03 04 04`, and `01 01 02 03 04`;
 - deterministic long-run partitioning and primitive-order shuffling;
-- disabled or missing x3/x4 atlas families;
+- independent x2/x3/x4 disablement, unavailable optional atlas families, and
+  deterministic repartitioning through the remaining usable sizes;
 - unequal aperture widths inside one room, the complete bounded one-turn
   corner footprint matrix with one to four windows per facade leg, an x3 bay
   with side apertures at ±30°, an x4 bay with side apertures at ±45°, and a
@@ -351,22 +433,30 @@ The retained evidence covers:
 - disconnected equal-`roomID` components, branched graphs, missing x1, and
   degenerate frame fallback;
 - reversible Session Layer ownership, local stage metrics, four shared family
-  materials specialised from one source material, camera-change filtering,
-  live artist-input composition, and the five-lookup MDL budget;
+  materials specialised from one source material, camera and rigid
+  building-pose filtering, object-space runtime frames, live artist-input
+  composition, and the five-lookup MDL budget;
 - isolated Omniverse-authored geometry, layered Houdini-authored geometry, and
   two referenced instanceable buildings under both instance policies.
 
 The Houdini scene remains `hip/room map test 005.hiplc`. Its exported component
-is `assets/_external/usd/test_grid_wins_diff/test_grid_wins_diff.usd`. The
-KRM-93 capture layer changes only the test `roomID` sequence; geometry,
-`roomP`, `tangentu`, `tangentv`, `roomUV`, component hierarchy, payloads, and
-source materials still come from the retained Houdini export.
+is `assets/_external/usd/test_bld/test_bld.usd`. The KRM-93 capture layer
+preserves the exported geometry, `roomID`, `roomP`, `tangentu`, `tangentv`,
+`roomUV`, component hierarchy, payloads, and source MaterialX materials. It
+overrides only the windows' composed material binding with the Room Map MDL
+source material required by the runtime classifier.
 
 ## Reproduction
 
 Launch the default Omniverse-authored fixture with
-`tests/krm_93/launch_krm93_omniverse.bat`, or open another validation scene,
-then run this from Script Editor:
+`tests/shared_room_runtime/launch_shared_rooms_omniverse.bat`, the
+Houdini-exported fixture with
+`tests/shared_room_runtime/launch_shared_rooms_houdini_omniverse.bat`, or the
+instance fixture with
+`tests/shared_room_runtime/launch_shared_rooms_instances_omniverse.bat`. Use
+`tests/shared_room_runtime/launch_shared_rooms_houdini_instances_omniverse.bat`
+for two instanceable references to the Houdini-exported component. After the selected stage
+opens, run this from Script Editor:
 
 ```python
 from pathlib import Path
@@ -411,8 +501,8 @@ the additional corner scenarios `Corner1x1`, `Corner1x2`, `Corner2x1`,
 `Corner1x4` each retain five physical apertures in one logical 4-wide, 1-deep
 box. The four-window facade binds x4 on its front boundary; the one-window
 facade binds x1 on the connected side boundary without changing the room
-basis. All
-three bays use 0.2-metre gaps between physical apertures. Each bay must reveal one continuous rigid
+basis. All three bays use 0.2-metre gaps between physical apertures. Each bay
+must reveal one continuous rigid
 room with no reset, mirror, stretch, or refraction-like bend; its side walls
 must meet the outer aperture bounds. Every 90° corner must reveal one common
 rectangular room with one fixed orientation: no view-dependent 90° basis
@@ -435,9 +525,37 @@ deterministic grouping, and reversible runtime ownership. The broader KRM-93
 validation had previously passed 59 focused tests and the complete repository
 suite had passed 103 tests before this final corner-portal correction.
 
-RTX renderer compilation and visual continuity have not yet been recorded.
-This record must remain in the pending state until the isolated, Houdini, and
-instance scenes are observed in both required renderer modes.
+These are the latest recorded automated results, not a claim that the final
+repository quality gate has already run after every subsequent corner,
+Preserve, Path Tracing, and bay-shell correction. That complete suite is
+intentionally reserved for the pre-commit gate and must replace this paragraph
+with its exact command, date, and result when it is run.
+
+On 31 August 2026, the isolated Omniverse-authored fixture and retained
+Houdini-exported fixture were accepted in RTX Real-Time and RTX Interactive
+(Path Tracing). The accepted views cover flat x1 through x4 groups, long-run
+partitioning, 30-degree, 45-degree, and 8-degree faceted bays, bounded
+right-angle corners, different aperture dimensions, deterministic debug-atlas
+variation, and stable perspective while the camera moves. The final all-angled
+bay correction extends the Top, Floor, Left, and Right room faces across the
+complete main-room and bay depth, removing the exposed gaps at the bay joins.
+
+The Houdini-derived instanceable fixture was also accepted under Preserve and
+Session de-instance, including a return to Preserve, runtime stop and reload,
+and stage replacement. Preserve retains source instancing and uses the x1
+fallback where descendant overrides are unavailable; Session de-instance
+restores coherent shared rooms through reversible ORMS-owned Session Layer
+opinions. No source Houdini or USD layer is modified.
+
+The retained final renderer evidence is
+`docs/img/krm93/krm93_01.png` for RTX Real-Time and
+`docs/img/krm93/krm93_02.png` for RTX Interactive (Path Tracing). These compact
+building views contain the required flat, bay, corner, differing-aperture, and
+Houdini-export evidence, so separate single-case captures are not retained.
+The isolated Omniverse-authored fixture was accepted interactively in both
+renderer modes, but no separate repository capture of that fixture is retained;
+its reproducible scene and automated fixture contract remain the durable
+evidence for that fixture family.
 
 ## Boundary
 
@@ -452,3 +570,14 @@ Production glass, Building 150 integration, building-scale profiling,
 permanent source-asset mutation, and extension packaging are outside this
 record. The current Preferences page and lifecycle are manual R&D code, not a
 shipped Kit extension.
+
+### Dependencies and follow-up ownership
+
+- KRM-90 supplies deterministic `roomID`-to-UDIM atlas identity.
+- KRM-92 owns the standard missing-x1 material, warning, and UI fallback.
+- KRM-94 supplies physical aperture scale and offset controls retained by the
+  shared-room mapping.
+- KRM-91 owns production Kit-extension packaging, persistent startup
+  integration, and cold-versus-warm material-loading diagnostics.
+- KRM-96 owns any accepted expansion to branched or general procedural layouts;
+  KRM-97 owns curved or deformed individual window surfaces.

@@ -12,6 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import count
+from math import isclose
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -49,15 +50,18 @@ DERIVED_ROOM_GROUP_ID = "ormsRoomGroupId"
 DERIVED_MAPPING_VALID = "ormsMappingValid"
 DERIVED_ROOM_AXIS_U = "ormsRoomAxisU"
 DERIVED_ROOM_AXIS_V = "ormsRoomAxisV"
+DERIVED_ROOM_POSITION = "ormsRoomPositionWorld"
 DERIVED_ROOM_SCALE = "ormsRoomScale"
 DERIVED_MAP_ORIGIN = "ormsRoomMapOrigin"
 DERIVED_MAP_AXIS_U = "ormsRoomMapAxisU"
 DERIVED_MAP_AXIS_V = "ormsRoomMapAxisV"
+DERIVED_PHYSICAL_NORMAL = "ormsPhysicalNormal"
 DERIVED_SLICE_START_DEPTH = "ormsSliceStartDepth"
 DERIVED_ROOM_PARAMETERS = "ormsRoomParameters"
 DERIVED_MAP_POSITION = "ormsRoomMapPosition"
-DERIVED_PRIMARY_APERTURE_MIN_U = "ormsPrimaryApertureMinU"
-DERIVED_PRIMARY_APERTURE_MAX_U = "ormsPrimaryApertureMaxU"
+DERIVED_PRIMARY_APERTURE_MIN_U_012 = "ormsPrimaryApertureMinU012"
+DERIVED_PRIMARY_APERTURE_MAX_U_012 = "ormsPrimaryApertureMaxU012"
+DERIVED_PRIMARY_APERTURE_U_3 = "ormsPrimaryApertureU3"
 DERIVED_APERTURE_MASK_OFFSET_U = "ormsApertureMaskOffsetU"
 
 DERIVED_PRIMVAR_NAMES = frozenset(
@@ -68,15 +72,18 @@ DERIVED_PRIMVAR_NAMES = frozenset(
         DERIVED_MAPPING_VALID,
         DERIVED_ROOM_AXIS_U,
         DERIVED_ROOM_AXIS_V,
+        DERIVED_ROOM_POSITION,
         DERIVED_ROOM_SCALE,
         DERIVED_MAP_ORIGIN,
         DERIVED_MAP_AXIS_U,
         DERIVED_MAP_AXIS_V,
+        DERIVED_PHYSICAL_NORMAL,
         DERIVED_SLICE_START_DEPTH,
         DERIVED_ROOM_PARAMETERS,
         DERIVED_MAP_POSITION,
-        DERIVED_PRIMARY_APERTURE_MIN_U,
-        DERIVED_PRIMARY_APERTURE_MAX_U,
+        DERIVED_PRIMARY_APERTURE_MIN_U_012,
+        DERIVED_PRIMARY_APERTURE_MAX_U_012,
+        DERIVED_PRIMARY_APERTURE_U_3,
         DERIVED_APERTURE_MASK_OFFSET_U,
     }
 )
@@ -94,13 +101,32 @@ _REQUIRED_SOURCE_PRIMVARS = (
     "tangentv",
     "roomUV",
 )
+_ROOM_MAP_SOURCE_ASSET_SUFFIXES = (
+    "src/mdl/room_map.mdl",
+    "src/mdl/room_map_single.mdl",
+)
+_ROOM_MAP_SINGLE_SOURCE_ASSET_SUFFIX = "src/mdl/room_map_single.mdl"
+CAMERA_POSITION_PRIMVAR_NAME = "ormsCameraPositionWorld"
+CAMERA_POSITION_PRIMVAR_PATH = Sdf.Path(
+    f"/World.primvars:{CAMERA_POSITION_PRIMVAR_NAME}"
+)
+RUNTIME_OWNED_PRIMVAR_NAMES = DERIVED_PRIMVAR_NAMES | {
+    CAMERA_POSITION_PRIMVAR_NAME
+}
 
-_TRACE_DIAGNOSTIC_CODE = "ORMS-KRM93-TRACE"
+_TRACE_DIAGNOSTIC_CODE = "ORMS-RUNTIME-TRACE"
 _TRACE_RUN_IDS = count(1)
 _TRACE_PATH_LIMIT = 16
 _FIRST_FRAME_SIGNAL = "StageRenderingEventType.NEW_FRAME"
 _RTX_FACE_CULLING_SETTING = "/rtx/hydra/faceCulling/enabled"
-_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "krm93_exact_corner_mask_origin_v15"
+_RTX_OPACITY_OVERRIDE_SETTING = "/rtx/material/omniRtxEnableOpacityOverride"
+_RTX_MATERIAL_SYNC_SETTINGS = (
+    "/rtx/materialDb/syncLoads",
+    "/rtx/hydra/materialSyncLoads",
+)
+_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v46"
+
+_RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
 _RUNTIME_FAMILY_SHADER_PATHS = tuple(
     Sdf.Path(f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader")
     for room_size in range(1, 5)
@@ -231,7 +257,7 @@ class _RuntimeTrace:
         log_warning: Callable[..., None],
         clock: Callable[[], float] = perf_counter,
     ) -> None:
-        self.run_id = f"KRM93-{next(_TRACE_RUN_IDS):04d}"
+        self.run_id = f"ORMS-RUN-{next(_TRACE_RUN_IDS):04d}"
         self.trigger = trigger
         self._log_warning = log_warning
         self._clock = clock
@@ -256,7 +282,7 @@ class _RuntimeTrace:
         if details:
             payload.update(details)
         self._log_warning(
-            owner="KRM-93 CLASSIFIER",
+            owner="SHARED ROOM CLASSIFIER",
             process="RUNTIME PHASE TRACE",
             state=phase,
             details=payload,
@@ -313,7 +339,7 @@ def _trace_path_details(
 
 @dataclass(frozen=True)
 class RuntimeClassifierSettings:
-    """Settings consumed by the manually started KRM-93 R&D module."""
+    """Settings consumed by the manually started shared-room classifier."""
 
     enabled_room_sizes: frozenset[int] = frozenset({1, 2, 3, 4})
     partition_seed: int = 0
@@ -687,7 +713,10 @@ def _building_root(prim: Usd.Prim) -> str:
     return str(prefixes[0]) if prefixes else str(path)
 
 
-def _has_room_map_material_binding(prim: Usd.Prim) -> bool:
+def _bound_material_uses_source_asset(
+    prim: Usd.Prim,
+    source_asset_suffixes: Sequence[str],
+) -> bool:
     material, relationship = UsdShade.MaterialBindingAPI(
         prim
     ).ComputeBoundMaterial()
@@ -695,9 +724,25 @@ def _has_room_map_material_binding(prim: Usd.Prim) -> bool:
         return False
     for candidate in Usd.PrimRange(material.GetPrim()):
         source_asset = candidate.GetAttribute("info:mdl:sourceAsset").Get()
-        if source_asset and source_asset.path.endswith("src/mdl/room_map.mdl"):
+        if source_asset and source_asset.path.endswith(
+            tuple(source_asset_suffixes)
+        ):
             return True
     return False
+
+
+def _has_room_map_material_binding(prim: Usd.Prim) -> bool:
+    return _bound_material_uses_source_asset(
+        prim,
+        _ROOM_MAP_SOURCE_ASSET_SUFFIXES,
+    )
+
+
+def _has_source_authored_x1_material_binding(prim: Usd.Prim) -> bool:
+    return _bound_material_uses_source_asset(
+        prim,
+        (_ROOM_MAP_SINGLE_SOURCE_ASSET_SUFFIX,),
+    )
 
 
 def extract_stage_apertures(
@@ -764,7 +809,18 @@ def extract_stage_apertures(
                 point_indices,
                 face_vertex_offset,
             )
-            if room_id is None or tangent_u is None or tangent_v is None:
+            room_position = _primvar_value_for_face(
+                source_primvars["roomP"],
+                face_index,
+                point_indices,
+                face_vertex_offset,
+            )
+            if (
+                room_id is None
+                or tangent_u is None
+                or tangent_v is None
+                or room_position is None
+            ):
                 diagnostics.append(
                     _diagnostic(
                         "INVALID_SOURCE_PRIMVARS",
@@ -798,6 +854,13 @@ def extract_stage_apertures(
                     ),
                     tangent_v_metres=tuple(
                         float(value * scale) for value in world_tangent_v
+                    ),
+                    room_position_world=tuple(
+                        float(value)
+                        for value in _world_point(
+                            world_transform,
+                            room_position,
+                        )
                     ),
                 )
             )
@@ -849,14 +912,17 @@ def _mapping_defaults(face_count: int) -> dict[str, list[object]]:
         DERIVED_MAPPING_VALID: [0] * face_count,
         DERIVED_ROOM_AXIS_U: [(1.0, 0.0, 0.0)] * face_count,
         DERIVED_ROOM_AXIS_V: [(0.0, 1.0, 0.0)] * face_count,
+        DERIVED_ROOM_POSITION: [(0.0, 0.0, 0.0)] * face_count,
         DERIVED_ROOM_SCALE: [(1.0, 1.0, 1.0)] * face_count,
         DERIVED_MAP_ORIGIN: [(0.0, 0.0, 0.0)] * face_count,
         DERIVED_MAP_AXIS_U: [(1.0, 0.0, 0.0)] * face_count,
         DERIVED_MAP_AXIS_V: [(0.0, 1.0, 0.0)] * face_count,
+        DERIVED_PHYSICAL_NORMAL: [(0.0, 0.0, 1.0)] * face_count,
         DERIVED_SLICE_START_DEPTH: [0.0] * face_count,
         DERIVED_ROOM_PARAMETERS: [(11.0, 0.0, 0.0)] * face_count,
-        DERIVED_PRIMARY_APERTURE_MIN_U: [(0.0, -1.0, -1.0, -1.0)] * face_count,
-        DERIVED_PRIMARY_APERTURE_MAX_U: [(1.0, -1.0, -1.0, -1.0)] * face_count,
+        DERIVED_PRIMARY_APERTURE_MIN_U_012: [(0.0, -1.0, -1.0)] * face_count,
+        DERIVED_PRIMARY_APERTURE_MAX_U_012: [(1.0, -1.0, -1.0)] * face_count,
+        DERIVED_PRIMARY_APERTURE_U_3: [(-1.0, -1.0, 0.0)] * face_count,
         DERIVED_APERTURE_MASK_OFFSET_U: [0.0] * face_count,
     }
 
@@ -876,13 +942,19 @@ def _set_mapping_values(
     values[DERIVED_MAP_ORIGIN][face_index] = mapping.map_origin
     values[DERIVED_MAP_AXIS_U][face_index] = mapping.map_axis_u
     values[DERIVED_MAP_AXIS_V][face_index] = mapping.map_axis_v
+    values[DERIVED_PHYSICAL_NORMAL][face_index] = mapping.physical_normal
     values[DERIVED_SLICE_START_DEPTH][face_index] = mapping.slice_start_depth
-    values[DERIVED_PRIMARY_APERTURE_MIN_U][
-        face_index
-    ] = mapping.primary_aperture_min_u
-    values[DERIVED_PRIMARY_APERTURE_MAX_U][
-        face_index
-    ] = mapping.primary_aperture_max_u
+    values[DERIVED_PRIMARY_APERTURE_MIN_U_012][face_index] = (
+        mapping.primary_aperture_min_u[:3]
+    )
+    values[DERIVED_PRIMARY_APERTURE_MAX_U_012][face_index] = (
+        mapping.primary_aperture_max_u[:3]
+    )
+    values[DERIVED_PRIMARY_APERTURE_U_3][face_index] = (
+        mapping.primary_aperture_min_u[3],
+        mapping.primary_aperture_max_u[3],
+        0.0,
+    )
     values[DERIVED_APERTURE_MASK_OFFSET_U][
         face_index
     ] = mapping.aperture_mask_offset_u
@@ -902,6 +974,26 @@ def _set_mapping_values(
         float(mapping.slice_start_depth),
         portal_mode,
     )
+
+
+def _world_vector_to_object(
+    local_to_world: Gf.Matrix4d,
+    value: object,
+) -> tuple[float, float, float]:
+    """Store a world-space direction in the mesh's object coordinates."""
+
+    converted = local_to_world.GetInverse().TransformDir(Gf.Vec3d(*value))
+    return tuple(float(component) for component in converted)
+
+
+def _world_normal_to_object(
+    local_to_world: Gf.Matrix4d,
+    value: object,
+) -> tuple[float, float, float]:
+    """Convert a world normal into the mesh's stable object frame."""
+
+    converted = local_to_world.GetTranspose().TransformDir(Gf.Vec3d(*value))
+    return tuple(float(component) for component in converted)
 
 
 def _author_uniform_int_primvar(
@@ -926,18 +1018,6 @@ def _author_uniform_float3_primvar(
         Sdf.ValueTypeNames.Float3Array,
         UsdGeom.Tokens.uniform,
     ).Set(Vt.Vec3fArray([Gf.Vec3f(*value) for value in values]))
-
-
-def _author_uniform_float4_primvar(
-    primvars: UsdGeom.PrimvarsAPI,
-    name: str,
-    values: Sequence[object],
-) -> None:
-    primvars.CreatePrimvar(
-        name,
-        Sdf.ValueTypeNames.Float4Array,
-        UsdGeom.Tokens.uniform,
-    ).Set(Vt.Vec4fArray([Gf.Vec4f(*value) for value in values]))
 
 
 def _author_uniform_float_primvar(
@@ -1040,6 +1120,9 @@ def author_derived_primvars(
         mappings_by_prim[mapping.prim_path].append(mapping)
 
     diagnostics = []
+    apertures_by_key = {
+        aperture.key: aperture for aperture in extraction.apertures
+    }
     with Usd.EditContext(stage, runtime_layer):
         for prim_path, face_count in extraction.face_counts_by_prim:
             prim = stage.GetPrimAtPath(prim_path)
@@ -1049,6 +1132,11 @@ def author_derived_primvars(
             values = _mapping_defaults(face_count)
             for mapping in mappings:
                 _set_mapping_values(values, mapping)
+                aperture = apertures_by_key.get(mapping.aperture_key)
+                if aperture is not None:
+                    values[DERIVED_ROOM_POSITION][
+                        mapping.face_index
+                    ] = aperture.room_position_world
             primvars = UsdGeom.PrimvarsAPI(prim)
             for name in (
                 DERIVED_ROOM_SIZE,
@@ -1073,17 +1161,17 @@ def author_derived_primvars(
                 values[DERIVED_ROOM_PARAMETERS],
             )
             for name in (
-                DERIVED_PRIMARY_APERTURE_MIN_U,
-                DERIVED_PRIMARY_APERTURE_MAX_U,
-            ):
-                _author_uniform_float4_primvar(primvars, name, values[name])
-            for name in (
                 DERIVED_ROOM_AXIS_U,
                 DERIVED_ROOM_AXIS_V,
+                DERIVED_ROOM_POSITION,
                 DERIVED_ROOM_SCALE,
                 DERIVED_MAP_ORIGIN,
                 DERIVED_MAP_AXIS_U,
                 DERIVED_MAP_AXIS_V,
+                DERIVED_PHYSICAL_NORMAL,
+                DERIVED_PRIMARY_APERTURE_MIN_U_012,
+                DERIVED_PRIMARY_APERTURE_MAX_U_012,
+                DERIVED_PRIMARY_APERTURE_U_3,
             ):
                 _author_uniform_float3_primvar(primvars, name, values[name])
             mesh = UsdGeom.Mesh(prim)
@@ -1104,6 +1192,133 @@ def author_derived_primvars(
     return tuple(diagnostics)
 
 
+@dataclass(frozen=True)
+class _ObjectSpacePoseFrame:
+    building_root: str
+    face_index: int
+    room_position: tuple[float, float, float]
+    room_axis_u: tuple[float, float, float]
+    room_axis_v: tuple[float, float, float]
+    physical_normal: tuple[float, float, float]
+
+
+def _build_object_space_pose_frames(
+    stage: Usd.Stage,
+    classification: StageClassification,
+) -> dict[str, tuple[_ObjectSpacePoseFrame, ...]]:
+    """Cache the small pose-dependent frame without rerunning grouping."""
+
+    apertures_by_key = {
+        aperture.key: aperture
+        for aperture in classification.extraction.apertures
+    }
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    frames_by_prim: dict[str, list[_ObjectSpacePoseFrame]] = defaultdict(list)
+    for mapping in classification.result.mappings:
+        aperture = apertures_by_key.get(mapping.aperture_key)
+        prim = stage.GetPrimAtPath(mapping.prim_path)
+        if aperture is None or not prim:
+            continue
+        local_to_world = xform_cache.GetLocalToWorldTransform(prim)
+        room_position = local_to_world.GetInverse().Transform(
+            Gf.Vec3d(*aperture.room_position_world)
+        )
+        frames_by_prim[mapping.prim_path].append(
+            _ObjectSpacePoseFrame(
+                building_root=aperture.building_root,
+                face_index=mapping.face_index,
+                room_position=tuple(float(value) for value in room_position),
+                room_axis_u=_world_vector_to_object(
+                    local_to_world,
+                    mapping.room_axis_u,
+                ),
+                room_axis_v=_world_vector_to_object(
+                    local_to_world,
+                    mapping.room_axis_v,
+                ),
+                physical_normal=_world_normal_to_object(
+                    local_to_world,
+                    mapping.physical_normal,
+                ),
+            )
+        )
+    return {
+        prim_path: tuple(frames)
+        for prim_path, frames in frames_by_prim.items()
+    }
+
+
+def _refresh_pose_primvars(
+    stage: Usd.Stage,
+    runtime_layer: Sdf.Layer,
+    frames_by_prim: Mapping[str, Sequence[_ObjectSpacePoseFrame]],
+    building_roots: frozenset[str],
+) -> int:
+    """Update world-space shader inputs after a rigid building pose edit."""
+
+    if not building_roots:
+        return 0
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    updated_faces = 0
+    with Sdf.ChangeBlock(), Usd.EditContext(stage, runtime_layer):
+        for prim_path, all_frames in frames_by_prim.items():
+            frames = tuple(
+                frame
+                for frame in all_frames
+                if frame.building_root in building_roots
+            )
+            if not frames:
+                continue
+            prim = stage.GetPrimAtPath(prim_path)
+            if not prim:
+                continue
+            primvars = UsdGeom.PrimvarsAPI(prim)
+            values = {}
+            for name in (
+                DERIVED_ROOM_POSITION,
+                DERIVED_ROOM_AXIS_U,
+                DERIVED_ROOM_AXIS_V,
+                DERIVED_PHYSICAL_NORMAL,
+            ):
+                authored = primvars.GetPrimvar(name).Get()
+                if authored is None:
+                    break
+                values[name] = list(authored)
+            else:
+                local_to_world = xform_cache.GetLocalToWorldTransform(prim)
+                normal_transform = local_to_world.GetInverse().GetTranspose()
+                for frame in frames:
+                    face_index = frame.face_index
+                    values[DERIVED_ROOM_POSITION][face_index] = (
+                        local_to_world.Transform(
+                            Gf.Vec3d(*frame.room_position)
+                        )
+                    )
+                    values[DERIVED_ROOM_AXIS_U][face_index] = (
+                        local_to_world.TransformDir(
+                            Gf.Vec3d(*frame.room_axis_u)
+                        )
+                    )
+                    values[DERIVED_ROOM_AXIS_V][face_index] = (
+                        local_to_world.TransformDir(
+                            Gf.Vec3d(*frame.room_axis_v)
+                        )
+                    )
+                    values[DERIVED_PHYSICAL_NORMAL][face_index] = (
+                        normal_transform.TransformDir(
+                            Gf.Vec3d(*frame.physical_normal)
+                        )
+                    )
+                    updated_faces += 1
+                for name, authored_values in values.items():
+                    _author_uniform_float3_primvar(
+                        primvars,
+                        name,
+                        authored_values,
+                    )
+    return updated_faces
+
+
 def _prototype_has_room_map_mesh(prototype: Usd.Prim) -> bool:
     for prim in Usd.PrimRange(prototype):
         if not prim.IsA(UsdGeom.Mesh):
@@ -1111,9 +1326,150 @@ def _prototype_has_room_map_mesh(prototype: Usd.Prim) -> bool:
         primvars = UsdGeom.PrimvarsAPI(prim)
         if all(
             primvars.GetPrimvar(name) for name in _REQUIRED_SOURCE_PRIMVARS
-        ):
+        ) and _has_room_map_material_binding(prim):
             return True
     return False
+
+
+def author_camera_position_primvar(
+    stage: Usd.Stage,
+    runtime_layer: Sdf.Layer,
+) -> Sdf.Path | None:
+    """Author the inherited camera channel used by preserved instances."""
+
+    world = stage.GetPrimAtPath("/World")
+    if not world:
+        return None
+    primvars = UsdGeom.PrimvarsAPI(world)
+    existing = primvars.GetPrimvar(CAMERA_POSITION_PRIMVAR_NAME)
+    if existing:
+        return existing.GetAttr().GetPath()
+    with Usd.EditContext(stage, runtime_layer):
+        primvar = primvars.CreatePrimvar(
+            CAMERA_POSITION_PRIMVAR_NAME,
+            Sdf.ValueTypeNames.Float3,
+            UsdGeom.Tokens.constant,
+        )
+        primvar.Set(Gf.Vec3f(0.0))
+    return primvar.GetAttr().GetPath()
+
+
+def seed_camera_position_primvar(
+    stage: Usd.Stage,
+    world_position: Sequence[float],
+) -> Sdf.Path | None:
+    """Seed the inherited camera channel before the first material sync."""
+
+    world = stage.GetPrimAtPath("/World")
+    if not world:
+        return None
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        primvar = UsdGeom.PrimvarsAPI(world).CreatePrimvar(
+            CAMERA_POSITION_PRIMVAR_NAME,
+            Sdf.ValueTypeNames.Float3,
+            UsdGeom.Tokens.constant,
+        )
+        primvar.Set(Gf.Vec3f(*world_position))
+    return primvar.GetAttr().GetPath()
+
+
+def camera_position_primvar_exists(stage: Usd.Stage) -> bool:
+    """Return whether the composed stage declared the camera channel already."""
+
+    world = stage.GetPrimAtPath("/World")
+    if not world:
+        return False
+    return bool(
+        UsdGeom.PrimvarsAPI(world).GetPrimvar(CAMERA_POSITION_PRIMVAR_NAME)
+    )
+
+
+def _primvar_has_varying_values(primvar: UsdGeom.Primvar) -> bool:
+    if not primvar:
+        return False
+    values = primvar.ComputeFlattened()
+    if not values:
+        return False
+    return len({tuple(value) for value in values}) > 1
+
+
+def _preserved_instance_diagnostic(prim: Usd.Prim) -> ClassifierDiagnostic:
+    proxy_meshes = tuple(
+        proxy
+        for proxy in Usd.PrimRange(
+            prim,
+            Usd.TraverseInstanceProxies(),
+        )
+        if proxy.IsA(UsdGeom.Mesh)
+        and all(
+            UsdGeom.PrimvarsAPI(proxy).GetPrimvar(name)
+            for name in _REQUIRED_SOURCE_PRIMVARS
+        )
+        and _has_source_authored_x1_material_binding(proxy)
+    )
+    camera_primvars = tuple(
+        UsdGeom.PrimvarsAPI(proxy).FindPrimvarWithInheritance(
+            CAMERA_POSITION_PRIMVAR_NAME
+        )
+        for proxy in proxy_meshes
+    )
+    room_uv_varying_count = sum(
+        _primvar_has_varying_values(
+            UsdGeom.PrimvarsAPI(proxy).GetPrimvar("roomUV")
+        )
+        for proxy in proxy_meshes
+    )
+    st_varying_count = sum(
+        _primvar_has_varying_values(
+            UsdGeom.PrimvarsAPI(proxy).GetPrimvar("st")
+        )
+        for proxy in proxy_meshes
+    )
+    camera_primvar_count = sum(bool(primvar) for primvar in camera_primvars)
+    has_x1_fallback = bool(proxy_meshes) and (
+        room_uv_varying_count == len(proxy_meshes)
+        and camera_primvar_count == len(proxy_meshes)
+    )
+    material_paths = sorted(
+        {
+            str(
+                UsdShade.MaterialBindingAPI(proxy)
+                .ComputeBoundMaterial()[0]
+                .GetPath()
+            )
+            for proxy in proxy_meshes
+        }
+    )
+    camera_values = sorted(
+        {
+            tuple(float(value) for value in primvar.Get())
+            for primvar in camera_primvars
+            if primvar and primvar.Get() is not None
+        }
+    )
+    return _diagnostic(
+        (
+            "INSTANCE_PRESERVED_X1_FALLBACK"
+            if has_x1_fallback
+            else "INSTANCE_PRESERVED_WITHOUT_X1_FALLBACK"
+        ),
+        str(prim.GetPath()),
+        fallback_render_path=(
+            "source_authored_x1_binding" if has_x1_fallback else "unavailable"
+        ),
+        instance_policy=INSTANCE_POLICY_PRESERVE,
+        requirement="prototype-bound room_map_single material",
+        source_x1_proxy_count=len(proxy_meshes),
+        source_x1_proxy_paths=",".join(
+            str(proxy.GetPath()) for proxy in proxy_meshes
+        ),
+        source_material_paths=",".join(material_paths),
+        room_uv_varying_proxy_count=room_uv_varying_count,
+        st_varying_proxy_count=st_varying_count,
+        camera_primvar_path=CAMERA_POSITION_PRIMVAR_PATH,
+        camera_primvar_inherited_proxy_count=camera_primvar_count,
+        camera_primvar_values=camera_values,
+    )
 
 
 def apply_instance_policy(
@@ -1131,14 +1487,7 @@ def apply_instance_policy(
         and _prototype_has_room_map_mesh(prim.GetPrototype())
     )
     if settings.instance_policy == INSTANCE_POLICY_PRESERVE:
-        return tuple(
-            _diagnostic(
-                "INSTANCE_PRESERVED_X1_FALLBACK",
-                str(prim.GetPath()),
-                instance_policy=INSTANCE_POLICY_PRESERVE,
-            )
-            for prim in affected
-        )
+        return tuple(_preserved_instance_diagnostic(prim) for prim in affected)
     if settings.instance_policy != INSTANCE_POLICY_SESSION_DEINSTANCE:
         return (
             _diagnostic(
@@ -1215,6 +1564,11 @@ def author_family_materials(
         for room_size in sorted(usable_room_sizes & {1, 2, 3, 4}):
             material_path = f"/__ORMSRuntime/Looks/RoomMapX{room_size}"
             material = UsdShade.Material.Define(stage, material_path)
+            material.GetPrim().CreateAttribute(
+                _RTX_CUTOUT_OPT_IN_ATTRIBUTE,
+                Sdf.ValueTypeNames.Bool,
+                custom=False,
+            ).Set(True)
             if source_material:
                 material.GetPrim().GetSpecializes().AddSpecialize(
                     source_material.GetPath()
@@ -1262,6 +1616,9 @@ def author_family_materials(
                 )
             shader.CreateInput("room_atlas", Sdf.ValueTypeNames.Asset).Set(
                 _atlas_family_asset(repository_root, room_size)
+            )
+            shader.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(
+                True
             )
             materials[room_size] = material
     return materials
@@ -1314,6 +1671,10 @@ def classify_stage(
         if phase_callback is not None:
             phase_callback(phase, details)
 
+    camera_position_primvar_path = author_camera_position_primvar(
+        stage,
+        runtime_layer,
+    )
     instance_diagnostics = apply_instance_policy(
         stage, runtime_layer, settings
     )
@@ -1366,16 +1727,27 @@ def classify_stage(
             len(extraction.face_counts_by_prim) - len(culling_diagnostics)
         ),
         culling_diagnostic_count=len(culling_diagnostics),
+        camera_position_primvar_path=(
+            camera_position_primvar_path or "unavailable"
+        ),
     )
     usable_room_sizes = (
         settings.core_settings(available_room_sizes).enabled_room_sizes
         & available_room_sizes
     )
-    materials = author_family_materials(
-        stage,
-        runtime_layer,
-        repository_root,
-        usable_room_sizes,
+    preserved_source_x1_count = sum(
+        diagnostic.state == "INSTANCE_PRESERVED_X1_FALLBACK"
+        for diagnostic in extraction.diagnostics
+    )
+    materials = (
+        author_family_materials(
+            stage,
+            runtime_layer,
+            repository_root,
+            usable_room_sizes,
+        )
+        if result.mappings
+        else {}
     )
     report_phase(
         "RUNTIME_MATERIALS_AUTHORED",
@@ -1393,6 +1765,7 @@ def classify_stage(
     report_phase(
         "RUNTIME_BINDINGS_AUTHORED",
         subset_count=subset_count,
+        preserved_source_x1_count=preserved_source_x1_count,
     )
     return StageClassification(
         metrics=metrics,
@@ -1492,7 +1865,7 @@ def _log_diagnostic(diagnostic: ClassifierDiagnostic) -> None:
 
 
 class SharedRoomClassifier:
-    """Manually started KRM-93 R&D classifier for an already-open stage."""
+    """Manually started shared-room classifier for an already-open stage."""
 
     def __init__(
         self,
@@ -1509,6 +1882,11 @@ class SharedRoomClassifier:
         self._is_authoring = False
         self._last: StageClassification | None = None
         self._geometry_ancestor_paths: frozenset[str] = frozenset()
+        self._building_root_paths: frozenset[str] = frozenset()
+        self._building_root_shape_signatures: dict[str, tuple[float, ...]] = {}
+        self._pose_frames_by_prim: dict[
+            str, tuple[_ObjectSpacePoseFrame, ...]
+        ] = {}
         self._trace_log_warning = trace_log_warning
         self._first_frame_subscription: object | None = None
 
@@ -1550,7 +1928,7 @@ class SharedRoomClassifier:
             )
             if conflicting_paths:
                 log_room_map_warning(
-                    owner="KRM-93 CLASSIFIER",
+                    owner="SHARED ROOM CLASSIFIER",
                     process="RUNTIME MATERIAL INPUT SYNC",
                     state="CONFLICT",
                     details={
@@ -1571,7 +1949,7 @@ class SharedRoomClassifier:
             )
             if updated_count and self._trace_log_warning is not None:
                 self._trace_log_warning(
-                    owner="KRM-93 CLASSIFIER",
+                    owner="SHARED ROOM CLASSIFIER",
                     process="RUNTIME MATERIAL INPUT SYNC",
                     state="SYNCHRONISED",
                     details={
@@ -1639,6 +2017,20 @@ class SharedRoomClassifier:
                     if prefix.IsPrimPath()
                 )
             self._geometry_ancestor_paths = frozenset(geometry_ancestor_paths)
+            self._building_root_paths = frozenset(
+                aperture.building_root
+                for aperture in self._last.extraction.apertures
+            )
+            self._building_root_shape_signatures = (
+                _building_root_shape_signatures(
+                    self._stage,
+                    self._building_root_paths,
+                )
+            )
+            self._pose_frames_by_prim = _build_object_space_pose_frames(
+                self._stage,
+                self._last,
+            )
             diagnostics = (
                 self._last.metrics.diagnostics
                 + self._last.extraction.diagnostics
@@ -1731,7 +2123,7 @@ class SharedRoomClassifier:
                     if self._trace_log_warning is None:
                         continue
                     self._trace_log_warning(
-                        owner="KRM-93 CLASSIFIER",
+                        owner="SHARED ROOM CLASSIFIER",
                         process="RUNTIME MATERIAL INPUT SYNC",
                         state="SYNCHRONISED",
                         details={
@@ -1747,6 +2139,22 @@ class SharedRoomClassifier:
                     )
             finally:
                 self._is_authoring = False
+        transform_roots = _building_root_transform_change_roots(
+            paths,
+            self._building_root_paths,
+        )
+        current_shape_signatures = _building_root_shape_signatures(
+            self._stage,
+            transform_roots,
+        )
+        changed_shape_roots = frozenset(
+            root
+            for root, signature in current_shape_signatures.items()
+            if not _shape_signatures_match(
+                self._building_root_shape_signatures.get(root),
+                signature,
+            )
+        )
         relevant_paths = tuple(
             path
             for path in resynced_paths
@@ -1754,6 +2162,8 @@ class SharedRoomClassifier:
                 self._stage,
                 path,
                 self._geometry_ancestor_paths,
+                self._building_root_paths,
+                changed_shape_roots,
                 resynced=True,
             )
         ) + tuple(
@@ -1763,6 +2173,8 @@ class SharedRoomClassifier:
                 self._stage,
                 path,
                 self._geometry_ancestor_paths,
+                self._building_root_paths,
+                changed_shape_roots,
                 resynced=False,
             )
         )
@@ -1775,6 +2187,25 @@ class SharedRoomClassifier:
                     relevant_paths=relevant_paths,
                 ),
             )
+        else:
+            pose_roots = _pose_change_roots(
+                paths,
+                self._building_root_paths,
+            )
+            if pose_roots:
+                self._is_authoring = True
+                try:
+                    _refresh_pose_primvars(
+                        self._stage,
+                        self._layer_owner.layer,
+                        self._pose_frames_by_prim,
+                        pose_roots,
+                    )
+                finally:
+                    self._is_authoring = False
+            self._building_root_shape_signatures.update(
+                current_shape_signatures
+            )
 
     def stop(self) -> None:
         self._first_frame_subscription = None
@@ -1783,12 +2214,94 @@ class SharedRoomClassifier:
             self._notice_key = None
         self._layer_owner.detach()
         self._last = None
+        self._building_root_shape_signatures = {}
+        self._pose_frames_by_prim = {}
+
+
+def _building_root_transform_change_roots(
+    paths: Sequence[Sdf.Path],
+    building_root_paths: frozenset[str],
+) -> frozenset[str]:
+    roots = set()
+    for path in paths:
+        if not path.IsPropertyPath():
+            continue
+        prim_path = str(path.GetPrimPath())
+        if prim_path not in building_root_paths:
+            continue
+        name = str(path).rsplit(".", 1)[-1]
+        if name == "xformOpOrder" or name.startswith("xformOp:"):
+            roots.add(prim_path)
+    return frozenset(roots)
+
+
+def _building_root_shape_signatures(
+    stage: Usd.Stage,
+    building_root_paths: Sequence[str],
+) -> dict[str, tuple[float, ...]]:
+    """Capture scale/shear while ignoring root translation and rotation."""
+
+    xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    signatures = {}
+    for root in building_root_paths:
+        prim = stage.GetPrimAtPath(root)
+        if not prim:
+            continue
+        transform = xform_cache.GetLocalToWorldTransform(prim)
+        axes = tuple(
+            transform.TransformDir(axis)
+            for axis in (
+                Gf.Vec3d(1.0, 0.0, 0.0),
+                Gf.Vec3d(0.0, 1.0, 0.0),
+                Gf.Vec3d(0.0, 0.0, 1.0),
+            )
+        )
+        signatures[root] = (
+            axes[0] * axes[0],
+            axes[1] * axes[1],
+            axes[2] * axes[2],
+            axes[0] * axes[1],
+            axes[0] * axes[2],
+            axes[1] * axes[2],
+        )
+    return signatures
+
+
+def _shape_signatures_match(
+    previous: tuple[float, ...] | None,
+    current: tuple[float, ...],
+) -> bool:
+    return previous is not None and all(
+        isclose(old, new, rel_tol=1e-9, abs_tol=1e-9)
+        for old, new in zip(previous, current, strict=True)
+    )
+
+
+def _pose_change_roots(
+    paths: Sequence[Sdf.Path],
+    building_root_paths: frozenset[str],
+) -> frozenset[str]:
+    """Return roots whose rigid pose changed without affecting grouping."""
+
+    roots = set()
+    for path in paths:
+        if not path.IsPropertyPath():
+            continue
+        prim_path = str(path.GetPrimPath())
+        if prim_path not in building_root_paths:
+            continue
+        name = str(path).rsplit(".", 1)[-1]
+        if name == "xformOpOrder" or name.startswith("xformOp:"):
+            roots.add(prim_path)
+    return frozenset(roots)
 
 
 def _is_relevant_change(
     stage: Usd.Stage,
     path: Sdf.Path,
     geometry_ancestor_paths: frozenset[str],
+    building_root_paths: frozenset[str] = frozenset(),
+    changed_building_shape_roots: frozenset[str] = frozenset(),
     *,
     resynced: bool = True,
 ) -> bool:
@@ -1806,9 +2319,16 @@ def _is_relevant_change(
             primvar_name = name.removeprefix("primvars:").removesuffix(
                 ":indices"
             )
-            return primvar_name not in DERIVED_PRIMVAR_NAMES
+            return primvar_name not in RUNTIME_OWNED_PRIMVAR_NAMES
         if name.startswith("xformOp:"):
-            return str(prim_path) in geometry_ancestor_paths
+            prim_path_text = str(prim_path)
+            if prim_path_text not in geometry_ancestor_paths:
+                return False
+            if prim_path_text in building_root_paths:
+                return prim_path_text in changed_building_shape_roots
+            return True
+        if name == "xformOpOrder" and str(prim_path) in building_root_paths:
+            return str(prim_path) in changed_building_shape_roots
         return name in {
             "points",
             "faceVertexCounts",
@@ -1827,6 +2347,10 @@ _repository_root: Path | None = None
 _runtime_settings: RuntimeClassifierSettings | None = None
 _previous_rtx_face_culling: bool | None = None
 _owns_rtx_face_culling_setting = False
+_previous_rtx_opacity_override: bool | None = None
+_owns_rtx_opacity_override_setting = False
+_previous_rtx_material_sync_values: dict[str, object] | None = None
+_owns_rtx_material_sync_settings = False
 
 
 def _enable_rtx_single_sided_culling(
@@ -1847,7 +2371,7 @@ def _enable_rtx_single_sided_culling(
     settings_interface.set(_RTX_FACE_CULLING_SETTING, True)
     _owns_rtx_face_culling_setting = True
     log_room_map_warning(
-        owner="KRM-93 CLASSIFIER",
+        owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME BACKFACE CULLING",
         state="ENABLED",
         details={
@@ -1879,13 +2403,140 @@ def _restore_rtx_single_sided_culling(
     _previous_rtx_face_culling = None
     _owns_rtx_face_culling_setting = False
     log_room_map_warning(
-        owner="KRM-93 CLASSIFIER",
+        owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME BACKFACE CULLING",
         state="RESTORED",
         details={
             "setting": _RTX_FACE_CULLING_SETTING,
             "restored_value": restored_value,
         },
+    )
+
+
+def _enable_rtx_cutout_opacity(
+    settings_interface: Any | None = None,
+) -> None:
+    """Enable RTX's explicit custom-material cutout contract for ORMS."""
+
+    global _previous_rtx_opacity_override
+    global _owns_rtx_opacity_override_setting
+    if _owns_rtx_opacity_override_setting:
+        return
+    if settings_interface is None:
+        import carb.settings
+
+        settings_interface = carb.settings.get_settings()
+    previous_value = settings_interface.get(_RTX_OPACITY_OVERRIDE_SETTING)
+    _previous_rtx_opacity_override = (
+        None if previous_value is None else bool(previous_value)
+    )
+    settings_interface.set(_RTX_OPACITY_OVERRIDE_SETTING, True)
+    _owns_rtx_opacity_override_setting = True
+    log_room_map_warning(
+        owner="SHARED ROOM CLASSIFIER",
+        process="RUNTIME CUTOUT OPACITY",
+        state="ENABLED",
+        details={
+            "setting": _RTX_OPACITY_OVERRIDE_SETTING,
+            "previous_value": _previous_rtx_opacity_override,
+            "runtime_value": True,
+            "material_attribute": _RTX_CUTOUT_OPT_IN_ATTRIBUTE,
+            "restored_on_stop": True,
+        },
+    )
+
+
+def _restore_rtx_cutout_opacity(
+    settings_interface: Any | None = None,
+) -> None:
+    """Restore the custom-material opacity override owned by ORMS."""
+
+    global _previous_rtx_opacity_override
+    global _owns_rtx_opacity_override_setting
+    if not _owns_rtx_opacity_override_setting:
+        return
+    if settings_interface is None:
+        import carb.settings
+
+        settings_interface = carb.settings.get_settings()
+    # Absent and explicit false have the same renderer semantics.  The
+    # carb.settings Python API differs across supported Kit builds in how an
+    # item is removed, so restore that semantic state explicitly.
+    restored_value = bool(_previous_rtx_opacity_override)
+    settings_interface.set(_RTX_OPACITY_OVERRIDE_SETTING, restored_value)
+    _previous_rtx_opacity_override = None
+    _owns_rtx_opacity_override_setting = False
+    log_room_map_warning(
+        owner="SHARED ROOM CLASSIFIER",
+        process="RUNTIME CUTOUT OPACITY",
+        state="RESTORED",
+        details={
+            "setting": _RTX_OPACITY_OVERRIDE_SETTING,
+            "restored_value": restored_value,
+        },
+    )
+
+
+def _enable_rtx_material_sync_loads(
+    settings_interface: Any | None = None,
+) -> None:
+    """Serialize runtime MDL family loads using NVIDIA's capture contract."""
+
+    global _previous_rtx_material_sync_values
+    global _owns_rtx_material_sync_settings
+    if _owns_rtx_material_sync_settings:
+        return
+    if settings_interface is None:
+        import carb.settings
+
+        settings_interface = carb.settings.get_settings()
+    _previous_rtx_material_sync_values = {
+        path: settings_interface.get(path)
+        for path in _RTX_MATERIAL_SYNC_SETTINGS
+    }
+    for path in _RTX_MATERIAL_SYNC_SETTINGS:
+        settings_interface.set(path, True)
+    _owns_rtx_material_sync_settings = True
+    log_room_map_warning(
+        owner="SHARED ROOM CLASSIFIER",
+        process="RUNTIME MATERIAL LOADING",
+        state="SYNCHRONOUS_LOADS_ENABLED",
+        details={
+            "settings": ",".join(_RTX_MATERIAL_SYNC_SETTINGS),
+            "previous_values": _previous_rtx_material_sync_values,
+            "runtime_value": True,
+            "restored_on_stop": True,
+        },
+    )
+
+
+def _restore_rtx_material_sync_loads(
+    settings_interface: Any | None = None,
+) -> None:
+    """Restore both RTX material-loading settings exactly as they were."""
+
+    global _previous_rtx_material_sync_values
+    global _owns_rtx_material_sync_settings
+    if not _owns_rtx_material_sync_settings:
+        return
+    if settings_interface is None:
+        import carb.settings
+
+        settings_interface = carb.settings.get_settings()
+    previous_values = _previous_rtx_material_sync_values or {}
+    for path in _RTX_MATERIAL_SYNC_SETTINGS:
+        previous_value = previous_values.get(path)
+        if previous_value is None:
+            settings_interface.destroy_item(path)
+        else:
+            settings_interface.set(path, previous_value)
+    _previous_rtx_material_sync_values = None
+    _owns_rtx_material_sync_settings = False
+    log_room_map_warning(
+        owner="SHARED ROOM CLASSIFIER",
+        process="RUNTIME MATERIAL LOADING",
+        state="SYNCHRONOUS_LOADS_RESTORED",
+        details={"restored_values": previous_values},
     )
 
 
@@ -2004,6 +2655,8 @@ def start(
     _runtime_settings = settings or settings_from_kit()
     _enable_rtx_single_sided_culling()
     try:
+        _enable_rtx_cutout_opacity()
+        _enable_rtx_material_sync_loads()
         _replace_active_classifier(stage, trigger="manual_start")
         dispatcher = carb.eventdispatcher.get_eventdispatcher()
         _context_subscription = tuple(
@@ -2021,6 +2674,8 @@ def start(
             )
         )
     except Exception:
+        _restore_rtx_material_sync_loads()
+        _restore_rtx_cutout_opacity()
         _restore_rtx_single_sided_culling()
         raise
     return _classifier  # type: ignore[return-value]
@@ -2052,4 +2707,6 @@ def stop() -> None:
     _context_subscription = None
     _repository_root = None
     _runtime_settings = None
+    _restore_rtx_material_sync_loads()
+    _restore_rtx_cutout_opacity()
     _restore_rtx_single_sided_culling()

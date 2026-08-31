@@ -1,28 +1,31 @@
 import ast
 from pathlib import Path
 
-KRM93_ROOT = Path(__file__).resolve().parent
-LAUNCHER_EXTENSION = (
-    KRM93_ROOT / "kit_exts" / "msp.orms.krm93.fixture_launcher"
-)
+VALIDATION_ROOT = Path(__file__).resolve().parent
+LAUNCHER_EXTENSION = VALIDATION_ROOT / "kit_exts" / "msp.orms.fixture_launcher"
 
 
 def test_visual_validation_bundle_is_complete():
     expected = {
-        "launch_krm93_omniverse.bat",
+        "launch_shared_rooms_houdini_omniverse.bat",
+        "launch_shared_rooms_houdini_instances_omniverse.bat",
+        "launch_shared_rooms_instances_omniverse.bat",
+        "launch_shared_rooms_omniverse.bat",
         "mdl_compile_minimal.mdl",
         "mdl_compile_probe_observer.py",
         "run_mdl_compile_probes.py",
         "test_room_map_shared_rooms_omniverse.usda",
         "test_room_map_shared_rooms_houdini.usda",
+        "test_room_map_shared_rooms_houdini_instance_source.usda",
+        "test_room_map_shared_rooms_houdini_instances.usda",
         "test_room_map_shared_rooms_instances.usda",
     }
-    assert expected <= {path.name for path in KRM93_ROOT.iterdir()}
+    assert expected <= {path.name for path in VALIDATION_ROOT.iterdir()}
 
 
 def test_mdl_compile_bisection_has_bounded_phase_markers():
-    runner_path = KRM93_ROOT / "run_mdl_compile_probes.py"
-    observer_path = KRM93_ROOT / "mdl_compile_probe_observer.py"
+    runner_path = VALIDATION_ROOT / "run_mdl_compile_probes.py"
+    observer_path = VALIDATION_ROOT / "mdl_compile_probe_observer.py"
     runner = runner_path.read_text(encoding="utf-8")
     observer = observer_path.read_text(encoding="utf-8")
 
@@ -45,14 +48,15 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
     assert '"MDLC   comp error:"' in runner
     assert '"Unable to find SdrShaderNode"' in runner
     assert 'terminal = "COMPILE_ERROR"' in runner
+    assert 'sourceAsset:subIdentifier = "room_map"' in runner
 
 
 def test_minimal_compile_probe_covers_fail_open_binary_backface_cutout():
-    source = (KRM93_ROOT / "mdl_compile_minimal.mdl").read_text(
+    source = (VALIDATION_ROOT / "mdl_compile_minimal.mdl").read_text(
         encoding="utf-8"
     )
     production_source = (
-        KRM93_ROOT.parents[1] / "src" / "mdl" / "room_map.mdl"
+        VALIDATION_ROOT.parents[1] / "src" / "mdl" / "room_map.mdl"
     ).read_text(encoding="utf-8")
 
     function_marker = "float physical_aperture_cutout_opacity("
@@ -77,14 +81,61 @@ def test_minimal_compile_probe_covers_fail_open_binary_backface_cutout():
 
 
 def test_launcher_passes_the_stage_to_a_test_only_startup_extension():
-    source = (KRM93_ROOT / "launch_krm93_omniverse.bat").read_text(
+    source = (VALIDATION_ROOT / "launch_shared_rooms_omniverse.bat").read_text(
         encoding="utf-8"
     )
     assert "msp.case03.blackwell.kit" in source
     assert "--ext-folder" in source
-    assert "--enable msp.orms.krm93.fixture_launcher" in source
+    assert "--enable msp.orms.fixture_launcher" in source
     assert "--/app/content/emptyStageOnStart=true" in source
     assert "test_room_map_shared_rooms_omniverse.usda" in source
+    assert source.count("snippetFolders/") == 2
+    assert source.count("${kit}/snippets") == 2
+    assert "--exec" not in source
+
+
+def test_instance_launcher_passes_the_instance_stage_to_the_same_extension():
+    source = (
+        VALIDATION_ROOT / "launch_shared_rooms_instances_omniverse.bat"
+    ).read_text(encoding="utf-8")
+    assert "msp.case03.blackwell.kit" in source
+    assert "--ext-folder" in source
+    assert "--enable msp.orms.fixture_launcher" in source
+    assert "--/app/content/emptyStageOnStart=true" in source
+    assert "test_room_map_shared_rooms_instances.usda" in source
+    assert "test_room_map_shared_rooms_omniverse.usda" not in source
+    assert source.count("snippetFolders/") == 2
+    assert source.count("${kit}/snippets") == 2
+    assert "--exec" not in source
+
+
+def test_houdini_launcher_passes_the_houdini_stage_to_the_same_extension():
+    source = (
+        VALIDATION_ROOT / "launch_shared_rooms_houdini_omniverse.bat"
+    ).read_text(encoding="utf-8")
+    assert "msp.case03.blackwell.kit" in source
+    assert "--ext-folder" in source
+    assert "--enable msp.orms.fixture_launcher" in source
+    assert "--/app/content/emptyStageOnStart=true" in source
+    assert "test_room_map_shared_rooms_houdini.usda" in source
+    assert "test_room_map_shared_rooms_omniverse.usda" not in source
+    assert "test_room_map_shared_rooms_instances.usda" not in source
+    assert source.count("snippetFolders/") == 2
+    assert source.count("${kit}/snippets") == 2
+    assert "--exec" not in source
+
+
+def test_houdini_instance_launcher_passes_its_stage_to_the_same_extension():
+    source = (
+        VALIDATION_ROOT / "launch_shared_rooms_houdini_instances_omniverse.bat"
+    ).read_text(encoding="utf-8")
+    assert "msp.case03.blackwell.kit" in source
+    assert "--ext-folder" in source
+    assert "--enable msp.orms.fixture_launcher" in source
+    assert "--/app/content/emptyStageOnStart=true" in source
+    assert "test_room_map_shared_rooms_houdini_instances.usda" in source
+    assert "test_room_map_shared_rooms_omniverse.usda" not in source
+    assert "test_room_map_shared_rooms_instances.usda" not in source
     assert source.count("snippetFolders/") == 2
     assert source.count("${kit}/snippets") == 2
     assert "--exec" not in source
@@ -94,12 +145,10 @@ def test_fixture_launcher_extension_is_importable_source():
     manifest = (LAUNCHER_EXTENSION / "config" / "extension.toml").read_text(
         encoding="utf-8"
     )
-    source_path = (
-        LAUNCHER_EXTENSION / "orms_krm93_fixture_launcher" / "extension.py"
-    )
+    source_path = LAUNCHER_EXTENSION / "orms_fixture_launcher" / "extension.py"
     source = source_path.read_text(encoding="utf-8")
     ast.parse(source, filename=str(source_path))
-    assert 'name = "orms_krm93_fixture_launcher"' in manifest
+    assert 'name = "orms_fixture_launcher"' in manifest
     assert '"omni.kit.viewport.ready" = {}' in manifest
     assert "is_app_ready" in source
     assert "ViewportReady" in source

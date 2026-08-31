@@ -294,7 +294,143 @@ float slice_opacity(
     return enabled && is_visible ? saturate(sample.w) : 0.0;
 }
 
+struct room_slice_composite
+{
+    color colour;
+    float room_transmittance;
+    float front_exit_coverage;
+};
+
+room_slice_composite composite_room_slices(
+    uniform texture_2d room_atlas,
+    int variant_index,
+    float2 slice_1_coordinate,
+    float2 slice_2_coordinate,
+    float2 slice_3_coordinate,
+    float2 slice_4_coordinate,
+    bool enable_slice_1,
+    bool enable_slice_2,
+    bool enable_slice_3,
+    bool enable_slice_4,
+    bool front_exit_slice_1_is_visible,
+    bool front_exit_slice_2_is_visible,
+    bool front_exit_slice_3_is_visible,
+    bool front_exit_slice_4_is_visible,
+    bool slice_1_is_visible,
+    bool slice_2_is_visible,
+    bool slice_3_is_visible,
+    bool slice_4_is_visible
+) = let {
+    float4 slice_1 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_1_coordinate, float2(0.0, 0.0)),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_2 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_2_coordinate,
+                float2(0.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_3 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_3_coordinate,
+                float2(2.0 / 3.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_4 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_4_coordinate, float2(2.0 / 3.0, 0.0)),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float front_exit_slice_1_opacity = slice_opacity(
+        slice_1,
+        enable_slice_1,
+        front_exit_slice_1_is_visible
+    );
+    float front_exit_slice_2_opacity = slice_opacity(
+        slice_2,
+        enable_slice_2,
+        front_exit_slice_2_is_visible
+    );
+    float front_exit_slice_3_opacity = slice_opacity(
+        slice_3,
+        enable_slice_3,
+        front_exit_slice_3_is_visible
+    );
+    float front_exit_slice_4_opacity = slice_opacity(
+        slice_4,
+        enable_slice_4,
+        front_exit_slice_4_is_visible
+    );
+    float front_exit_transmittance =
+        (1.0 - front_exit_slice_1_opacity)
+        * (1.0 - front_exit_slice_2_opacity)
+        * (1.0 - front_exit_slice_3_opacity)
+        * (1.0 - front_exit_slice_4_opacity);
+    float slice_1_opacity = slice_opacity(
+        slice_1,
+        enable_slice_1,
+        slice_1_is_visible
+    );
+    float slice_2_opacity = slice_opacity(
+        slice_2,
+        enable_slice_2,
+        slice_2_is_visible
+    );
+    float slice_3_opacity = slice_opacity(
+        slice_3,
+        enable_slice_3,
+        slice_3_is_visible
+    );
+    float slice_4_opacity = slice_opacity(
+        slice_4,
+        enable_slice_4,
+        slice_4_is_visible
+    );
+    float slice_2_transmittance = 1.0 - slice_1_opacity;
+    float slice_3_transmittance = slice_2_transmittance
+        * (1.0 - slice_2_opacity);
+    float slice_4_transmittance = slice_3_transmittance
+        * (1.0 - slice_3_opacity);
+    float room_transmittance = slice_4_transmittance
+        * (1.0 - slice_4_opacity);
+    color slice_1_colour = color(slice_1.x, slice_1.y, slice_1.z);
+    color slice_2_colour = color(slice_2.x, slice_2.y, slice_2.z);
+    color slice_3_colour = color(slice_3.x, slice_3.y, slice_3.z);
+    color slice_4_colour = color(slice_4.x, slice_4.y, slice_4.z);
+    color composited_colour = slice_1_colour * slice_1_opacity
+        + slice_2_colour * slice_2_opacity * slice_2_transmittance
+        + slice_3_colour * slice_3_opacity * slice_3_transmittance
+        + slice_4_colour * slice_4_opacity * slice_4_transmittance;
+} in room_slice_composite(
+    composited_colour,
+    room_transmittance,
+    saturate(1.0 - front_exit_transmittance)
+);
+
 export material room_map(
+    uniform bool enable_opacity = true,
     uniform texture_2d room_atlas = texture_2d(),
     uniform int room_variant_count = 1,
     uniform int variation_seed = 0,
@@ -332,8 +468,9 @@ export material room_map(
         variation_seed,
         room_variant_count
     );
-    float3 room_position = nvidia::support_definitions::data_lookup_float3(
-        "roomP",
+    float3 room_position =
+        nvidia::support_definitions::data_lookup_float3(
+        "ormsRoomPositionWorld",
         float3(0.0)
     );
     float safe_room_extent = positive_extent(room_uniform_scale);
@@ -360,6 +497,11 @@ export material room_map(
             "ormsRoomAxisV",
             float3(0.0, 1.0, 0.0)
         );
+    float3 derived_physical_normal =
+        nvidia::support_definitions::data_lookup_float3(
+            "ormsPhysicalNormal",
+            float3(0.0, 0.0, 1.0)
+        );
     float3 derived_room_scale =
         nvidia::support_definitions::data_lookup_float3(
             "ormsRoomScale",
@@ -370,16 +512,33 @@ export material room_map(
             "ormsRoomMapPosition",
             float3(0.0)
         );
-    float4 primary_aperture_minimum_u =
-        nvidia::support_definitions::data_lookup_float4(
-            "ormsPrimaryApertureMinU",
-            float4(0.0, -1.0, -1.0, -1.0)
+    float3 primary_aperture_minimum_u_012 =
+        nvidia::support_definitions::data_lookup_float3(
+            "ormsPrimaryApertureMinU012",
+            float3(0.0, -1.0, -1.0)
         );
-    float4 primary_aperture_maximum_u =
-        nvidia::support_definitions::data_lookup_float4(
-            "ormsPrimaryApertureMaxU",
-            float4(1.0, -1.0, -1.0, -1.0)
+    float3 primary_aperture_maximum_u_012 =
+        nvidia::support_definitions::data_lookup_float3(
+            "ormsPrimaryApertureMaxU012",
+            float3(1.0, -1.0, -1.0)
         );
+    float3 primary_aperture_u_3 =
+        nvidia::support_definitions::data_lookup_float3(
+            "ormsPrimaryApertureU3",
+            float3(-1.0, -1.0, 0.0)
+        );
+    float4 primary_aperture_minimum_u = float4(
+        primary_aperture_minimum_u_012.x,
+        primary_aperture_minimum_u_012.y,
+        primary_aperture_minimum_u_012.z,
+        primary_aperture_u_3.x
+    );
+    float4 primary_aperture_maximum_u = float4(
+        primary_aperture_maximum_u_012.x,
+        primary_aperture_maximum_u_012.y,
+        primary_aperture_maximum_u_012.z,
+        primary_aperture_u_3.y
+    );
     float aperture_mask_offset_u =
         nvidia::support_definitions::data_lookup_float(
             "ormsApertureMaskOffsetU",
@@ -407,22 +566,22 @@ export material room_map(
         && room_depth > room_map_epsilon();
     float3 tangent_u = math::normalize(derived_room_axis_u);
     float3 tangent_v = math::normalize(derived_room_axis_v);
+    float3 physical_normal_world = math::normalize(
+        derived_physical_normal
+    );
     float3 room_normal = math::normalize(math::cross(tangent_u, tangent_v));
     float3 surface_position_world = state::transform_point(
         state::coordinate_internal,
         state::coordinate_world,
         state::position()
     );
-    float3 physical_aperture_normal_world = state::transform_normal(
-        state::coordinate_internal,
-        state::coordinate_world,
-        state::geometry_normal()
-    );
-    float physical_surface_cutout_opacity = physical_aperture_cutout_opacity(
-        camera_position_world,
-        surface_position_world,
-        physical_aperture_normal_world
-    );
+    float physical_surface_cutout_opacity = depth_aligned_portal
+        ? 1.0
+        : physical_aperture_cutout_opacity(
+            camera_position_world,
+            surface_position_world,
+            physical_normal_world
+        );
     float3 camera_from_room = camera_position_world - room_position;
     float3 surface_from_room = surface_position_world - room_position;
     float3 camera_position_room = float3(
@@ -520,6 +679,9 @@ export material room_map(
             primary_aperture_minimum_u,
             primary_aperture_maximum_u
         );
+    float visible_room_limit_distance = front_exit_hits_primary_aperture
+        ? math::min(room_hit_distance, front_exit_distance)
+        : room_hit_distance;
     float4 room_sample = tex::lookup_float4(
         room_atlas,
         udim_atlas_coordinate(room_atlas_coordinate, variant_index),
@@ -610,51 +772,45 @@ export material room_map(
         slice_4_offset,
         slice_4_scale
     );
-    float4 slice_1_sample = tex::lookup_float4(
-        room_atlas,
-        udim_atlas_coordinate(
-            slice_atlas_coordinate(slice_1_local_coordinate, float2(0.0, 0.0)),
-            variant_index
-        ),
-        tex::wrap_clip,
-        tex::wrap_clip
-    );
-    float4 slice_2_sample = tex::lookup_float4(
-        room_atlas,
-        udim_atlas_coordinate(
-            slice_atlas_coordinate(
-                slice_2_local_coordinate,
-                float2(0.0, 2.0 / 3.0)
-            ),
-            variant_index
-        ),
-        tex::wrap_clip,
-        tex::wrap_clip
-    );
-    float4 slice_3_sample = tex::lookup_float4(
-        room_atlas,
-        udim_atlas_coordinate(
-            slice_atlas_coordinate(
-                slice_3_local_coordinate,
-                float2(2.0 / 3.0, 2.0 / 3.0)
-            ),
-            variant_index
-        ),
-        tex::wrap_clip,
-        tex::wrap_clip
-    );
-    float4 slice_4_sample = tex::lookup_float4(
-        room_atlas,
-        udim_atlas_coordinate(
-            slice_atlas_coordinate(slice_4_local_coordinate, float2(2.0 / 3.0, 0.0)),
-            variant_index
-        ),
-        tex::wrap_clip,
-        tex::wrap_clip
-    );
+    bool front_exit_slice_1_is_visible = front_exit_hits_primary_aperture
+        && slice_depth_range_is_valid
+        && slice_1_distance <= front_exit_distance
+        && point_is_in_room_extent(
+            slice_1_hit_point,
+            safe_room_width,
+            safe_room_height
+        )
+        && coordinate_is_in_unit_tile(slice_1_local_coordinate);
+    bool front_exit_slice_2_is_visible = front_exit_hits_primary_aperture
+        && slice_depth_range_is_valid
+        && slice_2_distance <= front_exit_distance
+        && point_is_in_room_extent(
+            slice_2_hit_point,
+            safe_room_width,
+            safe_room_height
+        )
+        && coordinate_is_in_unit_tile(slice_2_local_coordinate);
+    bool front_exit_slice_3_is_visible = front_exit_hits_primary_aperture
+        && slice_depth_range_is_valid
+        && slice_3_distance <= front_exit_distance
+        && point_is_in_room_extent(
+            slice_3_hit_point,
+            safe_room_width,
+            safe_room_height
+        )
+        && coordinate_is_in_unit_tile(slice_3_local_coordinate);
+    bool front_exit_slice_4_is_visible = front_exit_hits_primary_aperture
+        && slice_depth_range_is_valid
+        && slice_4_distance <= front_exit_distance
+        && point_is_in_room_extent(
+            slice_4_hit_point,
+            safe_room_width,
+            safe_room_height
+        )
+        && coordinate_is_in_unit_tile(slice_4_local_coordinate);
     bool slice_1_is_visible = throat_entry_is_valid
         && slice_depth_range_is_valid
-        && slice_1_distance <= room_hit_distance
+        && slice_1_distance <= visible_room_limit_distance
         && point_is_in_room_extent(
             slice_1_hit_point,
             safe_room_width,
@@ -663,7 +819,7 @@ export material room_map(
         && coordinate_is_in_unit_tile(slice_1_local_coordinate);
     bool slice_2_is_visible = throat_entry_is_valid
         && slice_depth_range_is_valid
-        && slice_2_distance <= room_hit_distance
+        && slice_2_distance <= visible_room_limit_distance
         && point_is_in_room_extent(
             slice_2_hit_point,
             safe_room_width,
@@ -672,7 +828,7 @@ export material room_map(
         && coordinate_is_in_unit_tile(slice_2_local_coordinate);
     bool slice_3_is_visible = throat_entry_is_valid
         && slice_depth_range_is_valid
-        && slice_3_distance <= room_hit_distance
+        && slice_3_distance <= visible_room_limit_distance
         && point_is_in_room_extent(
             slice_3_hit_point,
             safe_room_width,
@@ -681,55 +837,51 @@ export material room_map(
         && coordinate_is_in_unit_tile(slice_3_local_coordinate);
     bool slice_4_is_visible = throat_entry_is_valid
         && slice_depth_range_is_valid
-        && slice_4_distance <= room_hit_distance
+        && slice_4_distance <= visible_room_limit_distance
         && point_is_in_room_extent(
             slice_4_hit_point,
             safe_room_width,
             safe_room_height
         )
         && coordinate_is_in_unit_tile(slice_4_local_coordinate);
-    float slice_1_opacity = slice_opacity(
-        slice_1_sample,
+    room_slice_composite slice_composite = composite_room_slices(
+        room_atlas,
+        variant_index,
+        slice_1_local_coordinate,
+        slice_2_local_coordinate,
+        slice_3_local_coordinate,
+        slice_4_local_coordinate,
         enable_slice_1,
-        slice_1_is_visible
-    );
-    float slice_2_opacity = slice_opacity(
-        slice_2_sample,
         enable_slice_2,
-        slice_2_is_visible
-    );
-    float slice_3_opacity = slice_opacity(
-        slice_3_sample,
         enable_slice_3,
-        slice_3_is_visible
-    );
-    float slice_4_opacity = slice_opacity(
-        slice_4_sample,
         enable_slice_4,
+        front_exit_slice_1_is_visible,
+        front_exit_slice_2_is_visible,
+        front_exit_slice_3_is_visible,
+        front_exit_slice_4_is_visible,
+        slice_1_is_visible,
+        slice_2_is_visible,
+        slice_3_is_visible,
         slice_4_is_visible
     );
-    color slice_1_colour = color(slice_1_sample.x, slice_1_sample.y, slice_1_sample.z);
-    color slice_2_colour = color(slice_2_sample.x, slice_2_sample.y, slice_2_sample.z);
-    color slice_3_colour = color(slice_3_sample.x, slice_3_sample.y, slice_3_sample.z);
-    color slice_4_colour = color(slice_4_sample.x, slice_4_sample.y, slice_4_sample.z);
-    float slice_2_transmittance = 1.0 - slice_1_opacity;
-    float slice_3_transmittance = slice_2_transmittance
-        * (1.0 - slice_2_opacity);
-    float slice_4_transmittance = slice_3_transmittance
-        * (1.0 - slice_3_opacity);
-    float room_transmittance = slice_4_transmittance
-        * (1.0 - slice_4_opacity);
-    float virtual_front_cutout_opacity = front_exit_hits_primary_aperture
+    color composited_slice_colour = slice_composite.colour;
+    float room_transmittance = slice_composite.room_transmittance;
+    float front_exit_slice_coverage =
+        slice_composite.front_exit_coverage;
+    float slice_coverage = saturate(1.0 - room_transmittance);
+    bool front_exit_has_slice_surface = front_exit_slice_coverage >= 0.5;
+    float production_cutout_opacity = physical_surface_cutout_opacity < 0.5
         ? 0.0
+        : front_exit_hits_primary_aperture
+        ? front_exit_has_slice_surface ? 1.0 : 0.0
         : 1.0;
-    float room_cutout_opacity = physical_surface_cutout_opacity
-        * virtual_front_cutout_opacity;
-    color composited_slice_colour = slice_1_colour * slice_1_opacity
-        + slice_2_colour * slice_2_opacity * slice_2_transmittance
-        + slice_3_colour * slice_3_opacity * slice_3_transmittance
-        + slice_4_colour * slice_4_opacity * slice_4_transmittance;
+    float room_cutout_opacity = enable_opacity
+        ? production_cutout_opacity
+        : 1.0;
+    color front_exit_slice_colour = composited_slice_colour
+        / math::max(slice_coverage, room_map_epsilon());
     color composited_room_colour = front_exit_hits_primary_aperture
-        ? composited_slice_colour
+        ? front_exit_slice_colour
         : room_colour * room_transmittance + composited_slice_colour;
 } in material(
     geometry: material_geometry(

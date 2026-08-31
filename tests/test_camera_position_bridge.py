@@ -57,6 +57,7 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "camera_position_world - surface_position_world" in mdl_source
 
     assert "get_active_viewport" in bridge_source
+    assert "def active_camera_world_position(" in bridge_source
     assert "ComputeLocalToWorldTransform" in bridge_source
     assert "ExtractTranslation" in bridge_source
     assert "stage.GetSessionLayer()" in bridge_source
@@ -65,6 +66,11 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "inputs:camera_position_world" in bridge_source
     assert "material_input_paths" in bridge_source
     assert "self._missing_input_paths" in bridge_source
+    assert "self._reported_active_paths" in bridge_source
+    assert 'state="ACTIVE"' in bridge_source
+    assert "not prim.IsInstanceProxy()" in bridge_source
+    assert "material_input.GetPrim().IsInstanceProxy()" in bridge_source
+    assert 'state="INSTANCE_PROXY_SKIPPED"' in bridge_source
     assert "log_room_map_warning(" in bridge_source
     assert (
         "carb.eventdispatcher.get_eventdispatcher().observe_event("

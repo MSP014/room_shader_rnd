@@ -35,6 +35,15 @@ def test_single_room_stage_defines_a_unit_window_and_room_frame():
         (0.0, 0.0),
     ]
 
+    room_uv = primvars_api.GetPrimvar("roomUV")
+    assert room_uv.GetInterpolation() == UsdGeom.Tokens.faceVarying
+    assert [tuple(value) for value in room_uv.Get()] == [
+        (1.0, 0.0, 0.0),
+        (1.0, 1.0, 0.0),
+        (0.0, 1.0, 0.0),
+        (0.0, 0.0, 0.0),
+    ]
+
     for name, interpolation in EXPECTED_FRAME_PRIMVARS.items():
         primvar = primvars_api.GetPrimvar(name)
 
@@ -82,7 +91,37 @@ def test_single_room_module_uses_the_frame_camera_and_five_face_atlas_contract()
     assert 'data_lookup_float3(\n        "roomP"' in source
     assert 'data_lookup_float3(\n        "tangentu"' in source
     assert 'data_lookup_float3(\n        "tangentv"' in source
-    assert "camera_position_world - room_position" in source
+    assert "state::coordinate_object" in source
+    assert source.count("state::transform_vector(") == 2
+    assert (
+        'data_lookup_float3(\n            "ormsCameraPositionWorld"' in source
+    )
+    assert 'data_lookup_float3(\n        "roomUV"' in source
+    assert 'data_lookup_int(\n        "roomID"' in source
+    assert "uniform int room_variant_count = 1" in source
+    assert "uniform int variation_seed = 0" in source
+    assert "int variant_index = select_room_variant(" in source
+    assert "udim_atlas_coordinate(atlas_coordinate, variant_index)" in source
+    assert "bridged_camera_position_world - room_position" in source
+    assert "float tangent_u_extent = math::length(tangent_u_raw);" in source
+    assert "float tangent_v_extent = math::length(tangent_v_raw);" in source
+    assert (
+        "math::dot(camera_from_room, tangent_u) / safe_tangent_u_extent"
+        in source
+    )
+    assert (
+        "math::dot(camera_from_room, tangent_v) / safe_tangent_v_extent"
+        in source
+    )
+    assert (
+        "math::dot(surface_from_room, tangent_u) / safe_tangent_u_extent"
+        in source
+    )
+    assert (
+        "math::dot(surface_from_room, tangent_v) / safe_tangent_v_extent"
+        in source
+    )
+    assert "state::direction()" not in source
     assert "state::texture_coordinate(0)" in source
     assert "tex::lookup_float4(" in source
     assert "-room_depth" in source

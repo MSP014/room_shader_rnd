@@ -3,7 +3,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from pxr import Usd, UsdGeom, UsdLux, UsdShade
+from pxr import Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
 from tools.omniverse.shared_room_classifier import (
     DERIVED_APERTURE_MASK_OFFSET_U,
@@ -27,23 +27,43 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 OMNIVERSE_FIXTURE = (
     REPOSITORY_ROOT
     / "tests"
-    / "krm_93"
+    / "shared_room_runtime"
     / "test_room_map_shared_rooms_omniverse.usda"
 )
 HOUDINI_FIXTURE = (
     REPOSITORY_ROOT
     / "tests"
-    / "krm_93"
+    / "shared_room_runtime"
     / "test_room_map_shared_rooms_houdini.usda"
+)
+HOUDINI_INSTANCE_SOURCE = (
+    REPOSITORY_ROOT
+    / "tests"
+    / "shared_room_runtime"
+    / "test_room_map_shared_rooms_houdini_instance_source.usda"
+)
+HOUDINI_INSTANCE_FIXTURE = (
+    REPOSITORY_ROOT
+    / "tests"
+    / "shared_room_runtime"
+    / "test_room_map_shared_rooms_houdini_instances.usda"
 )
 INSTANCE_FIXTURE = (
     REPOSITORY_ROOT
     / "tests"
-    / "krm_93"
+    / "shared_room_runtime"
     / "test_room_map_shared_rooms_instances.usda"
 )
 HOUDINI_SOURCE = REPOSITORY_ROOT / "hip" / "room map test 005.hiplc"
-HOUDINI_WINDOWS = "/World/HoudiniGrid/geo/windows"
+HOUDINI_EXPORT = (
+    REPOSITORY_ROOT
+    / "assets"
+    / "_external"
+    / "usd"
+    / "test_bld"
+    / "test_bld.usd"
+)
+HOUDINI_WINDOWS = "/World/HoudiniBuilding/geo/windows"
 HDRI_PATH = (
     REPOSITORY_ROOT
     / "assets"
@@ -76,11 +96,16 @@ OMNIVERSE_CASES = (
 
 @pytest.mark.parametrize(
     "fixture_path",
-    (OMNIVERSE_FIXTURE, HOUDINI_FIXTURE, INSTANCE_FIXTURE),
+    (
+        OMNIVERSE_FIXTURE,
+        HOUDINI_FIXTURE,
+        HOUDINI_INSTANCE_FIXTURE,
+        INSTANCE_FIXTURE,
+    ),
 )
-def test_visual_fixtures_use_the_krm93_hdri_environment(fixture_path):
+def test_visual_fixtures_use_the_room_map_hdri_environment(fixture_path):
     stage = Usd.Stage.Open(str(fixture_path), load=Usd.Stage.LoadAll)
-    dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/KRM93Environment"))
+    dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/RoomMapEnvironment"))
 
     assert dome
     assert dome.GetTextureFileAttr().Get().path == HDRI_ASSET_PATH
@@ -91,6 +116,76 @@ def test_visual_fixtures_use_the_krm93_hdri_environment(fixture_path):
     assert dome_prim.GetAttribute("xformOp:rotateX").Get() == -90.0
     assert dome_prim.GetAttribute("xformOpOrder").Get() == ["xformOp:rotateX"]
     assert HDRI_PATH.is_file()
+
+
+@pytest.mark.parametrize(
+    ("fixture_path", "shader_path"),
+    (
+        (
+            OMNIVERSE_FIXTURE,
+            "/World/Building/Looks/RoomMapSource/Shader",
+        ),
+        (HOUDINI_FIXTURE, "/World/Looks/RoomMapSource/Shader"),
+        (
+            HOUDINI_INSTANCE_SOURCE,
+            "/HoudiniBuilding/Looks/RoomMapSource/Shader",
+        ),
+    ),
+)
+def test_source_x1_materials_enable_all_debug_variants(
+    fixture_path,
+    shader_path,
+):
+    stage = Usd.Stage.Open(str(fixture_path), load=Usd.Stage.LoadAll)
+    shader = UsdShade.Shader(stage.GetPrimAtPath(shader_path))
+
+    assert shader
+    assert shader.GetInput("room_variant_count").Get() == 8
+    assert shader.GetInput("variation_seed").Get() == 0
+    assert (
+        shader.GetInput("room_atlas")
+        .Get()
+        .path.endswith("room_map_debug/room_map_debug.<UDIM>.png")
+    )
+
+
+@pytest.mark.parametrize(
+    "fixture_path",
+    (HOUDINI_INSTANCE_FIXTURE, INSTANCE_FIXTURE),
+)
+def test_instance_fixtures_predeclare_camera_primvar_before_runtime(
+    fixture_path,
+):
+    stage = Usd.Stage.Open(str(fixture_path), load=Usd.Stage.LoadAll)
+    primvar = UsdGeom.PrimvarsAPI(stage.GetPrimAtPath("/World")).GetPrimvar(
+        "ormsCameraPositionWorld"
+    )
+
+    assert primvar
+    assert primvar.GetTypeName() == Sdf.ValueTypeNames.Float3
+    assert primvar.GetInterpolation() == UsdGeom.Tokens.constant
+    assert tuple(primvar.Get()) == (8.0, 3.0, 5.0)
+
+    instance_roots = tuple(
+        child
+        for child in stage.GetPrimAtPath("/World").GetChildren()
+        if child.IsInstance()
+    )
+    assert len(instance_roots) == 2
+    inherited_primvars = tuple(
+        UsdGeom.PrimvarsAPI(proxy).FindPrimvarWithInheritance(
+            "ormsCameraPositionWorld"
+        )
+        for instance in instance_roots
+        for proxy in Usd.PrimRange(instance, Usd.TraverseInstanceProxies())
+        if proxy.IsA(UsdGeom.Mesh)
+        and UsdGeom.PrimvarsAPI(proxy).GetPrimvar("roomUV")
+    )
+    assert inherited_primvars
+    assert all(inherited_primvars)
+    assert {tuple(inherited.Get()) for inherited in inherited_primvars} == {
+        (8.0, 3.0, 5.0)
+    }
 
 
 def _classify(path, settings=RuntimeClassifierSettings()):
@@ -107,9 +202,12 @@ def _classify(path, settings=RuntimeClassifierSettings()):
 
 
 def _family_material_sizes(stage):
+    looks = stage.GetPrimAtPath("/__ORMSRuntime/Looks")
+    if not looks:
+        return set()
     return {
         int(prim.GetName().removeprefix("RoomMapX"))
-        for prim in stage.GetPrimAtPath("/__ORMSRuntime/Looks").GetChildren()
+        for prim in looks.GetChildren()
         if prim.IsA(UsdShade.Material)
     }
 
@@ -175,7 +273,16 @@ def test_omniverse_fixture_uses_unique_debug_textures_and_coherent_layout():
         stage.GetPrimAtPath("/World/Building/Looks/RoomMapSource/Shader")
     )
 
-    assert source_shader.GetInput("room_variant_count").Get() == 8
+    source_asset = (
+        source_shader.GetPrim().GetAttribute("info:mdl:sourceAsset").Get()
+    )
+    source_sub_identifier = (
+        source_shader.GetPrim()
+        .GetAttribute("info:mdl:sourceAsset:subIdentifier")
+        .Get()
+    )
+    assert source_asset.path.endswith("src/mdl/room_map_single.mdl")
+    assert source_sub_identifier == "room_map_single"
     selected_textures = set()
     for (
         prim_name,
@@ -435,6 +542,14 @@ def test_omniverse_fixture_classifies_flat_corner_and_bay_rooms():
     )
 
     arc_prim = stage.GetPrimAtPath("/World/Building/RoomX4Arc8")
+    arc_depth_extent = _scaled_depth_extent(arc_prim)
+    arc_slice_start_depth = (
+        UsdGeom.PrimvarsAPI(arc_prim)
+        .GetPrimvar(DERIVED_SLICE_START_DEPTH)
+        .Get()[0]
+    )
+    assert arc_depth_extent[1] == pytest.approx(0.0)
+    assert arc_depth_extent[0] == pytest.approx(-arc_slice_start_depth)
     arc_axis_u = (
         UsdGeom.PrimvarsAPI(arc_prim).GetPrimvar(DERIVED_ROOM_AXIS_U).Get()
     )
@@ -477,9 +592,11 @@ def test_houdini_fixture_preserves_export_and_classifies_all_families():
     stage = Usd.Stage.Open(str(HOUDINI_FIXTURE), load=Usd.Stage.LoadAll)
     root_before = stage.GetRootLayer().ExportToString()
     windows = UsdGeom.Mesh(stage.GetPrimAtPath(HOUDINI_WINDOWS))
-    source_room_ids = tuple(
-        UsdGeom.PrimvarsAPI(windows).GetPrimvar("roomID").Get()
-    )
+    primvars = UsdGeom.PrimvarsAPI(windows)
+    source_room_ids = tuple(primvars.GetPrimvar("roomID").Get())
+    bound_material, binding_relationship = UsdShade.MaterialBindingAPI(
+        windows
+    ).ComputeBoundMaterial()
     owner = RuntimeLayerOwner(stage)
     classification = classify_stage(
         stage,
@@ -494,53 +611,96 @@ def test_houdini_fixture_preserves_export_and_classifies_all_families():
         if layer.realPath
     }
     assert stage.GetRootLayer().customLayerData["orms:fixtureOrigin"] == (
-        "Omniverse capture layer over Houdini-authored geometry"
+        "Omniverse capture layer over Houdini-exported test_bld component "
+        "asset"
+    )
+    assert stage.GetRootLayer().customLayerData["orms:houdiniExport"] == (
+        "assets/_external/usd/test_bld/test_bld.usd"
     )
     assert HOUDINI_SOURCE.is_file()
+    assert HOUDINI_EXPORT.is_file()
     assert {
-        "test_room_map_apertures_houdini.usda",
-        "test_grid_wins_diff.usd",
+        "test_bld.usd",
         "payload.usdc",
         "geo.usdc",
         "mtl.usdc",
     }.issubset(used_layer_names)
-    assert source_room_ids == (
-        11,
-        11,
-        12,
-        13,
-        13,
-        21,
-        21,
-        21,
-        22,
-        23,
-        31,
-        31,
-        31,
-        31,
-        32,
+    assert len(source_room_ids) == 140
+    assert Counter(source_room_ids) >= Counter(
+        {
+            11: 3,
+            12: 3,
+            21: 4,
+            22: 4,
+            31: 9,
+            41: 6,
+            42: 6,
+            221: 4,
+            222: 4,
+            331: 3,
+            332: 3,
+            441: 4,
+        }
     )
-    assert len(classification.extraction.apertures) == 15
+    assert primvars.GetPrimvar("roomID").GetInterpolation() == "uniform"
+    for name in ("roomP", "tangentu", "tangentv"):
+        assert primvars.GetPrimvar(name).GetInterpolation() == "vertex"
+    assert primvars.GetPrimvar("roomUV").GetInterpolation() == "faceVarying"
+    assert binding_relationship
+    assert bound_material.GetPath() == "/World/Looks/RoomMapSource"
+    assert len(classification.extraction.apertures) == 140
     assert not classification.extraction.diagnostics
     assert not classification.result.diagnostics
     assert Counter(
         group.room_size for group in classification.result.groups
-    ) == (Counter({1: 4, 2: 2, 3: 1, 4: 1}))
-    assert tuple(
-        UsdGeom.PrimvarsAPI(windows).GetPrimvar(DERIVED_ROOM_SIZE).Get()
-    ) == (2, 2, 1, 2, 2, 3, 3, 3, 1, 1, 4, 4, 4, 4, 1)
-    assert set(
-        UsdGeom.PrimvarsAPI(windows)
-        .GetPrimvar(DERIVED_SLICE_START_DEPTH)
-        .Get()
-    ) == {0.0}
+    ) == Counter({1: 95, 2: 4, 3: 4, 4: 3})
+    assert Counter(primvars.GetPrimvar(DERIVED_ROOM_SIZE).Get()) == Counter(
+        {1: 97, 2: 14, 3: 14, 4: 15}
+    )
+    slice_start_depths = tuple(
+        primvars.GetPrimvar(DERIVED_SLICE_START_DEPTH).Get()
+    )
+    assert 0.0 in slice_start_depths
+    assert max(slice_start_depths) > 0.5
     assert _family_material_sizes(stage) == {1, 2, 3, 4}
 
     owner.detach()
 
-    assert not UsdGeom.PrimvarsAPI(windows).GetPrimvar(DERIVED_ROOM_SIZE)
+    assert not primvars.GetPrimvar(DERIVED_ROOM_SIZE)
     assert stage.GetRootLayer().ExportToString() == root_before
+
+
+def test_houdini_export_tangent_lengths_encode_aperture_extents():
+    stage = Usd.Stage.Open(str(HOUDINI_EXPORT), load=Usd.Stage.LoadAll)
+    windows = UsdGeom.Mesh(stage.GetPrimAtPath("/test_bld/geo/windows"))
+    primvars = UsdGeom.PrimvarsAPI(windows)
+    points = windows.GetPointsAttr().Get()
+    face_counts = windows.GetFaceVertexCountsAttr().Get()
+    face_indices = windows.GetFaceVertexIndicesAttr().Get()
+    room_positions = primvars.GetPrimvar("roomP").ComputeFlattened()
+    tangents_u = primvars.GetPrimvar("tangentu").ComputeFlattened()
+    tangents_v = primvars.GetPrimvar("tangentv").ComputeFlattened()
+    face_offset = 0
+
+    for face_count in face_counts:
+        point_indices = face_indices[face_offset : face_offset + face_count]
+        vertex_index = point_indices[0]
+        room_position = room_positions[vertex_index]
+        tangent_u = tangents_u[vertex_index]
+        tangent_v = tangents_v[vertex_index]
+        axis_u = tangent_u.GetNormalized()
+        axis_v = tangent_v.GetNormalized()
+        offsets = [points[index] - room_position for index in point_indices]
+        aperture_width = max(offset * axis_u for offset in offsets) - min(
+            offset * axis_u for offset in offsets
+        )
+        aperture_height = max(offset * axis_v for offset in offsets) - min(
+            offset * axis_v for offset in offsets
+        )
+
+        assert tangent_u.GetLength() == pytest.approx(aperture_width)
+        assert tangent_v.GetLength() == pytest.approx(aperture_height)
+        face_offset += face_count
 
 
 def test_disabled_atlas_families_repartition_fixture_without_source_edits():
@@ -549,7 +709,7 @@ def test_disabled_atlas_families_repartition_fixture_without_source_edits():
         RuntimeClassifierSettings(enabled_room_sizes=frozenset({1, 2})),
     )
 
-    assert len(classification.result.mappings) == 15
+    assert len(classification.result.mappings) == 140
     assert {group.room_size for group in classification.result.groups} <= {
         1,
         2,
@@ -559,13 +719,35 @@ def test_disabled_atlas_families_repartition_fixture_without_source_edits():
     owner.detach()
 
 
-def test_real_instance_fixture_supports_both_runtime_policies():
-    preserve_stage, preserve_owner, preserve = _classify(INSTANCE_FIXTURE)
+@pytest.mark.parametrize(
+    ("fixture_path", "instance_names", "aperture_count", "group_sizes"),
+    (
+        (
+            INSTANCE_FIXTURE,
+            {"BuildingA", "BuildingB"},
+            94,
+            Counter({1: 4, 2: 8, 3: 8, 4: 8}),
+        ),
+        (
+            HOUDINI_INSTANCE_FIXTURE,
+            {"HoudiniBuildingA", "HoudiniBuildingB"},
+            280,
+            Counter({1: 190, 2: 8, 3: 8, 4: 6}),
+        ),
+    ),
+)
+def test_real_instance_fixtures_support_both_runtime_policies(
+    fixture_path,
+    instance_names,
+    aperture_count,
+    group_sizes,
+):
+    preserve_stage, preserve_owner, preserve = _classify(fixture_path)
 
     instances = tuple(
         child
         for child in preserve_stage.GetPrimAtPath("/World").GetChildren()
-        if child.GetName() in {"BuildingA", "BuildingB"}
+        if child.GetName() in instance_names
     )
     assert len(instances) == 2
     assert all(prim.IsInstance() for prim in instances)
@@ -573,11 +755,99 @@ def test_real_instance_fixture_supports_both_runtime_policies():
     assert Counter(
         diagnostic.state for diagnostic in preserve.extraction.diagnostics
     ) == Counter({"INSTANCE_PRESERVED_X1_FALLBACK": 2})
+    for diagnostic in preserve.extraction.diagnostics:
+        details = dict(diagnostic.details)
+        assert details["source_x1_proxy_count"] > 0
+        assert (
+            details["room_uv_varying_proxy_count"]
+            == details["source_x1_proxy_count"]
+        )
+        assert (
+            details["camera_primvar_inherited_proxy_count"]
+            == details["source_x1_proxy_count"]
+        )
+    assert _family_material_sizes(preserve_stage) == set()
+    assert (
+        tuple(
+            str(prim.GetAttribute("inputs:camera_position_world").GetPath())
+            for prim in preserve_stage.Traverse()
+            if prim.GetAttribute("inputs:camera_position_world")
+        )
+        == ()
+    )
+    for instance in instances:
+        meshes = tuple(
+            prim
+            for prim in Usd.PrimRange(
+                instance,
+                Usd.TraverseInstanceProxies(),
+            )
+            if prim.IsA(UsdGeom.Mesh)
+        )
+        assert meshes
+        eligible_meshes = tuple(
+            mesh
+            for mesh in meshes
+            if all(
+                UsdGeom.PrimvarsAPI(mesh).GetPrimvar(name)
+                for name in (
+                    "roomID",
+                    "roomP",
+                    "tangentu",
+                    "tangentv",
+                    "roomUV",
+                )
+            )
+            and str(
+                UsdShade.MaterialBindingAPI(mesh)
+                .ComputeBoundMaterial()[0]
+                .GetPath()
+            ).endswith("/Looks/RoomMapSource")
+        )
+        preserved_meshes = tuple(
+            mesh for mesh in meshes if mesh not in eligible_meshes
+        )
+        assert eligible_meshes
+        assert {
+            str(
+                UsdShade.MaterialBindingAPI(mesh)
+                .ComputeBoundMaterial()[0]
+                .GetPath()
+            )
+            for mesh in eligible_meshes
+        } == {f"{instance.GetPath()}/Looks/RoomMapSource"}
+        assert all(
+            str(
+                UsdShade.MaterialBindingAPI(mesh)
+                .ComputeBoundMaterial()[0]
+                .GetPath()
+            )
+            != f"{instance.GetPath()}/Looks/RoomMapSource"
+            for mesh in preserved_meshes
+        )
+        assert not instance.GetRelationship(
+            "material:binding:collection:ormsRoomMapWindows"
+        )
+        if fixture_path == HOUDINI_INSTANCE_FIXTURE:
+            assert preserved_meshes
+            assert any(
+                str(
+                    UsdShade.MaterialBindingAPI(mesh)
+                    .ComputeBoundMaterial()[0]
+                    .GetPath()
+                ).endswith("/mtl/test_mat")
+                for mesh in preserved_meshes
+            )
 
     preserve_owner.detach()
 
+    assert not any(
+        prim.GetRelationship("material:binding:collection:ormsRoomMapWindows")
+        for prim in instances
+    )
+
     deinstance_stage, deinstance_owner, deinstance = _classify(
-        INSTANCE_FIXTURE,
+        fixture_path,
         RuntimeClassifierSettings(
             instance_policy=INSTANCE_POLICY_SESSION_DEINSTANCE
         ),
@@ -585,14 +855,38 @@ def test_real_instance_fixture_supports_both_runtime_policies():
     deinstanced = tuple(
         child
         for child in deinstance_stage.GetPrimAtPath("/World").GetChildren()
-        if child.GetName() in {"BuildingA", "BuildingB"}
+        if child.GetName() in instance_names
     )
     assert not any(prim.IsInstance() for prim in deinstanced)
-    assert len(deinstance.extraction.apertures) == 94
-    assert Counter(group.room_size for group in deinstance.result.groups) == (
-        Counter({1: 4, 2: 8, 3: 8, 4: 8})
+    assert len(deinstance.extraction.apertures) == aperture_count
+    assert (
+        Counter(group.room_size for group in deinstance.result.groups)
+        == group_sizes
     )
 
     deinstance_owner.detach()
 
     assert all(prim.IsInstance() for prim in deinstanced)
+
+
+def test_houdini_instance_fixture_uses_the_exported_component_layers():
+    stage = Usd.Stage.Open(
+        str(HOUDINI_INSTANCE_FIXTURE),
+        load=Usd.Stage.LoadAll,
+    )
+
+    used_layer_names = {
+        Path(layer.realPath).name
+        for layer in stage.GetUsedLayers()
+        if layer.realPath
+    }
+    assert stage.GetRootLayer().customLayerData["orms:fixtureOrigin"] == (
+        "Referenced and instanceable Houdini-exported geometry"
+    )
+    assert {
+        HOUDINI_INSTANCE_SOURCE.name,
+        "test_bld.usd",
+        "payload.usdc",
+        "geo.usdc",
+        "mtl.usdc",
+    }.issubset(used_layer_names)

@@ -1,4 +1,4 @@
-"""Manual Kit Preferences page for the KRM-93 R&D classifier.
+"""Manual Kit Preferences page for the shared-room classifier.
 
 Kit imports stay inside functions so the persistent-settings contract remains
 inspectable and testable in an ordinary OpenUSD Python environment.
@@ -155,7 +155,10 @@ def register(on_change: Callable[[], None] | None = None) -> object | None:
     def setting_changed(_item: object, event_type: object) -> None:
         if event_type != carb.settings.ChangeEventType.CHANGED:
             return
-        preferences.rebuild_pages()
+        # Preference widgets are already bound to carb.settings. Rebuilding the
+        # whole Preferences window here runs inside the widget's draw callback
+        # and Kit rejects the resulting child insertion. The page layout is
+        # static, so only the classifier needs to react to the changed value.
         if on_change is not None:
             on_change()
 

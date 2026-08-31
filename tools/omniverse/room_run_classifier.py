@@ -17,7 +17,7 @@ from typing import Iterable
 Vector3 = tuple[float, float, float]
 Float4 = tuple[float, float, float, float]
 
-CLASSIFIER_CONTRACT_VERSION = "krm93_exact_corner_mask_origin_v15"
+CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v46"
 
 _EPSILON = 1.0e-8
 _DERIVED_ID_LIMIT = 2_147_483_647
@@ -36,6 +36,7 @@ class ApertureDescriptor:
     centre_metres: Vector3
     tangent_u_metres: Vector3
     tangent_v_metres: Vector3
+    room_position_world: Vector3 = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ class DerivedApertureMapping:
     map_axis_u: Vector3
     map_axis_v: Vector3
     mapping_valid: bool
+    physical_normal: Vector3 = (0.0, 0.0, 1.0)
     primary_aperture_min_u: Float4 = (0.0, -1.0, -1.0, -1.0)
     primary_aperture_max_u: Float4 = (1.0, -1.0, -1.0, -1.0)
     aperture_mask_offset_u: float = 0.0
@@ -774,6 +776,12 @@ def _corner_group_mappings(
                 map_axis_u=(axis_u, 0.0, 0.0),
                 map_axis_v=(0.0, axis_v, 0.0),
                 mapping_valid=True,
+                physical_normal=_normalise(
+                    _cross(
+                        aperture.tangent_u_metres,
+                        aperture.tangent_v_metres,
+                    )
+                ),
                 primary_aperture_min_u=primary_aperture_min_u,
                 primary_aperture_max_u=primary_aperture_max_u,
             )
@@ -819,6 +827,12 @@ def _corner_group_mappings(
                 map_axis_u=(0.0, 0.0, -depth_axis),
                 map_axis_v=(0.0, axis_v, 0.0),
                 mapping_valid=True,
+                physical_normal=_normalise(
+                    _cross(
+                        aperture.tangent_u_metres,
+                        aperture.tangent_v_metres,
+                    )
+                ),
                 primary_aperture_min_u=primary_aperture_min_u,
                 primary_aperture_max_u=primary_aperture_max_u,
                 aperture_mask_offset_u=aperture_mask_offset_u,
@@ -850,7 +864,7 @@ def _group_mappings(
             corner_turns[0],
         )
 
-    room_axis_u, room_axis_v, reference_indices = _shared_room_basis(
+    room_axis_u, room_axis_v, _reference_indices = _shared_room_basis(
         group_apertures,
         up_axis,
     )
@@ -919,13 +933,12 @@ def _group_mappings(
         1.0 / group_height,
         1.0 / group_height,
     )
-    reference_normal_coordinate = sum(
-        projected_centres[index][2] for index in reference_indices
-    ) / len(reference_indices)
     group_min_normal = min(corner[2] for corner in projected_corners)
+    group_max_normal = max(corner[2] for corner in projected_corners)
+    room_front_normal_coordinate = group_max_normal
     slice_start_depth = max(
         0.0,
-        (reference_normal_coordinate - group_min_normal) * room_scale[2],
+        (room_front_normal_coordinate - group_min_normal) * room_scale[2],
     )
     if slice_start_depth <= _EPSILON:
         slice_start_depth = 0.0
@@ -941,7 +954,7 @@ def _group_mappings(
         relative_centre = (
             centre[0] - group_centre_u,
             centre[1] - group_centre_v,
-            centre[2] - reference_normal_coordinate,
+            centre[2] - room_front_normal_coordinate,
         )
         map_origin = _subtract(
             _subtract(relative_centre, _multiply(axis_u, 0.5)),
@@ -965,6 +978,12 @@ def _group_mappings(
                 map_axis_u=axis_u,
                 map_axis_v=axis_v,
                 mapping_valid=True,
+                physical_normal=_normalise(
+                    _cross(
+                        aperture.tangent_u_metres,
+                        aperture.tangent_v_metres,
+                    )
+                ),
                 primary_aperture_min_u=primary_aperture_min_u,
                 primary_aperture_max_u=primary_aperture_max_u,
                 slice_start_depth=slice_start_depth,
@@ -1002,6 +1021,7 @@ def _fallback_mapping(
         map_axis_u=(1.0, 0.0, 0.0),
         map_axis_v=(0.0, 1.0, 0.0),
         mapping_valid=False,
+        physical_normal=_normalise(_cross(tangent_u, tangent_v)),
         fallback_state=state,
     )
 

@@ -1,0 +1,47 @@
+#usda 1.0
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Instance-ready Room Map adapter over the Houdini-exported test_bld component"
+        string "orms:houdiniExport" = "assets/_external/usd/test_bld/test_bld.usd"
+    }
+    defaultPrim = "HoudiniBuilding"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "HoudiniBuilding" (
+    prepend references = @../../assets/_external/usd/test_bld/test_bld.usd@</test_bld>
+)
+{
+    over "geo"
+    {
+        over "windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </HoudiniBuilding/Looks/RoomMapSource>
+        }
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMapSource"
+        {
+            token outputs:mdl:surface.connect = </HoudiniBuilding/Looks/RoomMapSource/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../../src/mdl/room_map_single.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
+                float3 inputs:camera_position_world = (8, 3, 5)
+                float inputs:emission_strength = 1
+                asset inputs:room_atlas = @../../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                float inputs:room_depth = 1
+                int inputs:room_variant_count = 8
+                int inputs:variation_seed = 0
+                token outputs:out
+            }
+        }
+    }
+}

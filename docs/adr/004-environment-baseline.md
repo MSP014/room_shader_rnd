@@ -14,15 +14,22 @@ We anchor the `shader_rnd` environment on a specific Python baseline:
 
 ### 1. Python Version
 
-* **Baseline**: **Python 3.10.x** (specifically 3.10.12+).
-* **Rationale**: This version provides the best stability for current NVIDIA Omniverse Kit extensions and SideFX Houdini (20.x+) Python 3 builds.
+* **Baseline**: **Python 3.12.x**.
+* **Rationale**: This aligns repository tooling with the Python 3.12 runtime
+  embedded in the validated NVIDIA Omniverse Kit 110.1.2 application. Houdini
+  export code remains subject to the Python runtime bundled with the selected
+  Houdini 20.0+ build rather than defining the repository baseline.
 
 ### 2. Base Configuration
 
 * **Package Manager**: `conda` (Miniconda/Anaconda) for environment creation.
-* **Installer**: `pip` (latest) for package installation within the activated conda environment.
+* **Environment Specification**: `environment.yml`.
+* **Installer**: `pip < 26` within the activated Conda environment. This upper
+  bound is required because `pip-tools 7.6.0` still uses a pip internal API
+  removed in pip 26.
 
 ## Consequences
 
 * **Positive:** Minimises "syntax error" or "library not found" issues.
-* **Negative:** Requires reinstalling environments if they were built on 3.11+ or 3.9-.
+* **Negative:** Existing Python 3.10 `shader_rnd` environments must be recreated
+  or upgraded before running the repository quality gate.
