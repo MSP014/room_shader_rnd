@@ -13,7 +13,8 @@ import omni.kit.app
 import omni.usd
 from omni.kit.viewport.utility import get_active_viewport
 from pxr import Gf, Sdf, Usd, UsdGeom
-from status_log import log_room_map_warning
+
+from .status_log import log_room_map_warning
 
 DEFAULT_CAMERA_POSITION_INPUT = (
     "/World/Looks/CameraDirection/Shader.inputs:camera_position_world"
@@ -164,6 +165,8 @@ class CameraPositionBridge:
         self._last_position = position
 
     def stop(self) -> None:
+        """Release the per-frame update subscription owned by this bridge."""
+
         reset = getattr(self._subscription, "reset", None)
         if callable(reset):
             reset()

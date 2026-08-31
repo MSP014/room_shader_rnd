@@ -1,3 +1,5 @@
+"""Protect Jira worklog rounding and the supported description-to-ADF subset."""
+
 import importlib.util
 from pathlib import Path
 

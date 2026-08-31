@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Omniverse-authored fixture for deterministic roomID-to-UDIM selection across
+# disconnected windows that share one material binding.
 (
     customLayerData = {
         dictionary cameraSettings = {

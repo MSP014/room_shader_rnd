@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Validation capture over the retained Houdini building export. Runtime ORMS
+# opinions belong in the Session Layer and must not rewrite this source wrapper.
 (
     customLayerData = {
         string "orms:fixtureOrigin" = "Omniverse capture layer over Houdini-exported test_bld component asset"

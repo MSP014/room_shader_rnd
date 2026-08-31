@@ -1,3 +1,5 @@
+"""Validate the retained MDL state-function diagnostic scene and bindings."""
+
 from pathlib import Path
 
 from pxr import Usd, UsdGeom, UsdShade

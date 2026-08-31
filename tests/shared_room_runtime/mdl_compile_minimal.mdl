@@ -1,5 +1,8 @@
 mdl 1.7;
 
+// Minimal compile probe that isolates the binary physical-aperture cutout from
+// the full ORMS mapping and texture graph.
+
 import ::df::*;
 import ::math::*;
 import ::state::*;

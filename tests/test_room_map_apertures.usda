@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Omniverse-authored fixture for square, landscape, portrait, and offset physical
+# apertures sharing one stable virtual-room scale.
 (
     customLayerData = {
         dictionary cameraSettings = {

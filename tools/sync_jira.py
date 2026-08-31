@@ -1,3 +1,5 @@
+"""Render the KRM Jira hierarchy as canonical implementation-plan Markdown."""
+
 import argparse
 import os
 import random  # nosec
@@ -13,6 +15,8 @@ LEGACY_TUTORIAL_EPIC_KEYS = frozenset({"KRM-1", "KRM-5", "KRM-7"})
 
 
 def configure_stdout():
+    """Keep generated Unicode planning text readable on Windows."""
+
     if sys.platform == "win32":
         import io
 
@@ -22,6 +26,8 @@ def configure_stdout():
 
 
 def get_jira_session():
+    """Load external Jira credentials and return request connection details."""
+
     load_dotenv()
     url = os.getenv("JIRA_URL")
     user = os.getenv("JIRA_USER")
@@ -43,6 +49,8 @@ def get_jira_session():
 
 
 def extract_text(node):
+    """Flatten Jira ADF content into readable planning text."""
+
     if not node:
         return ""
     if isinstance(node, dict):
@@ -59,8 +67,11 @@ def extract_text(node):
 
 
 def fetch_issues(project_key):
+    """Fetch the complete project hierarchy through token pagination."""
+
     base_url, headers = get_jira_session()
-    # Fetch all issues for the project to build the full hierarchy context
+    # Parent-child rendering requires closed and open issues in one hierarchy,
+    # not only the active list shown by the ordinary Jira CLI.
     jql = f"project = {project_key} ORDER BY priority DESC, created ASC"
     fields = (
         "summary,status,issuetype,priority,parent,description,timetracking"
@@ -79,7 +90,6 @@ def fetch_issues(project_key):
         if next_page_token:
             payload["nextPageToken"] = next_page_token
 
-        # Use /search/jql endpoint with token pagination
         resp = requests.post(
             f"{base_url}/rest/api/3/search/jql",
             headers=headers,
@@ -103,6 +113,8 @@ def fetch_issues(project_key):
 
 
 def format_status(status_name):
+    """Map Jira workflow names to the implementation-plan status vocabulary."""
+
     s = status_name.lower()
     if s == "done":
         return "✅ Done"
@@ -114,6 +126,8 @@ def format_status(status_name):
 
 
 def parse_description(text):
+    """Separate an issue objective from an optional definition of done."""
+
     text = text.strip()
     if not text:
         return "N/A", None
@@ -129,7 +143,8 @@ def parse_description(text):
             dod = parts[1].strip()
             break
 
-    # If objective still has "Objective:" prefix, strip it
+    # Jira descriptions often repeat the field label; the Markdown renderer
+    # supplies its own label and must not duplicate it.
     if objective.lower().startswith("objective:"):
         objective = objective[10:].strip()
 
@@ -137,6 +152,8 @@ def parse_description(text):
 
 
 def belongs_to_legacy_tutorial(item, issue_map):
+    """Return whether an issue descends from a paused tutorial epic."""
+
     current = item
     visited_keys = set()
 
@@ -155,6 +172,8 @@ def belongs_to_legacy_tutorial(item, issue_map):
 
 
 def filter_legacy_tutorial_items(issue_map, include_legacy_tutorial):
+    """Exclude paused tutorial branches unless the CLI opts into them."""
+
     if include_legacy_tutorial:
         return issue_map
 
@@ -166,6 +185,8 @@ def filter_legacy_tutorial_items(issue_map, include_legacy_tutorial):
 
 
 def main():
+    """Generate a dry-run sample or rewrite the canonical Jira-derived plan."""
+
     configure_stdout()
     parser = argparse.ArgumentParser(description="Jira to Markdown Sync")
     parser.add_argument(
@@ -194,7 +215,8 @@ def main():
         "Lowest": 5,
     }
 
-    # Pass 1: Local map
+    # Normalise Jira fields first so tree construction and rendering share one
+    # predictable internal contract.
     for issue in issues:
         fields = issue["fields"]
         raw_desc = extract_text(fields.get("description", ""))
@@ -226,7 +248,7 @@ def main():
         all_map, args.include_legacy_tutorial
     )
 
-    # Pass 2: Build Tree
+    # Link children only after every parent key is available in the local map.
     epics = []
     standalone = []
     for item in all_map.values():
@@ -268,6 +290,8 @@ def main():
     )
 
     def render_description(text, label="Description"):
+        """Render preserved description sections into wrapped Markdown lines."""
+
         result = []
         show_label = True
         for paragraph in filter(
@@ -290,6 +314,8 @@ def main():
         return result
 
     def render_issue(item, level):
+        """Render one task and its descendants at the requested heading level."""
+
         res = []
         prefix = "#" * level
         status_raw = item["status"].lower()
@@ -336,7 +362,8 @@ def main():
 
         return "\n".join(res)
 
-    # Selection logic: included if active or has active children
+    # Retain completed evidence inside active epics so the plan shows both
+    # delivered capability and remaining work.
     active_statuses = ["backlog", "to do", "in progress", "done"]
     active_epics = []
 

@@ -1,3 +1,5 @@
+"""Validate aperture controls on retained Houdini-exported geometry."""
+
 from collections import Counter
 from pathlib import Path
 

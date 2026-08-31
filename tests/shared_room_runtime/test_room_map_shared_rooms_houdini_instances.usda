@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Instanceable composition over the retained Houdini fixture. It proves that both
+# runtime instance policies preserve the authored source asset.
 (
     customLayerData = {
         string "orms:fixtureOrigin" = "Referenced and instanceable Houdini-exported geometry"

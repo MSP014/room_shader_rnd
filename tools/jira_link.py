@@ -1,3 +1,5 @@
+"""Provide the authenticated Jira CLI used to inspect and maintain KRM issues."""
+
 import argparse
 import datetime as dt
 import json
@@ -12,6 +14,8 @@ from dotenv import load_dotenv
 
 
 def configure_stdout():
+    """Keep Jira text readable when the CLI runs in a Windows terminal."""
+
     if sys.platform == "win32":
         import io
 
@@ -21,8 +25,11 @@ def configure_stdout():
 
 
 def get_jira_session():
+    """Load external credentials and return the Jira base URL and headers."""
+
     load_dotenv()
-    # Default to the provided URL if not in env, but User/Token must be in env
+    # The service URL may use the project default, but credentials always remain
+    # external to the public repository.
     url = os.getenv("JIRA_URL", "https://plangreen.atlassian.net")
     user = os.getenv("JIRA_USER")
     token = os.getenv("JIRA_TOKEN")
@@ -46,8 +53,10 @@ def get_jira_session():
 
 
 def get_issue(issue_key):
+    """Print the planning fields and flattened description for one issue."""
+
     base_url, headers = get_jira_session()
-    # Explicitly request fields including parent and timetracking
+    # Request only the fields needed for planning and worklog inspection.
     resp = requests.get(
         f"{base_url}/rest/api/3/issue/{issue_key}",
         headers=headers,
@@ -79,7 +88,8 @@ def get_issue(issue_key):
 
         description = fields.get("description")
         if description:
-            # Basic ADF extraction - Flattening all text
+            # A compact CLI view deliberately flattens ADF while preserving the
+            # raw document as an error fallback.
             try:
 
                 def extract_text(node):
@@ -102,8 +112,9 @@ def get_issue(issue_key):
 
 
 def list_issues(project_key):
+    """Print the newest open issues for the requested Jira project."""
+
     base_url, headers = get_jira_session()
-    # JQL to get open issues
     jql = (
         f"project = {project_key} AND statusCategory != Done "
         "ORDER BY created DESC"
@@ -129,8 +140,9 @@ def list_issues(project_key):
 
 
 def add_comment(issue_key, comment_text):
+    """Add one plain paragraph comment using Jira's required ADF envelope."""
+
     base_url, headers = get_jira_session()
-    # Atlassian Document Format (ADF) required for v3 API
     payload = {
         "body": {
             "type": "doc",
@@ -158,9 +170,12 @@ def add_comment(issue_key, comment_text):
 
 
 def set_status(issue_key, status_name):
+    """Move an issue through an available transition matching the target state."""
+
     base_url, headers = get_jira_session()
 
-    # 1. Get available transitions
+    # Jira transitions are workflow-specific, so resolve the live transition
+    # identifier instead of assuming a stable numeric ID.
     resp = requests.get(
         f"{base_url}/rest/api/3/issue/{issue_key}/transitions",
         headers=headers,
@@ -173,7 +188,7 @@ def set_status(issue_key, status_name):
     transitions = resp.json().get("transitions", [])
     target_transition = None
 
-    # Try exact match first, then case-insensitive
+    # Prefer the exact workflow spelling but accept case-only CLI differences.
     for t in transitions:
         if t["to"]["name"] == status_name:
             target_transition = t
@@ -192,7 +207,6 @@ def set_status(issue_key, status_name):
         )
         return
 
-    # 2. Perform transition
     payload = {"transition": {"id": target_transition["id"]}}
 
     resp = requests.post(
@@ -306,6 +320,8 @@ def _adf_document_from_text(text):
 
 
 def _parse_worklog_timestamp(value, timezone_name):
+    """Parse an ISO timestamp and localise naive values explicitly."""
+
     try:
         timestamp = dt.datetime.fromisoformat(
             value.strip().replace("Z", "+00:00")
@@ -333,6 +349,8 @@ def _format_jira_timestamp(timestamp):
 
 
 def _parse_duration_seconds(value):
+    """Parse the small Jira duration grammar accepted by this CLI."""
+
     match = re.fullmatch(
         r"\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?\s*",
         value,
@@ -350,6 +368,8 @@ def _parse_duration_seconds(value):
 
 
 def _round_to_worklog_increment(total_seconds):
+    """Round elapsed time to the project's nearest fifteen-minute increment."""
+
     increment_seconds = 15 * 60
     rounded_seconds = (
         (total_seconds + (increment_seconds // 2)) // increment_seconds
@@ -373,6 +393,8 @@ def _format_duration_seconds(total_seconds):
 
 
 def _build_worklog_payload(time_spent, comment, started, ended, timezone_name):
+    """Build one consistent Jira payload from timestamps or a duration."""
+
     if ended and not started:
         raise ValueError("--ended requires --started.")
 
@@ -421,6 +443,8 @@ def add_worklog(
     ended=None,
     timezone_name="Asia/Yerevan",
 ):
+    """Submit one rounded worklog with optional exact timing context."""
+
     payload, duration_seconds, started_at = _build_worklog_payload(
         time_spent,
         comment,
@@ -447,6 +471,8 @@ def add_worklog(
 def update_issue(
     issue_key, summary=None, description=None, assignee_id=None, estimate=None
 ):
+    """Update only the Jira fields explicitly supplied by the caller."""
+
     base_url, headers = get_jira_session()
 
     fields = {}
@@ -492,6 +518,8 @@ def create_issue(
     assignee_id=None,
     estimate="1h",
 ):
+    """Create one Jira issue with explicit hierarchy and estimate fields."""
+
     base_url, headers = get_jira_session()
 
     fields = {
@@ -501,11 +529,9 @@ def create_issue(
         "description": _adf_document_from_text(description),
     }
 
-    # 1. Assignment
     if assignee_id:
         fields["assignee"] = {"id": assignee_id}
 
-    # 2. Time Tracking
     if estimate:
         fields["timetracking"] = {
             "originalEstimate": estimate,
@@ -534,6 +560,8 @@ def create_issue(
 
 
 def get_myself():
+    """Return the authenticated Jira account identifier when available."""
+
     base_url, headers = get_jira_session()
     resp = requests.get(
         f"{base_url}/rest/api/3/myself", headers=headers, timeout=30
@@ -543,6 +571,8 @@ def get_myself():
 
 
 def list_transitions(issue_key):
+    """Print the live workflow transitions available for one issue."""
+
     base_url, headers = get_jira_session()
     resp = requests.get(
         f"{base_url}/rest/api/3/issue/{issue_key}/transitions",
@@ -559,6 +589,8 @@ def list_transitions(issue_key):
 
 
 def main():
+    """Parse the CLI command and dispatch exactly one Jira operation."""
+
     configure_stdout()
     parser = argparse.ArgumentParser(description="Simple Jira CLI for KRM")
     subparsers = parser.add_subparsers(dest="command", required=True)

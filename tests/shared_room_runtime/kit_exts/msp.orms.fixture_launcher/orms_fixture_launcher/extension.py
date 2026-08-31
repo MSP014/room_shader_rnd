@@ -35,9 +35,13 @@ class _ViewportReadySignal:
         self._future = future
 
     def build_ui(self) -> None:
+        """Satisfy the ViewportReady interface without creating test UI."""
+
         pass
 
     def on_complete(self) -> None:
+        """Resolve the launcher's future after the first rendered frame."""
+
         if not self._future.done():
             self._future.set_result(None)
 
@@ -51,6 +55,8 @@ class RoomMapFixtureLauncherExtension(omni.ext.IExt):
         self._viewport_ready: ViewportReady | None = None
 
     def on_startup(self, _ext_id: str) -> None:
+        """Validate the requested fixture and schedule one asynchronous open."""
+
         settings = carb.settings.get_settings()
         value = settings.get(f"{_SETTINGS_ROOT}/stagePath")
         stage_path = Path(str(value or "")).resolve()
@@ -135,6 +141,8 @@ class RoomMapFixtureLauncherExtension(omni.ext.IExt):
                 viewport_ready.destroy()
 
     def on_shutdown(self) -> None:
+        """Cancel the owned task and destroy the viewport-ready observer."""
+
         if self._open_task is not None and not self._open_task.done():
             self._open_task.cancel()
         self._open_task = None

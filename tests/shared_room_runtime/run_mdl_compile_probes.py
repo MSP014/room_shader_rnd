@@ -326,6 +326,8 @@ def _run_probe(
 
 
 def main() -> int:
+    """Run the bounded probe matrix and summarise each isolated Kit process."""
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--kit-root",

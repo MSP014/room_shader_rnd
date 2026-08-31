@@ -1,12 +1,31 @@
-"""Load the manual ORMS R&D runtime from repository source, bypassing caches."""
+"""Reload and start the manual ORMS runtime from exact repository source."""
 
 from __future__ import annotations
 
-import sys
-import tokenize
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
+
+if __package__:
+    from .runtime.diagnostics import corner_box_summaries
+    from .runtime.source_loader import (
+        RuntimeSourceLoader,
+        stop_runtime_modules,
+    )
+else:
+    import sys
+
+    # Kit's Script Editor uses runpy.run_path(), which deliberately executes
+    # this entry point without a package.  Expose the checkout root so the same
+    # canonical imports work in both standalone and package execution modes.
+    _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+    _source_repository_text = str(_SOURCE_REPOSITORY_ROOT)
+    if _source_repository_text not in sys.path:
+        sys.path.insert(0, _source_repository_text)
+    from tools.omniverse.runtime.diagnostics import corner_box_summaries
+    from tools.omniverse.runtime.source_loader import (
+        RuntimeSourceLoader,
+        stop_runtime_modules,
+    )
 
 _CONTRACT_VERSION = "shared_room_runtime_v46"
 _RUNTIME_CAMERA_INPUT_PATHS = (
@@ -17,72 +36,28 @@ _RUNTIME_CAMERA_INPUT_PATHS = (
     for room_size in range(1, 5)
 )
 
-
-def _stop_loaded_module(name: str) -> None:
-    module = sys.modules.get(name)
-    stop = getattr(module, "stop", None)
-    if callable(stop):
-        stop()
-
-
-def _load_source_module(name: str, source_path: Path) -> ModuleType:
-    """Execute one exact source file without consulting import bytecode."""
-
-    with tokenize.open(str(source_path)) as source_file:
-        source = source_file.read()
-    module = ModuleType(name)
-    module.__file__ = str(source_path)
-    module.__package__ = ""
-    module.__spec__ = ModuleSpec(name, loader=None, origin=str(source_path))
-    sys.modules[name] = module
-    try:
-        exec(  # nosec B102 -- executes a fixed, repository-owned module path.
-            compile(source, str(source_path), "exec"),
-            module.__dict__,
-        )
-    except Exception:
-        if sys.modules.get(name) is module:
-            del sys.modules[name]
-        raise
-    return module
+_ROOM_RUN_DEPENDENCY_ORDER = (
+    "room_run_contracts",
+    "room_run_topology",
+    "room_run_mapping",
+)
+_SHARED_ROOM_DEPENDENCY_ORDER = (
+    "shared_room_contracts",
+    "shared_room_stage",
+    "shared_room_authoring",
+    "shared_room_pipeline",
+    "shared_room_settings",
+    "shared_room_changes",
+    "shared_room_preferences",
+)
 
 
-def reload_and_start(repository_root: str | Path):
-    """Replace cached ORMS modules with exact repository source and start."""
+def _load_runtime_stack(
+    loader: RuntimeSourceLoader,
+) -> tuple[ModuleType, ModuleType, ModuleType, ModuleType]:
+    """Load and validate the dependency graph around the active stage probe."""
 
-    root = Path(repository_root).resolve()
-    module_root = root / "tools" / "omniverse"
-    source_paths = {
-        "status_log": module_root / "status_log.py",
-        "stage_load_probe": module_root / "stage_load_probe.py",
-        "room_run_classifier": module_root / "room_run_classifier.py",
-        "shared_room_classifier": module_root / "shared_room_classifier.py",
-        "camera_position_bridge": module_root / "camera_position_bridge.py",
-    }
-    missing = tuple(
-        str(path) for path in source_paths.values() if not path.is_file()
-    )
-    if missing:
-        raise FileNotFoundError(f"Missing ORMS runtime source: {missing}")
-
-    module_root_text = str(module_root)
-    if module_root_text not in sys.path:
-        sys.path.insert(0, module_root_text)
-
-    for module_name in (
-        "stage_load_probe",
-        "tools.omniverse.stage_load_probe",
-        "shared_room_classifier",
-        "tools.omniverse.shared_room_classifier",
-        "camera_position_bridge",
-        "tools.omniverse.camera_position_bridge",
-    ):
-        _stop_loaded_module(module_name)
-
-    status = _load_source_module(
-        "status_log",
-        source_paths["status_log"],
-    )
+    status = loader.load("status_log")
     status.log_room_map_warning(
         owner="SCENE LOAD PROBE",
         process="RUNTIME LOADER",
@@ -92,16 +67,14 @@ def reload_and_start(repository_root: str | Path):
             "coverage": "from_this_log_forward",
         },
     )
-    stage_probe = _load_source_module(
-        "stage_load_probe",
-        source_paths["stage_load_probe"],
-    )
+    loader.load("runtime_resource_metrics")
+    loader.load("stage_load_state")
+    stage_probe = loader.load("stage_load_probe")
     stage_probe.start()
 
-    core = _load_source_module(
-        "room_run_classifier",
-        source_paths["room_run_classifier"],
-    )
+    for module_name in _ROOM_RUN_DEPENDENCY_ORDER:
+        loader.load(module_name)
+    core = loader.load("room_run_classifier")
     loaded_contract = getattr(core, "CLASSIFIER_CONTRACT_VERSION", "missing")
     if loaded_contract != _CONTRACT_VERSION:
         raise RuntimeError(
@@ -109,14 +82,11 @@ def reload_and_start(repository_root: str | Path):
             f"loaded={loaded_contract}, expected={_CONTRACT_VERSION}"
         )
 
-    shared = _load_source_module(
-        "shared_room_classifier",
-        source_paths["shared_room_classifier"],
-    )
-    bridge = _load_source_module(
-        "camera_position_bridge",
-        source_paths["camera_position_bridge"],
-    )
+    for module_name in _SHARED_ROOM_DEPENDENCY_ORDER:
+        loader.load(module_name)
+    loader.load("runtime_renderer_settings")
+    shared = loader.load("shared_room_classifier")
+    bridge = loader.load("camera_position_bridge")
     shared.log_room_map_warning(
         owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME SOURCE LOAD",
@@ -129,6 +99,12 @@ def reload_and_start(repository_root: str | Path):
             "stage_load_probe": stage_probe.__file__,
         },
     )
+    return stage_probe, core, shared, bridge
+
+
+def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
+    """Seed the inherited camera primvar before material realisation starts."""
+
     import omni.usd
 
     stage = omni.usd.get_context().get_stage()
@@ -169,89 +145,19 @@ def reload_and_start(repository_root: str | Path):
                 "preexisting_before_runtime": camera_primvar_preexisting,
             },
         )
+
+
+def reload_and_start(repository_root: str | Path):
+    """Replace cached ORMS modules with exact source and start the runtime."""
+
+    root = Path(repository_root).resolve()
+    loader = RuntimeSourceLoader(root)
+    loader.prepare()
+    _stage_probe, _core, shared, bridge = _load_runtime_stack(loader)
+
+    _seed_initial_camera(shared, bridge)
     classifier = shared.start(root)
-    classification = classifier.last_classification
-    corner_summaries = []
-    if classification is not None:
-        mappings_by_group = {}
-        for mapping in classification.result.mappings:
-            mappings_by_group.setdefault(mapping.group_id, []).append(mapping)
-        for group in classification.result.groups:
-            if len(group.aperture_keys) <= group.room_size:
-                continue
-            mappings = mappings_by_group.get(group.derived_id, ())
-            axes = sorted(
-                {
-                    tuple(round(value, 4) for value in mapping.room_axis_u)
-                    for mapping in mappings
-                }
-            )
-            atlas_sizes = sorted({mapping.atlas_size for mapping in mappings})
-            reference_mapping = mappings[0]
-            room_width_metres = (
-                reference_mapping.room_size / reference_mapping.room_scale[0]
-            )
-            raw_aperture_intervals = tuple(
-                (minimum, maximum)
-                for minimum, maximum in zip(
-                    reference_mapping.primary_aperture_min_u,
-                    reference_mapping.primary_aperture_max_u,
-                )
-                if minimum >= 0.0 and maximum >= minimum
-            )
-            aperture_intervals = tuple(
-                (
-                    round(minimum, 4),
-                    round(maximum, 4),
-                )
-                for minimum, maximum in raw_aperture_intervals
-            )
-            aperture_spans_metres = tuple(
-                (
-                    round(minimum * room_width_metres, 4),
-                    round(maximum * room_width_metres, 4),
-                )
-                for minimum, maximum in raw_aperture_intervals
-            )
-            side_depth_spans_metres = tuple(
-                (
-                    round(
-                        min(
-                            mapping.map_origin[2],
-                            mapping.map_origin[2] + mapping.map_axis_u[2],
-                        ),
-                        4,
-                    ),
-                    round(
-                        max(
-                            mapping.map_origin[2],
-                            mapping.map_origin[2] + mapping.map_axis_u[2],
-                        ),
-                        4,
-                    ),
-                )
-                for mapping in mappings
-                if abs(mapping.map_axis_u[2]) > 1.0e-6
-            )
-            front_gaps_metres = tuple(
-                round(min(abs(minimum), abs(maximum)), 4)
-                for minimum, maximum in side_depth_spans_metres
-            )
-            side_u_offsets_metres = tuple(
-                round(mapping.aperture_mask_offset_u, 4)
-                for mapping in mappings
-                if abs(mapping.map_axis_u[2]) > 1.0e-6
-            )
-            corner_summaries.append(
-                f"roomID={group.room_id}:box=x{group.room_size}"
-                f"x{group.room_depth_size},axes={axes},atlases={atlas_sizes},"
-                "primary_plane_room_z=0.0,"
-                f"primary_intervals={aperture_intervals},"
-                f"primary_spans_from_group_min_m={aperture_spans_metres},"
-                f"side_depth_spans_m={side_depth_spans_metres},"
-                f"front_gaps_m={front_gaps_metres},"
-                f"side_u_offsets_m={side_u_offsets_metres}"
-            )
+    corner_summaries = corner_box_summaries(classifier.last_classification)
     shared.log_room_map_warning(
         owner="SHARED ROOM CLASSIFIER",
         process="RUNTIME SOURCE LOAD",
@@ -266,14 +172,6 @@ def reload_and_start(repository_root: str | Path):
 
 
 def stop_runtime() -> None:
-    """Stop either top-level or package-loaded manual ORMS runtime modules."""
+    """Stop every import route that may own callbacks or subscriptions."""
 
-    for module_name in (
-        "stage_load_probe",
-        "tools.omniverse.stage_load_probe",
-        "shared_room_classifier",
-        "tools.omniverse.shared_room_classifier",
-        "camera_position_bridge",
-        "tools.omniverse.camera_position_bridge",
-    ):
-        _stop_loaded_module(module_name)
+    stop_runtime_modules()

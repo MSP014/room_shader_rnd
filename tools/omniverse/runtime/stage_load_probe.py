@@ -2,265 +2,18 @@
 
 from __future__ import annotations
 
-import ctypes
-import sys
 from collections.abc import Callable, Mapping
 from itertools import count
 from time import perf_counter
 from typing import Any
 
-try:
-    from .status_log import log_room_map_warning
-except ImportError:
-    from status_log import log_room_map_warning
-
+from .resource_metrics import _resource_snapshot
+from .stage_load_state import AssetBatchTracker
+from .status_log import log_room_map_warning
 
 _RUN_IDS = count(1)
 _HEARTBEAT_SECONDS = 15.0
 _PROGRESS_BUCKET_PERCENT = 5
-_RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
-_MDL_ENABLE_OPACITY_INPUT = "inputs:enable_opacity"
-
-
-def _renderer_snapshot(
-    *,
-    settings: Any | None = None,
-    stage: Any | None = None,
-) -> dict[str, object]:
-    """Report renderer mode and runtime cutout classification at low rate."""
-
-    try:
-        if settings is None:
-            import carb.settings
-
-            settings = carb.settings.get_settings()
-        if stage is None:
-            import omni.usd
-
-            stage = omni.usd.get_context().get_stage()
-
-        setting_paths = {
-            "renderer_mode": "/rtx/rendermode",
-            "fractional_cutout_opacity": (
-                "/rtx/pathtracing/fractionalCutoutOpacity"
-            ),
-            "opacity_override": ("/rtx/material/omniRtxEnableOpacityOverride"),
-        }
-        details: dict[str, object] = {
-            name: (
-                value if (value := settings.get(path)) is not None else "unset"
-            )
-            for name, path in setting_paths.items()
-        }
-        if stage is None:
-            details.update(
-                {
-                    "runtime_material_count": 0,
-                    "cutout_contract_applicable_material_count": 0,
-                    "cutout_opt_in_material_count": 0,
-                    "cutout_opt_in_complete": False,
-                    "cutout_opt_in_values": "stage_unavailable",
-                    "mdl_enable_opacity_material_count": 0,
-                    "mdl_enable_opacity_complete": False,
-                    "mdl_enable_opacity_values": "stage_unavailable",
-                }
-            )
-            return details
-
-        looks = stage.GetPrimAtPath("/__ORMSRuntime/Looks")
-        materials = (
-            tuple(
-                child
-                for child in looks.GetChildren()
-                if child.GetTypeName() == "Material"
-            )
-            if looks and looks.IsValid()
-            else ()
-        )
-        cutout_contract_paths = set()
-        values = {}
-        mdl_enable_opacity_values = {}
-        for material in materials:
-            material_path = str(material.GetPath())
-            shader = material.GetChild("Shader")
-            enable_opacity = shader.GetAttribute(_MDL_ENABLE_OPACITY_INPUT)
-            if enable_opacity:
-                cutout_contract_paths.add(material_path)
-                values[material_path] = material.GetAttribute(
-                    _RTX_CUTOUT_OPT_IN_ATTRIBUTE
-                ).Get()
-                mdl_enable_opacity_values[material_path] = enable_opacity.Get()
-            else:
-                values[material_path] = "not_applicable"
-                mdl_enable_opacity_values[material_path] = "not_applicable"
-        enabled_count = sum(value is True for value in values.values())
-        mdl_enabled_count = sum(
-            value is True for value in mdl_enable_opacity_values.values()
-        )
-        details.update(
-            {
-                "runtime_material_count": len(materials),
-                "cutout_contract_applicable_material_count": len(
-                    cutout_contract_paths
-                ),
-                "cutout_opt_in_material_count": enabled_count,
-                "cutout_opt_in_complete": bool(materials)
-                and enabled_count == len(cutout_contract_paths),
-                "cutout_opt_in_values": values or "no_runtime_materials",
-                "mdl_enable_opacity_material_count": mdl_enabled_count,
-                "mdl_enable_opacity_complete": bool(materials)
-                and mdl_enabled_count == len(cutout_contract_paths),
-                "mdl_enable_opacity_values": (
-                    mdl_enable_opacity_values or "no_runtime_materials"
-                ),
-            }
-        )
-        return details
-    except Exception as error:
-        return {"renderer_metrics": f"unavailable: {error!r}"}
-
-
-def _windows_memory_snapshot() -> dict[str, object]:
-    """Return process and host memory counters without a third-party module."""
-
-    if sys.platform != "win32":
-        return {"host_memory_metrics": "unsupported_platform"}
-
-    class _ProcessMemoryCountersEx(ctypes.Structure):
-        _fields_ = [
-            ("cb", ctypes.c_ulong),
-            ("PageFaultCount", ctypes.c_ulong),
-            ("PeakWorkingSetSize", ctypes.c_size_t),
-            ("WorkingSetSize", ctypes.c_size_t),
-            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-            ("PagefileUsage", ctypes.c_size_t),
-            ("PeakPagefileUsage", ctypes.c_size_t),
-            ("PrivateUsage", ctypes.c_size_t),
-        ]
-
-    class _MemoryStatusEx(ctypes.Structure):
-        _fields_ = [
-            ("dwLength", ctypes.c_ulong),
-            ("dwMemoryLoad", ctypes.c_ulong),
-            ("ullTotalPhys", ctypes.c_ulonglong),
-            ("ullAvailPhys", ctypes.c_ulonglong),
-            ("ullTotalPageFile", ctypes.c_ulonglong),
-            ("ullAvailPageFile", ctypes.c_ulonglong),
-            ("ullTotalVirtual", ctypes.c_ulonglong),
-            ("ullAvailVirtual", ctypes.c_ulonglong),
-            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
-        ]
-
-    gib = float(1024**3)
-    details: dict[str, object] = {}
-    try:
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        psapi = ctypes.WinDLL("psapi", use_last_error=True)
-        get_current_process = kernel32.GetCurrentProcess
-        get_current_process.argtypes = []
-        get_current_process.restype = ctypes.c_void_p
-        get_process_memory_info = psapi.GetProcessMemoryInfo
-        get_process_memory_info.argtypes = [
-            ctypes.c_void_p,
-            ctypes.POINTER(_ProcessMemoryCountersEx),
-            ctypes.c_ulong,
-        ]
-        get_process_memory_info.restype = ctypes.c_int
-
-        counters = _ProcessMemoryCountersEx()
-        counters.cb = ctypes.sizeof(counters)
-        success = get_process_memory_info(
-            get_current_process(),
-            ctypes.byref(counters),
-            counters.cb,
-        )
-        if success:
-            details.update(
-                {
-                    "process_working_set_gib": round(
-                        counters.WorkingSetSize / gib,
-                        3,
-                    ),
-                    "process_private_commit_gib": round(
-                        counters.PrivateUsage / gib,
-                        3,
-                    ),
-                }
-            )
-        else:
-            details["process_memory_error"] = (
-                "GetProcessMemoryInfo failed: "
-                f"winerror={ctypes.get_last_error()}"
-            )
-    except Exception as error:
-        details["process_memory_error"] = repr(error)
-
-    try:
-        if "kernel32" not in locals():
-            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        global_memory_status = kernel32.GlobalMemoryStatusEx
-        global_memory_status.argtypes = [ctypes.POINTER(_MemoryStatusEx)]
-        global_memory_status.restype = ctypes.c_int
-        memory = _MemoryStatusEx()
-        memory.dwLength = ctypes.sizeof(memory)
-        if global_memory_status(ctypes.byref(memory)):
-            details.update(
-                {
-                    "system_available_memory_gib": round(
-                        memory.ullAvailPhys / gib,
-                        3,
-                    ),
-                    "system_memory_load_percent": int(memory.dwMemoryLoad),
-                }
-            )
-        else:
-            details["system_memory_error"] = (
-                "GlobalMemoryStatusEx failed: "
-                f"winerror={ctypes.get_last_error()}"
-            )
-    except Exception as error:
-        details["system_memory_error"] = repr(error)
-    return details
-
-
-def _hydra_memory_snapshot() -> dict[str, object]:
-    """Read public Hydra device counters when that extension is available."""
-
-    try:
-        import omni.hydra.engine.stats as engine_stats
-
-        devices = engine_stats.get_device_info(0)
-        if not devices:
-            return {"gpu_memory_metrics": "no_device"}
-        device = devices[0]
-        memory_fields = {
-            str(name): value
-            for name, value in device.items()
-            if "memory" in str(name).lower() or "budget" in str(name).lower()
-        }
-        details: dict[str, object] = {
-            "gpu_device": device.get("description", "unavailable"),
-            "gpu_memory_fields": memory_fields or "unavailable",
-        }
-        total_fields = {
-            str(item.get("category", "unknown")): item.get("size")
-            for item in engine_stats.get_mem_stats()
-            if "total" in str(item.get("category", "")).lower()
-        }
-        details["hydra_total_memory_fields"] = total_fields or "unavailable"
-        return details
-    except Exception as error:
-        return {"gpu_memory_metrics": f"unavailable: {error!r}"}
-
-
-def _resource_snapshot() -> dict[str, object]:
-    details = _windows_memory_snapshot()
-    details.update(_hydra_memory_snapshot())
-    details.update(_renderer_snapshot())
-    return details
 
 
 class StageLoadProbe:
@@ -299,15 +52,7 @@ class StageLoadProbe:
         self._last_status_signature: tuple[object, ...] | None = None
         self._loading_status_pending = False
         self._mdl_parameter_count = 0
-        self._asset_batch_id = 0
-        self._asset_batch_active = False
-        self._asset_batch_started_at: float | None = None
-        self._asset_batch_stage_identifier: str | None = None
-        self._batch_max_total_files = 0
-        self._batch_current_message = ""
-        self._batch_current_message_started_at: float | None = None
-        self._batch_longest_message = "<none>"
-        self._batch_longest_message_ms = 0.0
+        self._asset_batches = AssetBatchTracker(clock)
         self._stage_subscriptions: tuple[object, ...] = ()
         self._update_subscription: object | None = None
 
@@ -316,6 +61,8 @@ class StageLoadProbe:
         return f"SCENE-{next(_RUN_IDS):04d}"
 
     def start(self) -> None:
+        """Subscribe to stage and update events owned by this probe instance."""
+
         if self._event_dispatcher is None:
             import carb.eventdispatcher
 
@@ -349,6 +96,8 @@ class StageLoadProbe:
         self._sample_loading_status("probe_start", force=True)
 
     def stop(self) -> None:
+        """Reset every owned event guard without altering Kit loading state."""
+
         for subscription in self._stage_subscriptions:
             reset = getattr(subscription, "reset", None)
             if callable(reset):
@@ -395,51 +144,13 @@ class StageLoadProbe:
             bool(self._context.get_stage_streaming_status()),
         )
 
-    def _close_batch_message_interval(self, now: float) -> None:
-        if self._batch_current_message_started_at is None:
-            return
-        duration_ms = (now - self._batch_current_message_started_at) * 1000.0
-        if duration_ms > self._batch_longest_message_ms:
-            self._batch_longest_message = (
-                self._batch_current_message or "<empty>"
-            )
-            self._batch_longest_message_ms = duration_ms
-        self._batch_current_message_started_at = None
-
-    def _record_batch_status(
-        self,
-        message: str,
-        total_files: int,
-        now: float,
-    ) -> None:
-        if not self._asset_batch_active:
-            return
-        self._batch_max_total_files = max(
-            self._batch_max_total_files,
-            total_files,
-        )
-        if message == self._batch_current_message:
-            return
-        self._close_batch_message_interval(now)
-        self._batch_current_message = message
-        if message:
-            self._batch_current_message_started_at = now
-
     def _start_asset_batch(self) -> None:
-        if self._asset_batch_active:
+        if self._asset_batches.active:
             self._finish_asset_batch(
                 "ASSET_BATCH_LOADING_SUPERSEDED",
                 terminal_reason="new_assets_loading_event",
             )
-        self._asset_batch_id += 1
-        self._asset_batch_active = True
-        self._asset_batch_started_at = self._clock()
-        self._asset_batch_stage_identifier = self._stage_identifier()
-        self._batch_max_total_files = 0
-        self._batch_current_message = ""
-        self._batch_current_message_started_at = None
-        self._batch_longest_message = "<none>"
-        self._batch_longest_message_ms = 0.0
+        self._asset_batches.start(self._stage_identifier())
 
     def _finish_asset_batch(
         self,
@@ -447,10 +158,8 @@ class StageLoadProbe:
         *,
         terminal_reason: str,
     ) -> bool:
-        if not self._asset_batch_active:
+        if not self._asset_batches.active:
             return False
-        now = self._clock()
-        self._close_batch_message_interval(now)
         try:
             message, files_loaded, total_files, streaming_busy = (
                 self._loading_status()
@@ -460,46 +169,17 @@ class StageLoadProbe:
             files_loaded = 0
             total_files = 0
             streaming_busy = False
-        self._batch_max_total_files = max(
-            self._batch_max_total_files,
-            total_files,
-        )
-        duration_ms = (
-            round((now - self._asset_batch_started_at) * 1000.0, 3)
-            if self._asset_batch_started_at is not None
-            else "unavailable"
-        )
-        self._log(
+        details = self._asset_batches.finish(
             state,
-            {
-                "asset_batch_id": self._asset_batch_id,
-                "asset_batch_stage_identifier": (
-                    self._asset_batch_stage_identifier or "<none>"
-                ),
-                "asset_batch_duration_ms": duration_ms,
-                "max_total_files": self._batch_max_total_files,
-                "longest_loading_message": self._batch_longest_message,
-                "longest_loading_message_ms": round(
-                    self._batch_longest_message_ms,
-                    3,
-                ),
-                "final_loading_message": message or "<empty>",
-                "final_files_loaded": files_loaded,
-                "final_total_files": total_files,
-                "final_streaming_busy": streaming_busy,
-                "completion_scope": "current_async_asset_batch",
-                "batch_terminal_reason": terminal_reason,
-                "batch_completion_observed": (
-                    state == "ASSET_BATCH_LOADING_COMPLETE"
-                ),
-                "native_material_wait_complete": "unobservable",
-                "renderer_idle_observable": False,
-            },
+            terminal_reason=terminal_reason,
+            message=message,
+            files_loaded=files_loaded,
+            total_files=total_files,
+            streaming_busy=streaming_busy,
         )
-        self._asset_batch_active = False
-        self._asset_batch_started_at = None
-        self._asset_batch_stage_identifier = None
-        self._batch_current_message_started_at = None
+        if details is None:
+            return False
+        self._log(state, details)
         return True
 
     def _log_unobserved_asset_batch_terminal(
@@ -567,7 +247,7 @@ class StageLoadProbe:
         if progress_marker != self._last_progress_marker:
             self._last_progress_marker = progress_marker
             self._last_progress_change_at = now
-        self._record_batch_status(message, total_files, now)
+        self._asset_batches.record_status(message, total_files, now)
         heartbeat_due = (
             now - self._last_performance_emit_at >= _HEARTBEAT_SECONDS
         )
@@ -616,7 +296,7 @@ class StageLoadProbe:
                 if not pending
                 else "not_applicable"
             ),
-            "asset_batch_active": self._asset_batch_active,
+            "asset_batch_active": self._asset_batches.active,
             "completion_claim": False,
             "heartbeat": heartbeat_due,
             "renderer_idle_observable": False,
@@ -671,10 +351,7 @@ class StageLoadProbe:
         self._last_status_signature = None
         self._loading_status_pending = False
         self._mdl_parameter_count = 0
-        self._asset_batch_id = 0
-        self._asset_batch_started_at = None
-        self._asset_batch_stage_identifier = None
-        self._batch_current_message_started_at = None
+        self._asset_batches.reset_for_stage_open()
 
     def _on_stage_event(self, event: object) -> None:
         event_type_value = getattr(event, "type", None)
@@ -703,7 +380,7 @@ class StageLoadProbe:
             self._start_asset_batch()
             self._log(
                 "ASSET_BATCH_LOADING_STARTED",
-                {"asset_batch_id": self._asset_batch_id},
+                {"asset_batch_id": self._asset_batches.batch_id},
             )
         elif event_name == "ASSETS_LOADED":
             finished = self._finish_asset_batch(

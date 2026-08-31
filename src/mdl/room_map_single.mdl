@@ -1,11 +1,17 @@
 mdl 1.7;
 
+// Minimal five-face ORMS reference material. It proves the authored room frame,
+// camera bridge, analytic ray-box hit, cross-atlas mapping, and deterministic
+// UDIM selection without shared-room or layered-depth complexity.
+
 import ::df::*;
 import ::math::*;
 import ::state::*;
 import ::tex::*;
 import ::nvidia::support_definitions::*;
 
+// All ray-plane helpers share one numeric guard and miss sentinel so invalid
+// or backward intersections cannot win the nearest-hit selection.
 float room_map_epsilon()
 {
     return 0.0001;
@@ -21,6 +27,7 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+// Stable integer mixing selects one complete UDIM room for every roomID.
 int positive_modulo(int value, int divisor)
 {
     int remainder = value % divisor;
@@ -45,6 +52,7 @@ float2 udim_atlas_coordinate(float2 atlas_coordinate, int variant_index)
     return atlas_coordinate + float2(float(variant_index), 0.0);
 }
 
+// Only positive distances represent visible interior planes.
 float positive_plane_distance(
     float plane,
     float origin,
@@ -57,6 +65,7 @@ float positive_plane_distance(
     float distance = (plane - origin) / safe_direction;
 } in distance > epsilon ? distance : room_map_far_distance();
 
+// Resolve the nearest of the five room faces into its labelled 3x3 cross tile.
 float2 cross_atlas_coordinate(
     float3 hit_point,
     float room_depth,
@@ -86,6 +95,8 @@ float2 cross_atlas_coordinate(
     ? float2(middle_u, tile_size * (3.0 - depth_coordinate))
     : float2(middle_u, tile_size * depth_coordinate);
 
+// Public baseline material. Source geometry provides roomP, tangentu, tangentv,
+// roomUV, and roomID; the runtime bridge provides the camera world position.
 export material room_map_single(
     uniform texture_2d room_atlas = texture_2d(),
     uniform int room_variant_count = 1,
@@ -95,6 +106,7 @@ export material room_map_single(
     color fallback_colour = color(1.0, 0.0, 1.0),
     float emission_strength = 1.0
 ) = let {
+    // Read the complete authored geometry contract before constructing a frame.
     float3 room_position_object = nvidia::support_definitions::data_lookup_float3(
         "roomP",
         float3(0.0)
@@ -125,6 +137,8 @@ export material room_map_single(
         variation_seed,
         room_variant_count
     );
+    // Transform point and vector primvars according to their geometric roles;
+    // applying a point transform to tangent vectors would introduce translation.
     float3 room_position = state::transform_point(
         state::coordinate_object,
         state::coordinate_world,
@@ -153,6 +167,8 @@ export material room_map_single(
         tangent_v_extent,
         room_map_epsilon()
     );
+    // Degenerate exported frames remain visible through the magenta fallback
+    // instead of feeding zero-length axes into the room-space projection.
     float3 tangent_u = frame_is_valid
         ? math::normalize(tangent_u_raw)
         : float3(1.0, 0.0, 0.0);
@@ -165,6 +181,8 @@ export material room_map_single(
         state::coordinate_world,
         state::position()
     );
+    // Project camera and surface into the same normalised room frame before the
+    // view ray is formed. Tangent magnitudes preserve physical aperture scale.
     float3 camera_from_room = bridged_camera_position_world - room_position;
     float3 surface_from_room = surface_position_world - room_position;
     float3 camera_position_room = float3(
@@ -185,6 +203,7 @@ export material room_map_single(
         saturate(room_uv.y),
         0.0
     );
+    // Intersect the ray with Back, Left, Right, Ceiling, and Floor analytically.
     float back_distance = positive_plane_distance(
         -room_depth,
         ray_origin.z,
@@ -230,6 +249,7 @@ export material room_map_single(
         ceiling_distance,
         floor_distance
     );
+    // The selected face and room variant require exactly one texture lookup.
     float4 atlas_sample = tex::lookup_float4(
         room_atlas,
         udim_atlas_coordinate(atlas_coordinate, variant_index),

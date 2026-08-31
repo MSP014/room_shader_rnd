@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Instance-ready adapter around the Houdini-exported building. The adapter binds
+# the source ORMS material while leaving per-instance runtime decisions external.
 (
     customLayerData = {
         string "orms:fixtureOrigin" = "Instance-ready Room Map adapter over the Houdini-exported test_bld component"

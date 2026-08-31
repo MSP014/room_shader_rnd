@@ -1,3 +1,5 @@
+"""Protect the Houdini-to-OpenUSD named float3 primvar lookup contract."""
+
 from pathlib import Path
 
 from pxr import Sdf, Usd, UsdGeom, UsdShade

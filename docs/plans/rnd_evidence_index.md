@@ -238,10 +238,10 @@ camera motion without persisting camera updates to the source layer.
 **Supporting artefacts:**
 
 - `src/mdl/diagnostics/camera_direction_as_colour.mdl`
-- `tools/omniverse/camera_position_bridge.py`
-- `tests/test_camera_position_bridge.py`
-- `tools/omniverse/status_log.py`
-- `tests/test_room_map_status_log.py`
+- `tools/omniverse/runtime/camera_position_bridge.py`
+- `tests/shared_room_runtime/runtime/test_camera_position_bridge.py`
+- `tools/omniverse/runtime/status_log.py`
+- `tests/shared_room_runtime/runtime/test_status_log.py`
 - `docs/knowledge_base/mdl/003_camera_position_bridge.md`
 
 **Suggested capture:** Open the diagnostic scene, start the bridge using the

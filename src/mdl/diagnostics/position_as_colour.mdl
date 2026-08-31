@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise state::position() with explicit scale and offset diagnostics.
+
 import ::df::*;
 import ::state::*;
 

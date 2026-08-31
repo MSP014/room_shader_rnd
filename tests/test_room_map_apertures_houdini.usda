@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Capture layer over Houdini-exported aperture geometry. It preserves the source
+# component while overriding only the ORMS validation material and camera setup.
 (
     customLayerData = {
         dictionary cameraSettings = {

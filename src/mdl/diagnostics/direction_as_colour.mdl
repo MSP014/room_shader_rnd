@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise state::direction() to document why it is not the ORMS view vector.
+
 import ::df::*;
 import ::state::*;
 

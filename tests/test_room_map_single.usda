@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Isolated unit-window fixture for the five-face MDL baseline. The layer authors
+# the complete source primvar and material-binding contract without classification.
 (
     defaultPrim = "World"
     metersPerUnit = 1

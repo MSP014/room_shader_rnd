@@ -1,3 +1,5 @@
+"""Protect optional filtering of paused tutorial branches from Jira plans."""
+
 from tools.sync_jira import filter_legacy_tutorial_items
 
 

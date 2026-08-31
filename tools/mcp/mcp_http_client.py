@@ -28,10 +28,12 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 class McpError(RuntimeError):
-    pass
+    """Report a transport, protocol, or remote MCP error to CLI callers."""
 
 
 def validate_http_url(url: str) -> None:
+    """Reject endpoints that cannot be addressed by the HTTP transport."""
+
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise McpError(
@@ -42,6 +44,8 @@ def validate_http_url(url: str) -> None:
 
 
 def parse_mcp_response(raw: bytes) -> dict[str, Any]:
+    """Parse either plain JSON or the final data event from an MCP response."""
+
     text = raw.decode("utf-8", errors="replace").strip()
 
     if not text:
@@ -75,6 +79,8 @@ def rpc_call(
     session_id: str | None = None,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> tuple[dict[str, Any], str | None]:
+    """Send one JSON-RPC request while preserving the negotiated session ID."""
+
     validate_http_url(url)
 
     payload: dict[str, Any] = {
@@ -134,6 +140,8 @@ def initialize(
     client_name: str = DEFAULT_CLIENT_NAME,
     client_version: str = DEFAULT_CLIENT_VERSION,
 ) -> str | None:
+    """Negotiate one MCP session and emit the optional initialised notice."""
+
     _, session_id = rpc_call(
         url=url,
         method="initialize",
@@ -171,6 +179,8 @@ def call_tool(
     arguments: dict[str, Any],
     client_name: str = DEFAULT_CLIENT_NAME,
 ) -> Any:
+    """Initialise a short-lived session and return one tool-call result."""
+
     session_id = initialize(url, client_name=client_name)
     response, _ = rpc_call(
         url=url,
@@ -189,6 +199,8 @@ def list_tools(
     url: str,
     client_name: str = DEFAULT_CLIENT_NAME,
 ) -> None:
+    """Print the tools advertised by one local MCP endpoint."""
+
     session_id = initialize(url, client_name=client_name)
     response, _ = rpc_call(
         url=url,
@@ -208,6 +220,8 @@ def list_tools(
 
 
 def print_result(result: Any) -> None:
+    """Print text content directly and preserve structured results as JSON."""
+
     if isinstance(result, dict) and "content" in result:
         for item in result["content"]:
             if item.get("type") == "text":

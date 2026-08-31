@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-86 — MDL State Functions, runtime follow-up |
-| Implementation | `tools/omniverse/camera_position_bridge.py`, `src/mdl/diagnostics/camera_direction_as_colour.mdl`, `tools/omniverse/status_log.py` |
-| Automated evidence | `tests/test_camera_position_bridge.py`, `tests/test_room_map_status_log.py` |
+| Implementation | `tools/omniverse/runtime/camera_position_bridge.py`, `src/mdl/diagnostics/camera_direction_as_colour.mdl`, `tools/omniverse/runtime/status_log.py` |
+| Automated evidence | `tests/shared_room_runtime/runtime/test_camera_position_bridge.py`, `tests/shared_room_runtime/runtime/test_status_log.py` |
 | Validation scene | `assets/_external/usd/test_grid/camera_direction_bridge.usda` |
 | Evidence state | Renderer-validated R&D bridge |
 | Last validated | 18 August 2026 |
@@ -57,9 +57,9 @@ import omni.usd
 
 root_layer = omni.usd.get_context().get_stage().GetRootLayer()
 repository_root = Path(root_layer.realPath).parents[4]
-sys.path.append(str(repository_root / "tools" / "omniverse"))
+sys.path.append(str(repository_root))
 
-import camera_position_bridge
+from tools.omniverse.runtime import camera_position_bridge
 
 camera_position_bridge.stop()
 camera_position_bridge.start()

@@ -1,3 +1,5 @@
+"""Validate the retained Kit launcher and bounded MDL compile-probe bundle."""
+
 import ast
 from pathlib import Path
 

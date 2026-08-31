@@ -1,3 +1,5 @@
+"""Verify every retained fixture resolves a complete hydrated UDIM family."""
+
 from pathlib import Path
 
 import pytest

@@ -20,11 +20,15 @@ CLIENT_NAME = "room-map-rnd-kit-mcp-client"
 
 
 def run_tool(url: str, tool_name: str, arguments: dict[str, Any]) -> None:
+    """Call one Kit MCP tool and print its reader-facing result."""
+
     result = call_tool(url, tool_name, arguments, client_name=CLIENT_NAME)
     print_result(result)
 
 
 def instructions(url: str, instruction_sets: str) -> None:
+    """Print the requested Kit instruction sets."""
+
     run_tool(
         url,
         "get_kit_instructions",
@@ -33,6 +37,8 @@ def instructions(url: str, instruction_sets: str) -> None:
 
 
 def search_knowledge(url: str, query: str) -> None:
+    """Search the local Kit knowledge index."""
+
     run_tool(
         url,
         "search_kit_knowledge",
@@ -41,6 +47,8 @@ def search_knowledge(url: str, query: str) -> None:
 
 
 def search_extensions(url: str, query: str, top_k: int) -> None:
+    """Find Kit extensions matching a capability query."""
+
     run_tool(
         url,
         "search_kit_extensions",
@@ -49,6 +57,8 @@ def search_extensions(url: str, query: str, top_k: int) -> None:
 
 
 def extension_detail(url: str, extension_ids: str) -> None:
+    """Print metadata for selected Kit extension identifiers."""
+
     run_tool(
         url,
         "get_kit_extension_details",
@@ -62,6 +72,8 @@ def extension_deps(
     depth: int,
     include_optional: bool,
 ) -> None:
+    """Resolve the bounded dependency graph of one Kit extension."""
+
     run_tool(
         url,
         "get_kit_extension_dependencies",
@@ -74,6 +86,8 @@ def extension_deps(
 
 
 def extension_apis(url: str, extension_ids: str) -> None:
+    """List APIs exposed by selected Kit extensions."""
+
     run_tool(
         url,
         "get_kit_extension_apis",
@@ -82,6 +96,8 @@ def extension_apis(url: str, extension_ids: str) -> None:
 
 
 def api_detail(url: str, api_references: str) -> None:
+    """Print details for selected Kit API references."""
+
     run_tool(
         url,
         "get_kit_api_details",
@@ -90,6 +106,8 @@ def api_detail(url: str, api_references: str) -> None:
 
 
 def search_code(url: str, query: str, top_k: int) -> None:
+    """Search indexed Kit implementation examples."""
+
     run_tool(
         url,
         "search_kit_code_examples",
@@ -98,6 +116,8 @@ def search_code(url: str, query: str, top_k: int) -> None:
 
 
 def search_tests(url: str, query: str, top_k: int) -> None:
+    """Search indexed Kit test examples."""
+
     run_tool(
         url,
         "search_kit_test_examples",
@@ -112,6 +132,8 @@ def search_settings(
     prefix_filter: str,
     type_filter: str,
 ) -> None:
+    """Search Kit settings with optional namespace and type filters."""
+
     arguments: dict[str, Any] = {"query": query, "top_k": top_k}
     if prefix_filter:
         arguments["prefix_filter"] = prefix_filter
@@ -127,6 +149,8 @@ def search_app_templates(
     top_k: int,
     category_filter: str,
 ) -> None:
+    """Search Kit application templates with an optional category filter."""
+
     arguments: dict[str, Any] = {"query": query, "top_k": top_k}
     if category_filter:
         arguments["category_filter"] = category_filter
@@ -135,6 +159,8 @@ def search_app_templates(
 
 
 def app_template_detail(url: str, template_ids: str) -> None:
+    """Print details for selected Kit application templates."""
+
     run_tool(
         url,
         "get_kit_app_template_details",
@@ -143,6 +169,8 @@ def app_template_detail(url: str, template_ids: str) -> None:
 
 
 def main() -> int:
+    """Parse one Kit research command and report transport errors cleanly."""
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--url",

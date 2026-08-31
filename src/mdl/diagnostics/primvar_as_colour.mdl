@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise one named float3 OpenUSD primvar through NVIDIA's MDL lookup path.
+
 import ::df::*;
 import ::nvidia::support_definitions::*;
 

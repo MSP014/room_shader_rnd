@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Smallest repository material used to prove MDL discovery and USD binding.
+
 import ::base::*;
 import ::df::*;
 

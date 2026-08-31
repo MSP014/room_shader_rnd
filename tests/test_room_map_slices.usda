@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Isolated depth-slice fixture for the public room_map material. It keeps the
+# geometry simple so face projection, slice order, and alpha remain readable.
 (
     customLayerData = {
         dictionary cameraSettings = {

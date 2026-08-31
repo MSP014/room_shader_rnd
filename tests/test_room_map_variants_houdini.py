@@ -1,3 +1,5 @@
+"""Protect roomID, room frames, and roomUV in the retained Houdini export."""
+
 from collections import Counter, defaultdict
 from pathlib import Path
 

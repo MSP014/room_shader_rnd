@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise the MDL shading normal after remapping signed values to colour.
+
 import ::df::*;
 import ::state::*;
 

@@ -1,3 +1,5 @@
+"""Protect deterministic roomID variation in the isolated Omniverse fixture."""
+
 from collections import Counter
 from pathlib import Path
 

@@ -28,11 +28,15 @@ CLIENT_NAME = "room-map-rnd-usd-mcp-client"
 
 
 def list_modules(url: str) -> None:
+    """Print OpenUSD modules indexed by the local MCP server."""
+
     result = call_tool(url, "list_usd_modules", {}, client_name=CLIENT_NAME)
     print_result(result)
 
 
 def search_knowledge(url: str, query: str) -> None:
+    """Search the local OpenUSD knowledge index."""
+
     result = call_tool(
         url,
         "search_usd_knowledge",
@@ -43,6 +47,8 @@ def search_knowledge(url: str, query: str) -> None:
 
 
 def search_code(url: str, query: str) -> None:
+    """Search indexed OpenUSD code examples."""
+
     result = call_tool(
         url,
         "search_usd_code_examples",
@@ -53,6 +59,8 @@ def search_code(url: str, query: str) -> None:
 
 
 def module_detail(url: str, module_names: str) -> None:
+    """Print details for selected OpenUSD modules."""
+
     result = call_tool(
         url,
         "get_usd_module_detail",
@@ -63,6 +71,8 @@ def module_detail(url: str, module_names: str) -> None:
 
 
 def class_detail(url: str, class_names: str) -> None:
+    """Print details for selected OpenUSD classes."""
+
     result = call_tool(
         url,
         "get_usd_class_detail",
@@ -75,6 +85,8 @@ def class_detail(url: str, class_names: str) -> None:
 def method_detail(
     url: str, method_names: str, class_name: str | None = None
 ) -> None:
+    """Print method details, optionally scoped to one OpenUSD class."""
+
     arguments = {"method_names": method_names}
     if class_name:
         arguments["class_name"] = class_name
@@ -89,6 +101,8 @@ def method_detail(
 
 
 def main() -> int:
+    """Parse one OpenUSD research command and report MCP failures."""
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--url",

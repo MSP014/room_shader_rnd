@@ -1,3 +1,5 @@
+"""Protect depth-slice controls, atlas regions, and geometric ordering."""
+
 from pathlib import Path
 
 from pxr import Usd, UsdShade

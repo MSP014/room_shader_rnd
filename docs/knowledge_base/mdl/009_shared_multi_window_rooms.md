@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-93 — Shared Multi-Window Room Volume and Aspect Controls |
-| Implementation | `tools/omniverse/room_run_classifier.py`, `tools/omniverse/shared_room_classifier.py`, `tools/omniverse/shared_room_preferences.py`, `tools/omniverse/reload_room_map_runtime.py`, `tools/omniverse/camera_position_bridge.py`, `tools/omniverse/stage_load_probe.py`, `src/mdl/room_map.mdl`, `src/mdl/room_map_single.mdl` |
-| Automated evidence | `tests/shared_room_runtime/test_room_run_classifier.py`, `tests/shared_room_runtime/test_shared_room_classifier_usd.py`, `tests/shared_room_runtime/test_shared_room_classifier_fixtures.py`, `tests/shared_room_runtime/test_stage_load_probe.py`, `tests/shared_room_runtime/test_fixture_launcher_bundle.py`, `tests/test_camera_position_bridge.py` |
+| Implementation | `tools/omniverse/room_run/`, `tools/omniverse/shared_room/`, `tools/omniverse/runtime/`, `tools/omniverse/reload_room_map_runtime.py`, `src/mdl/room_map.mdl`, `src/mdl/room_map_single.mdl` |
+| Automated evidence | `tests/shared_room_runtime/room_run/`, `tests/shared_room_runtime/shared_room/`, `tests/shared_room_runtime/runtime/`, `tests/shared_room_runtime/integration/`, `tests/shared_room_runtime/test_fixture_launcher_bundle.py` |
 | Validation scenes | `tests/shared_room_runtime/test_room_map_shared_rooms_omniverse.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_instances.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini_instances.usda` |
 | Evidence state | Renderer-accepted in both required RTX modes; focused automated evidence recorded; final repository quality gate reserved for pre-commit |
 | Last reviewed | 31 August 2026 |
@@ -314,7 +314,7 @@ bridge.
 
 ### Full-scene load trace
 
-The R&D Kit application starts `stage_load_probe.py` through the local
+The R&D Kit application starts `runtime/stage_load_probe.py` through the local
 `msp.orms.stage_load_probe` startup extension, before a stage opens. The manual
 reload entry point can replace that observer before reloading the classifier,
 material runtime, or camera bridge. Each observer begins with `PROBE_ARMED`;

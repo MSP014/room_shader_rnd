@@ -32,6 +32,8 @@ _subscriptions: list[Any] = []
 
 
 def setting_path(name: str) -> str:
+    """Return one persistent, user-local ORMS classifier setting path."""
+
     return f"{KIT_SETTINGS_ROOT}/{name}"
 
 

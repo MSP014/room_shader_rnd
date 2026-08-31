@@ -1,3 +1,5 @@
+"""Validate the minimal MDL discovery and OpenUSD material-binding proof."""
+
 from pathlib import Path
 
 from pxr import Usd, UsdShade

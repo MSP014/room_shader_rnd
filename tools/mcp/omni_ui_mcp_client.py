@@ -19,44 +19,64 @@ CLIENT_NAME = "room-map-rnd-omni-ui-mcp-client"
 
 
 def run_tool(url: str, tool_name: str, arguments: dict[str, str]) -> None:
+    """Call one OmniUI MCP tool and print its reader-facing result."""
+
     result = call_tool(url, tool_name, arguments, client_name=CLIENT_NAME)
     print_result(result)
 
 
 def search_code(url: str, query: str) -> None:
+    """Search indexed OmniUI code examples."""
+
     run_tool(url, "search_ui_code_examples", {"query": query})
 
 
 def window_examples(url: str, query: str) -> None:
+    """Search examples focused on OmniUI window construction."""
+
     run_tool(url, "search_ui_window_examples", {"query": query})
 
 
 def list_classes(url: str) -> None:
+    """Print OmniUI classes indexed by the local server."""
+
     run_tool(url, "list_ui_classes", {})
 
 
 def list_modules(url: str) -> None:
+    """Print OmniUI modules indexed by the local server."""
+
     run_tool(url, "list_ui_modules", {})
 
 
 def class_detail(url: str, class_names: str) -> None:
+    """Print details for selected OmniUI classes."""
+
     run_tool(url, "get_ui_class_detail", {"class_names": class_names})
 
 
 def module_detail(url: str, module_names: str) -> None:
+    """Print details for selected OmniUI modules."""
+
     run_tool(url, "get_ui_module_detail", {"module_names": module_names})
 
 
 def method_detail(url: str, method_names: str) -> None:
+    """Print details for selected OmniUI methods."""
+
     run_tool(url, "get_ui_method_detail", {"method_names": method_names})
 
 
 def instructions(url: str, name: str) -> None:
+    """Print one named OmniUI instruction set or the default guidance."""
+
     arguments = {"name": name} if name else {}
     run_tool(url, "get_ui_instructions", arguments)
 
 
 def class_instructions(url: str, class_names: str) -> None:
+    """Print usage guidance for selected OmniUI classes."""
+
     run_tool(
         url,
         "get_ui_class_instructions",
@@ -65,10 +85,14 @@ def class_instructions(url: str, class_names: str) -> None:
 
 
 def style_docs(url: str, sections: str) -> None:
+    """Print selected sections of the indexed OmniUI style guide."""
+
     run_tool(url, "get_ui_style_docs", {"sections": sections})
 
 
 def main() -> int:
+    """Parse one OmniUI research command and report MCP failures."""
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--url",

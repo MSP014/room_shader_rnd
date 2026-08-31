@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Comprehensive Omniverse-authored classifier fixture for x1-x4 runs, bays,
+# corners, fallbacks, and runtime-authored shared-room mappings.
 (
     customLayerData = {
         dictionary cameraSettings = {

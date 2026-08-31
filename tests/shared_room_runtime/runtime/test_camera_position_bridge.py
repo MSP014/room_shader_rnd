@@ -1,8 +1,10 @@
+"""Protect the world-space camera bridge and its MDL input contract."""
+
 from pathlib import Path
 
 from pxr import Sdf, Usd, UsdShade
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 STAGE_PATH = (
     REPOSITORY_ROOT
     / "assets"
@@ -19,7 +21,11 @@ MDL_PATH = (
     / "camera_direction_as_colour.mdl"
 )
 BRIDGE_PATH = (
-    REPOSITORY_ROOT / "tools" / "omniverse" / "camera_position_bridge.py"
+    REPOSITORY_ROOT
+    / "tools"
+    / "omniverse"
+    / "runtime"
+    / "camera_position_bridge.py"
 )
 
 

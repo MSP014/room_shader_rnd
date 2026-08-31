@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise texture coordinate set zero independently from the named roomUV path.
+
 import ::df::*;
 import ::state::*;
 

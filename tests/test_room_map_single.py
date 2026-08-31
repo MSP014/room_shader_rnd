@@ -1,3 +1,5 @@
+"""Protect the single-window five-face analytic parallax baseline."""
+
 from pathlib import Path
 
 from pxr import Sdf, Usd, UsdGeom, UsdShade

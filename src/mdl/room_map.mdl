@@ -1,11 +1,18 @@
 mdl 1.7;
 
+// Production ORMS material for runtime-classified shared rooms. The material
+// consumes classifier-authored primvars, traces one analytic room hit, and
+// composites four optional depth slices with a bounded five-texture lookup
+// budget.
+
 import ::df::*;
 import ::math::*;
 import ::state::*;
 import ::tex::*;
 import ::nvidia::support_definitions::*;
 
+// Keep numeric guards and the miss sentinel central so every intersection
+// helper follows the same degenerate-input contract.
 float room_map_epsilon()
 {
     return 0.0001;
@@ -21,6 +28,8 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+// Artist and runtime extents are clamped before they enter divisions or frame
+// scaling. Invalid inputs remain renderable and select the documented fallback.
 float positive_extent(float value)
 {
     return math::max(value, room_map_epsilon());
@@ -47,6 +56,9 @@ float physical_aperture_cutout_opacity(
     ? 1.0
     : 0.0;
 
+// The integer mix keeps room variation stable across camera motion, primitive
+// order, renderer changes, and reloads. One selected UDIM is reused by all
+// room-face and slice samples for the shaded aperture.
 int positive_modulo(int value, int divisor)
 {
     int remainder = value % divisor;
@@ -71,6 +83,9 @@ float2 udim_atlas_coordinate(float2 atlas_coordinate, int variant_index)
     return atlas_coordinate + float2(float(variant_index), 0.0);
 }
 
+// Return only forward ray-plane hits. Parallel, backward, and near-zero cases
+// use a finite sentinel so the later minimum-distance selection needs no
+// exceptional-value handling.
 float positive_plane_distance(
     float plane,
     float origin,
@@ -83,6 +98,9 @@ float positive_plane_distance(
     float distance = (plane - origin) / safe_direction;
 } in distance > epsilon ? distance : room_map_far_distance();
 
+// Trace the five closed faces of a room-local box. X and Y start at zero, the
+// aperture lies at Z=0, and the virtual interior extends along negative Z.
+// The returned XY pair is the selected cross-atlas coordinate; Z is hit distance.
 float3 trace_room_cross(
     float3 ray_origin,
     float3 ray_direction,
@@ -163,6 +181,8 @@ float3 trace_room_cross(
         : float2(middle_u, tile_size * full_depth_coordinate);
 } in float3(atlas_coordinate.x, atlas_coordinate.y, hit_distance);
 
+// Slice controls operate after projection into normalised room-face space so
+// artists can reposition content without altering the physical aperture frame.
 float2 transform_slice_coordinate(
     float2 hit_coordinate,
     float2 offset,
@@ -175,6 +195,8 @@ float2 transform_slice_coordinate(
     );
 }
 
+// Embed one physical aperture sample into the classifier's shared room box.
+// Front portals span room X; corner side portals span room depth instead.
 float3 shared_aperture_position(
     float3 physical_position,
     bool depth_aligned_portal,
@@ -211,6 +233,7 @@ float3 shared_aperture_position(
         : float3(front_position_x, vertical_position, scaled_position.z);
 }
 
+// The four slice tiles occupy the unused corners of the 3x3 cross atlas.
 float2 slice_atlas_coordinate(
     float2 local_coordinate,
     float2 tile_origin
@@ -294,6 +317,8 @@ float slice_opacity(
     return enabled && is_visible ? saturate(sample.w) : 0.0;
 }
 
+// Slice composition owns exactly four atlas lookups. The caller performs the
+// fifth and final lookup for the selected room face.
 struct room_slice_composite
 {
     color colour;
@@ -429,6 +454,9 @@ room_slice_composite composite_room_slices(
     saturate(1.0 - front_exit_transmittance)
 );
 
+// Public artist material. Geometry identity and direct room-space mappings are
+// supplied by named OpenUSD primvars; camera_position_world is updated by the
+// runtime bridge and is never inferred from state::direction().
 export material room_map(
     uniform bool enable_opacity = true,
     uniform texture_2d room_atlas = texture_2d(),
@@ -459,6 +487,7 @@ export material room_map(
     color fallback_colour = color(1.0, 0.0, 1.0),
     float emission_strength = 1.0
 ) = let {
+    // Select one deterministic UDIM interior before any texture lookup.
     int room_id = nvidia::support_definitions::data_lookup_int(
         "roomID",
         0
@@ -468,6 +497,9 @@ export material room_map(
         variation_seed,
         room_variant_count
     );
+    // Decode the compact classifier contract. The integer part stores the
+    // width/depth atlas family and portal_mode distinguishes front from side
+    // portals while retaining a float3 primvar supported by the MDL runtime.
     float3 room_position =
         nvidia::support_definitions::data_lookup_float3(
         "ormsRoomPositionWorld",
@@ -544,6 +576,7 @@ export material room_map(
             "ormsApertureMaskOffsetU",
             0.0
         );
+    // Clamp all derived dimensions before they influence room-space scaling.
     int active_room_size = derived_room_size;
     int active_room_depth_size = derived_room_depth_size;
     float3 safe_room_scale = float3(
@@ -564,6 +597,8 @@ export material room_map(
         slice_depth_span > room_map_epsilon();
     bool frame_is_valid = mapping_is_valid
         && room_depth > room_map_epsilon();
+    // Construct the shared world-to-room frame. Both camera and shaded point
+    // must enter the same basis or the parallax ray drifts under stage motion.
     float3 tangent_u = math::normalize(derived_room_axis_u);
     float3 tangent_v = math::normalize(derived_room_axis_v);
     float3 physical_normal_world = math::normalize(
@@ -601,6 +636,8 @@ export material room_map(
     float3 ray_vector_room = surface_position_room - camera_position_room;
     float3 ray_direction =
         math::normalize(ray_vector_room * safe_room_scale);
+    // Map the current physical roomUV sample directly into the classifier's
+    // shared room coordinates; MDL does not reconstruct scene adjacency.
     float3 shared_ray_origin = shared_aperture_position(
         derived_map_position,
         depth_aligned_portal,
@@ -623,6 +660,8 @@ export material room_map(
         aperture_mask_scaled_position.y + 0.5 * safe_room_height,
         aperture_mask_scaled_position.z
     );
+    // Faceted bays add a portal throat before the rectangular room. Reject a
+    // ray that cannot enter that throat instead of leaking a room through walls.
     bool has_bay_extension = bay_extension_depth > room_map_epsilon();
     bool bay_ray_points_inward = ray_direction.z < -room_map_epsilon();
     float throat_projection_distance = has_bay_extension
@@ -642,6 +681,8 @@ export material room_map(
                 safe_room_height
             )
         : true;
+    // Trace one analytic room hit. Corner side portals also test whether an
+    // outward ray exits through a real opening on the primary facade.
     float3 room_trace = trace_room_cross(
         ray_origin,
         ray_direction,
@@ -682,6 +723,8 @@ export material room_map(
     float visible_room_limit_distance = front_exit_hits_primary_aperture
         ? math::min(room_hit_distance, front_exit_distance)
         : room_hit_distance;
+    // This is the single room-face lookup. The same variant index is passed to
+    // all four slice lookups below, preserving the five-lookup material budget.
     float4 room_sample = tex::lookup_float4(
         room_atlas,
         udim_atlas_coordinate(room_atlas_coordinate, variant_index),
@@ -696,6 +739,8 @@ export material room_map(
     color room_colour = frame_is_valid
         ? sampled_room_colour
         : fallback_colour;
+    // Convert artist percentages into physical room depths after any bay
+    // extension, then intersect all four planes with the same view ray.
     float slice_1_depth = slice_start_depth
         + slice_depth_span * saturate(slice_1_depth_percent / 100.0);
     float slice_2_depth = slice_start_depth
@@ -772,6 +817,9 @@ export material room_map(
         slice_4_offset,
         slice_4_scale
     );
+    // Front-exit visibility prevents slices from appearing across the solid
+    // facade between real corner apertures. Normal visibility also clips each
+    // projected slice to the room and to its own unit tile.
     bool front_exit_slice_1_is_visible = front_exit_hits_primary_aperture
         && slice_depth_range_is_valid
         && slice_1_distance <= front_exit_distance
@@ -844,6 +892,8 @@ export material room_map(
             safe_room_height
         )
         && coordinate_is_in_unit_tile(slice_4_local_coordinate);
+    // Composite near-to-far slice coverage once, then reuse its transmittance
+    // for both the interior colour and the binary physical-aperture cutout.
     room_slice_composite slice_composite = composite_room_slices(
         room_atlas,
         variant_index,

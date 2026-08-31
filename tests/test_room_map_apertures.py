@@ -1,3 +1,5 @@
+"""Validate physical aperture controls independently from virtual-room scale."""
+
 from pathlib import Path
 
 import pytest

@@ -349,7 +349,7 @@ module remains a possible compatibility path, not a demonstrated capability.
 ### 2. **Camera Position Runtime Bridge**
 
 `state::direction()` was tested and does not provide the material view direction
-required for PIM. Instead, `tools/omniverse/camera_position_bridge.py`
+required for PIM. Instead, `tools/omniverse/runtime/camera_position_bridge.py`
 obtains the active Kit or Composer camera world position and writes it to the
 `camera_position_world` material input in the USD **Session Layer**. Camera
 motion therefore does not become a permanent edit to the source USD scene.
@@ -562,14 +562,55 @@ docs/
 src/
 └── mdl/                    # PIM prototype and diagnostic MDL modules
 
-tests/                      # USD validation scenes and Python contract tests
+tools/omniverse/
+├── room_run/                # Deterministic, Kit-independent classification
+│   ├── contracts.py         # Classifier input and result contracts
+│   ├── topology.py          # Adjacency, ordering, and partitioning
+│   ├── mapping.py           # Straight, bay, and corner mappings
+│   └── classifier.py        # Pure classification orchestration
+├── shared_room/             # OpenUSD interpretation and Session Layer state
+│   ├── contracts.py         # Settings and authored primvar contract
+│   ├── stage.py             # Stage metrics and aperture extraction
+│   ├── authoring.py         # Primvars, materials, bindings, and instances
+│   ├── pipeline.py          # Stage-to-classifier authoring flow
+│   ├── changes.py           # USD notice and pose-change classification
+│   ├── settings.py          # Kit setting translation
+│   ├── preferences.py       # Artist-facing persistent controls
+│   └── controller.py        # Runtime subscriptions and teardown
+├── runtime/                 # Reusable Omniverse runtime infrastructure
+│   ├── source_loader.py     # Exact-source package loading and cleanup
+│   ├── diagnostics.py       # Pure classified-room summaries
+│   ├── renderer_settings.py # Temporary RTX setting ownership
+│   ├── resource_metrics.py  # Host, Hydra, and renderer snapshots
+│   ├── stage_load_state.py  # Pure asynchronous asset-batch state
+│   ├── stage_load_probe.py  # Kit event adapter and progress trace
+│   ├── camera_position_bridge.py
+│   └── status_log.py
+├── reload_room_map_runtime.py
+│                              # Manual runtime composition entry point
+├── room_run_classifier.py   # Historical import-path compatibility alias
+└── shared_room_classifier.py # Historical import-path compatibility alias
 
-tools/
-└── omniverse/              # Camera bridge, classifier, preferences, lifecycle, and diagnostics
+tests/shared_room_runtime/
+├── room_run/                # Mirrors the pure-classifier package
+├── shared_room/             # Mirrors OpenUSD authoring and controller code
+├── runtime/                 # Mirrors loader and runtime infrastructure
+├── integration/             # Cross-package and retained-fixture contracts
+├── kit_exts/                # Fixture-launcher extension bundle
+└── test_room_map_*.usda     # Retained Omniverse and Houdini compositions
+
+tests/                       # Isolated shader, USD, and tooling contracts
 
 environment.yml             # Reproducible Python 3.12 Conda baseline
 requirements.in/.txt        # Direct and locked repository dependencies
 ```
+
+The packages follow a one-way dependency path: `runtime` provides reusable Kit
+infrastructure, `room_run` owns pure topology and mapping, and `shared_room`
+combines both around OpenUSD Session Layer authoring. The top-level reload entry
+point composes those packages, while the two classifier aliases preserve older
+experimental imports. Tests mirror the package boundaries; retained fixtures
+and cross-package contracts live under `integration`.
 
 **Key Documentation**:
 

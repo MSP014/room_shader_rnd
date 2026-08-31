@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Instanceable Omniverse composition used to compare Preserve and reversible
+# Session de-instance policies without editing the referenced source component.
 (
     customLayerData = {
         string "orms:fixtureOrigin" = "Referenced and instanceable Omniverse geometry"

@@ -1,5 +1,7 @@
 mdl 1.7;
 
+// Visualise the bridge-derived world-space surface-to-camera direction.
+
 import ::df::*;
 import ::math::*;
 import ::state::*;

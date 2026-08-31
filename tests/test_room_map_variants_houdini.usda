@@ -1,4 +1,7 @@
 #usda 1.0
+
+# Capture layer over retained Houdini-exported windows. It validates that roomID,
+# the authored room frame, and dedicated roomUV data survive OpenUSD composition.
 (
     customLayerData = {
         dictionary cameraSettings = {
