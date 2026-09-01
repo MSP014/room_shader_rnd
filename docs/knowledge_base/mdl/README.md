@@ -20,6 +20,7 @@ proof.
 | [007 — Room Variants](007_room_variants.md) | KRM-90 | Deterministic roomID-to-UDIM selection | Renderer-validated |
 | [008 — Window Apertures](008_window_apertures.md) | KRM-94 | Physical aperture scale and offset | Renderer-validated |
 | [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Renderer-validated; final repository quality gate reserved for pre-commit |
+| [010 — Building 150 Integration](010_building_150_integration.md) | KRM-98 | Production-asset fixture, adaptive façade classification, surface integration, and deferred emission sequence | OpenUSD-validated; renderer validation pending |
 
 ## Record contract
 

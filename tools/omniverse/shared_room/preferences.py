@@ -20,9 +20,10 @@ SETTING_DEFAULTS: dict[str, object] = {
     "metrics_mode": "Auto from stage",
     "local_up_axis": "Y",
     "local_meters_per_unit": 1.0,
-    "edge_gap_tolerance_metres": 0.65,
     "floor_tolerance_metres": 0.25,
     "minimum_vertical_overlap": 0.5,
+    "facade_angle_snap_degrees": 5.0,
+    "maximum_local_spacing_ratio": 2.0,
     "maximum_turn_degrees": 100.0,
     "corner_turn_threshold_degrees": 60.0,
 }
@@ -113,11 +114,18 @@ def _create_page() -> object:
                 with self.add_frame("Geometric tolerances"):
                     with ui.VStack():
                         for label, name in (
-                            ("Edge gap (metres)", "edge_gap_tolerance_metres"),
-                            ("Floor band (metres)", "floor_tolerance_metres"),
+                            ("Row snap (metres)", "floor_tolerance_metres"),
                             (
                                 "Minimum vertical overlap",
                                 "minimum_vertical_overlap",
+                            ),
+                            (
+                                "Facade angle snap (degrees)",
+                                "facade_angle_snap_degrees",
+                            ),
+                            (
+                                "Maximum local spacing ratio",
+                                "maximum_local_spacing_ratio",
                             ),
                             (
                                 "Maximum facade turn (degrees)",

@@ -6,80 +6,11 @@ from typing import Any
 
 from .status_log import log_room_map_warning
 
-_RTX_FACE_CULLING_SETTING = "/rtx/hydra/faceCulling/enabled"
 _RTX_OPACITY_OVERRIDE_SETTING = "/rtx/material/omniRtxEnableOpacityOverride"
-_RTX_MATERIAL_SYNC_SETTINGS = (
-    "/rtx/materialDb/syncLoads",
-    "/rtx/hydra/materialSyncLoads",
-)
 _RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
 
-_previous_rtx_face_culling: bool | None = None
-_owns_rtx_face_culling_setting = False
 _previous_rtx_opacity_override: bool | None = None
 _owns_rtx_opacity_override_setting = False
-_previous_rtx_material_sync_values: dict[str, object] | None = None
-_owns_rtx_material_sync_settings = False
-
-
-def _enable_rtx_single_sided_culling(
-    settings_interface: Any | None = None,
-) -> None:
-    """Enable RTX culling while the manual ORMS runtime owns the setting."""
-
-    global _previous_rtx_face_culling, _owns_rtx_face_culling_setting
-    if _owns_rtx_face_culling_setting:
-        return
-    if settings_interface is None:
-        import carb.settings
-
-        settings_interface = carb.settings.get_settings()
-    _previous_rtx_face_culling = bool(
-        settings_interface.get(_RTX_FACE_CULLING_SETTING)
-    )
-    settings_interface.set(_RTX_FACE_CULLING_SETTING, True)
-    _owns_rtx_face_culling_setting = True
-    log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME BACKFACE CULLING",
-        state="ENABLED",
-        details={
-            "setting": _RTX_FACE_CULLING_SETTING,
-            "previous_value": _previous_rtx_face_culling,
-            "runtime_value": True,
-            "restored_on_stop": True,
-        },
-    )
-
-
-def _restore_rtx_single_sided_culling(
-    settings_interface: Any | None = None,
-) -> None:
-    """Restore the renderer setting captured by the manual ORMS runtime."""
-
-    global _previous_rtx_face_culling, _owns_rtx_face_culling_setting
-    if not _owns_rtx_face_culling_setting:
-        return
-    if settings_interface is None:
-        import carb.settings
-
-        settings_interface = carb.settings.get_settings()
-    restored_value = bool(_previous_rtx_face_culling)
-    settings_interface.set(
-        _RTX_FACE_CULLING_SETTING,
-        restored_value,
-    )
-    _previous_rtx_face_culling = None
-    _owns_rtx_face_culling_setting = False
-    log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME BACKFACE CULLING",
-        state="RESTORED",
-        details={
-            "setting": _RTX_FACE_CULLING_SETTING,
-            "restored_value": restored_value,
-        },
-    )
 
 
 def _enable_rtx_cutout_opacity(
@@ -143,67 +74,4 @@ def _restore_rtx_cutout_opacity(
             "setting": _RTX_OPACITY_OVERRIDE_SETTING,
             "restored_value": restored_value,
         },
-    )
-
-
-def _enable_rtx_material_sync_loads(
-    settings_interface: Any | None = None,
-) -> None:
-    """Serialize runtime MDL family loads using NVIDIA's capture contract."""
-
-    global _previous_rtx_material_sync_values
-    global _owns_rtx_material_sync_settings
-    if _owns_rtx_material_sync_settings:
-        return
-    if settings_interface is None:
-        import carb.settings
-
-        settings_interface = carb.settings.get_settings()
-    _previous_rtx_material_sync_values = {
-        path: settings_interface.get(path)
-        for path in _RTX_MATERIAL_SYNC_SETTINGS
-    }
-    for path in _RTX_MATERIAL_SYNC_SETTINGS:
-        settings_interface.set(path, True)
-    _owns_rtx_material_sync_settings = True
-    log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME MATERIAL LOADING",
-        state="SYNCHRONOUS_LOADS_ENABLED",
-        details={
-            "settings": ",".join(_RTX_MATERIAL_SYNC_SETTINGS),
-            "previous_values": _previous_rtx_material_sync_values,
-            "runtime_value": True,
-            "restored_on_stop": True,
-        },
-    )
-
-
-def _restore_rtx_material_sync_loads(
-    settings_interface: Any | None = None,
-) -> None:
-    """Restore both RTX material-loading settings exactly as they were."""
-
-    global _previous_rtx_material_sync_values
-    global _owns_rtx_material_sync_settings
-    if not _owns_rtx_material_sync_settings:
-        return
-    if settings_interface is None:
-        import carb.settings
-
-        settings_interface = carb.settings.get_settings()
-    previous_values = _previous_rtx_material_sync_values or {}
-    for path in _RTX_MATERIAL_SYNC_SETTINGS:
-        previous_value = previous_values.get(path)
-        if previous_value is None:
-            settings_interface.destroy_item(path)
-        else:
-            settings_interface.set(path, previous_value)
-    _previous_rtx_material_sync_values = None
-    _owns_rtx_material_sync_settings = False
-    log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME MATERIAL LOADING",
-        state="SYNCHRONOUS_LOADS_RESTORED",
-        details={"restored_values": previous_values},
     )

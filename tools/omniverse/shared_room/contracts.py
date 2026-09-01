@@ -102,9 +102,10 @@ class RuntimeClassifierSettings:
     metrics_mode: str = METRICS_MODE_AUTO
     local_up_axis: str = "Y"
     local_meters_per_unit: float = 1.0
-    edge_gap_tolerance_metres: float = 0.65
     floor_tolerance_metres: float = 0.25
     minimum_vertical_overlap: float = 0.5
+    facade_angle_snap_degrees: float = 5.0
+    maximum_local_spacing_ratio: float = 2.0
     maximum_turn_degrees: float = 100.0
     corner_turn_threshold_degrees: float = 60.0
 
@@ -120,9 +121,10 @@ class RuntimeClassifierSettings:
             enabled_room_sizes=frozenset(enabled_sizes),
             available_room_sizes=available_room_sizes,
             partition_seed=self.partition_seed,
-            edge_gap_tolerance_metres=self.edge_gap_tolerance_metres,
             floor_tolerance_metres=self.floor_tolerance_metres,
             minimum_vertical_overlap=self.minimum_vertical_overlap,
+            facade_angle_snap_degrees=self.facade_angle_snap_degrees,
+            maximum_local_spacing_ratio=self.maximum_local_spacing_ratio,
             maximum_turn_degrees=self.maximum_turn_degrees,
             corner_turn_threshold_degrees=(self.corner_turn_threshold_degrees),
         )

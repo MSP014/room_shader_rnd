@@ -136,8 +136,38 @@ def test_mdl_uses_binary_physical_and_corner_front_exit_cutouts():
     assert "? front_exit_slice_colour" in source
     assert "thin_walled: true" not in source
     assert "mode: df::scatter_transmit" not in source
-    assert "scattering: df::diffuse_reflection_bsdf(" in source
-    assert "intensity: composited_room_colour * emission_strength" in source
+    assert "float glass_roughness = 0.1" in source
+    assert "float glass_reflectivity = 0.04" in source
+    assert "color glass_tint = color(1.0)" in source
+    assert "float glass_transmission = 1.0" in source
+    assert "bool enable_emission = false" in source
+    assert "bool emission_slice_1 = true" in source
+    assert "bool emission_slice_4 = true" in source
+    assert "float emission_threshold = 0.8" in source
+    assert "float emission_softness = 0.1" in source
+    assert "float room_emission_mask(" in source
+    assert "float3(source_colour)" in source
+    assert "math::smoothstep(" in source
+    assert "struct room_emission_controls" in source
+    assert "color emission_colour;" in source
+    assert "emission.enabled && emission.slice_1_enabled" in source
+    assert "emission.enabled && emission.slice_4_enabled" in source
+    assert "room_face_emission_colour * room_transmittance" in source
+    assert "composited_slice_emission_colour" in source
+    assert "bool emission_hits_interior_surface =" in source
+    assert (
+        "!front_exit_hits_primary_aperture || front_exit_has_slice_surface"
+        in source
+    )
+    assert "frame_is_valid && emission_hits_interior_surface" in source
+    assert "emission_source_colour" in source
+    assert "bsdf room_surface = df::diffuse_reflection_bsdf(" in source
+    assert "bsdf glass_reflection = df::microfacet_ggx_smith_bsdf(" in source
+    assert "mode: df::scatter_reflect" in source
+    assert "bsdf room_behind_glass = df::custom_curve_layer(" in source
+    assert "normal_reflectivity: safe_glass_reflectivity" in source
+    assert "scattering: room_behind_glass" in source
+    assert "intensity: visible_room_emission * emission_strength" in source
     assert "geometry: material_geometry(" in source
     assert "cutout_opacity: room_cutout_opacity" in source
     assert source.count("tex::lookup_float4(") == 5

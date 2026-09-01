@@ -1,7 +1,7 @@
 """Protect reversible Session Layer authoring, instances, and pose primvars."""
 
 import pytest
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
+from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 
 from tools.omniverse.room_run.classifier import classify_apertures
 from tools.omniverse.shared_room import authoring as authoring_module
@@ -42,6 +42,65 @@ from ._support import (
     _instance_stage,
     _window_stage,
 )
+
+
+def test_finished_runtime_layer_is_published_as_one_live_stage_change():
+    stage, mesh = _window_stage((1,))
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        mesh.GetPrim().CreateAttribute(
+            "user:keep", Sdf.ValueTypeNames.String
+        ).Set("unrelated session edit")
+    owner = RuntimeLayerOwner(stage)
+    authoring_stage, draft_layer = owner.prepare_replacement()
+    with Usd.EditContext(authoring_stage, draft_layer):
+        draft_prim = UsdGeom.Scope.Define(
+            authoring_stage,
+            "/__ORMSRuntime",
+        ).GetPrim()
+        draft_prim.CreateAttribute("test:first", Sdf.ValueTypeNames.Int).Set(1)
+
+    assert not stage.GetPrimAtPath("/__ORMSRuntime")
+    assert (
+        authoring_stage.GetPrimAtPath("/World/Building/Windows")
+        .GetAttribute("user:keep")
+        .Get()
+        == "unrelated session edit"
+    )
+
+    notices = []
+    notice_key = Tf.Notice.Register(
+        Usd.Notice.ObjectsChanged,
+        lambda notice, _sender: notices.append(notice),
+        stage,
+    )
+    owner.publish(draft_layer)
+    notice_key.Revoke()
+
+    assert len(notices) == 1
+    assert (
+        stage.GetPrimAtPath("/__ORMSRuntime").GetAttribute("test:first").Get()
+        == 1
+    )
+
+    replacement_stage, replacement_layer = owner.prepare_replacement()
+    assert not replacement_stage.GetPrimAtPath("/__ORMSRuntime")
+    with Usd.EditContext(replacement_stage, replacement_layer):
+        replacement_prim = UsdGeom.Scope.Define(
+            replacement_stage,
+            "/__ORMSRuntime",
+        ).GetPrim()
+        replacement_prim.CreateAttribute(
+            "test:second", Sdf.ValueTypeNames.Int
+        ).Set(2)
+    owner.publish(replacement_layer)
+
+    runtime_prim = stage.GetPrimAtPath("/__ORMSRuntime")
+    assert not runtime_prim.GetAttribute("test:first")
+    assert runtime_prim.GetAttribute("test:second").Get() == 2
+    assert (
+        mesh.GetPrim().GetAttribute("user:keep").Get()
+        == "unrelated session edit"
+    )
 
 
 def test_seeded_camera_primvar_survives_runtime_primvar_authoring():

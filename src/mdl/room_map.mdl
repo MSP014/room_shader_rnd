@@ -28,6 +28,37 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+// Select luminous atlas pixels from the already sampled linear-sRGB room
+// colour. The mask is evaluated before glass tint so art direction cannot
+// silently change which authored pixels emit.
+float room_emission_mask(
+    color source_colour,
+    bool enable_emission,
+    float emission_threshold,
+    float emission_softness
+) = let {
+    float safe_threshold = saturate(emission_threshold);
+    float safe_softness = math::max(emission_softness, 0.0);
+    float half_softness = safe_softness * 0.5;
+    float lower_threshold = saturate(safe_threshold - half_softness);
+    float upper_threshold = math::max(
+        lower_threshold + room_map_epsilon(),
+        saturate(safe_threshold + half_softness)
+    );
+    float source_luminance = math::dot(
+        float3(source_colour),
+        float3(0.2126, 0.7152, 0.0722)
+    );
+} in !enable_emission
+    ? 0.0
+    : safe_softness <= room_map_epsilon()
+    ? (source_luminance >= safe_threshold ? 1.0 : 0.0)
+    : math::smoothstep(
+        lower_threshold,
+        upper_threshold,
+        source_luminance
+    );
+
 // Artist and runtime extents are clamped before they enter divisions or frame
 // scaling. Invalid inputs remain renderable and select the documented fallback.
 float positive_extent(float value)
@@ -80,7 +111,11 @@ int select_room_variant(
 
 float2 udim_atlas_coordinate(float2 atlas_coordinate, int variant_index)
 {
-    return atlas_coordinate + float2(float(variant_index), 0.0);
+    int safe_variant_index = variant_index > 0 ? variant_index : 0;
+    int tile_u = safe_variant_index % 10;
+    int tile_v = safe_variant_index / 10;
+
+    return atlas_coordinate + float2(float(tile_u), float(tile_v));
 }
 
 // Return only forward ray-plane hits. Parallel, backward, and near-zero cases
@@ -317,11 +352,27 @@ float slice_opacity(
     return enabled && is_visible ? saturate(sample.w) : 0.0;
 }
 
-// Slice composition owns exactly four atlas lookups. The caller performs the
-// fifth and final lookup for the selected room face.
+// Keep slice-source eligibility together when it crosses the sampling seam.
+// The controls affect only emission; colour, alpha, and occlusion remain owned
+// by the normal slice-composition path.
+struct room_emission_controls
+{
+    bool enabled;
+    bool slice_1_enabled;
+    bool slice_2_enabled;
+    bool slice_3_enabled;
+    bool slice_4_enabled;
+    float threshold;
+    float softness;
+};
+
+// Slice composition owns exactly four atlas lookups. It returns an emission
+// contribution separately so source eligibility never changes base colour or
+// opacity. The caller performs the fifth lookup for the selected room face.
 struct room_slice_composite
 {
     color colour;
+    color emission_colour;
     float room_transmittance;
     float front_exit_coverage;
 };
@@ -337,6 +388,7 @@ room_slice_composite composite_room_slices(
     bool enable_slice_2,
     bool enable_slice_3,
     bool enable_slice_4,
+    room_emission_controls emission,
     bool front_exit_slice_1_is_visible,
     bool front_exit_slice_2_is_visible,
     bool front_exit_slice_3_is_visible,
@@ -448,8 +500,44 @@ room_slice_composite composite_room_slices(
         + slice_2_colour * slice_2_opacity * slice_2_transmittance
         + slice_3_colour * slice_3_opacity * slice_3_transmittance
         + slice_4_colour * slice_4_opacity * slice_4_transmittance;
+    float slice_1_emission_mask = room_emission_mask(
+        slice_1_colour,
+        emission.enabled && emission.slice_1_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_2_emission_mask = room_emission_mask(
+        slice_2_colour,
+        emission.enabled && emission.slice_2_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_3_emission_mask = room_emission_mask(
+        slice_3_colour,
+        emission.enabled && emission.slice_3_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_4_emission_mask = room_emission_mask(
+        slice_4_colour,
+        emission.enabled && emission.slice_4_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    // Every slice still occludes deeper emitters even when its own emission
+    // flag is disabled. This prevents a non-emissive opaque prop from leaking
+    // the luminous wall or slice behind it.
+    color composited_emission_colour =
+        slice_1_colour * slice_1_opacity * slice_1_emission_mask
+        + slice_2_colour * slice_2_opacity * slice_2_transmittance
+            * slice_2_emission_mask
+        + slice_3_colour * slice_3_opacity * slice_3_transmittance
+            * slice_3_emission_mask
+        + slice_4_colour * slice_4_opacity * slice_4_transmittance
+            * slice_4_emission_mask;
 } in room_slice_composite(
     composited_colour,
+    composited_emission_colour,
     room_transmittance,
     saturate(1.0 - front_exit_transmittance)
 );
@@ -484,8 +572,19 @@ export material room_map(
     float2 slice_2_scale = float2(1.0),
     float2 slice_3_scale = float2(1.0),
     float2 slice_4_scale = float2(1.0),
+    float glass_roughness = 0.1,
+    float glass_reflectivity = 0.04,
+    color glass_tint = color(1.0),
+    float glass_transmission = 1.0,
     color fallback_colour = color(1.0, 0.0, 1.0),
-    float emission_strength = 1.0
+    bool enable_emission = false,
+    bool emission_slice_1 = true,
+    bool emission_slice_2 = true,
+    bool emission_slice_3 = true,
+    bool emission_slice_4 = true,
+    float emission_strength = 1.0,
+    float emission_threshold = 0.8,
+    float emission_softness = 0.1
 ) = let {
     // Select one deterministic UDIM interior before any texture lookup.
     int room_id = nvidia::support_definitions::data_lookup_int(
@@ -892,6 +991,15 @@ export material room_map(
             safe_room_height
         )
         && coordinate_is_in_unit_tile(slice_4_local_coordinate);
+    room_emission_controls emission_controls = room_emission_controls(
+        enable_emission,
+        emission_slice_1,
+        emission_slice_2,
+        emission_slice_3,
+        emission_slice_4,
+        emission_threshold,
+        emission_softness
+    );
     // Composite near-to-far slice coverage once, then reuse its transmittance
     // for both the interior colour and the binary physical-aperture cutout.
     room_slice_composite slice_composite = composite_room_slices(
@@ -905,6 +1013,7 @@ export material room_map(
         enable_slice_2,
         enable_slice_3,
         enable_slice_4,
+        emission_controls,
         front_exit_slice_1_is_visible,
         front_exit_slice_2_is_visible,
         front_exit_slice_3_is_visible,
@@ -915,6 +1024,8 @@ export material room_map(
         slice_4_is_visible
     );
     color composited_slice_colour = slice_composite.colour;
+    color composited_slice_emission_colour =
+        slice_composite.emission_colour;
     float room_transmittance = slice_composite.room_transmittance;
     float front_exit_slice_coverage =
         slice_composite.front_exit_coverage;
@@ -933,17 +1044,71 @@ export material room_map(
     color composited_room_colour = front_exit_hits_primary_aperture
         ? front_exit_slice_colour
         : room_colour * room_transmittance + composited_slice_colour;
+    // A single proxy surface cannot refract into absent room geometry. Model
+    // transmission as interior visibility through a tinted Fresnel coating;
+    // the binary portal cutout remains an independent geometry decision.
+    float safe_glass_roughness = saturate(glass_roughness);
+    float squared_glass_roughness =
+        safe_glass_roughness * safe_glass_roughness;
+    float safe_glass_reflectivity = saturate(glass_reflectivity);
+    float safe_glass_transmission = saturate(glass_transmission);
+    color tinted_room_colour = composited_room_colour * glass_tint;
+    color glass_base_colour =
+        glass_tint * (1.0 - safe_glass_transmission)
+        + tinted_room_colour * safe_glass_transmission;
+    bsdf room_surface = df::diffuse_reflection_bsdf(
+        tint: glass_base_colour
+    );
+    bsdf glass_reflection = df::microfacet_ggx_smith_bsdf(
+        roughness_u: squared_glass_roughness,
+        roughness_v: squared_glass_roughness,
+        tint: color(1.0),
+        mode: df::scatter_reflect
+    );
+    // Roughness controls only the GGX lobe width. Keep its normal-incidence
+    // strength explicit so a sharp reflection can be diagnosed independently
+    // from tint and artistic transmission.
+    bsdf room_behind_glass = df::custom_curve_layer(
+        normal_reflectivity: safe_glass_reflectivity,
+        grazing_reflectivity: 1.0,
+        exponent: 5.0,
+        weight: 1.0,
+        layer: glass_reflection,
+        base: room_surface,
+        normal: state::normal()
+    );
+    color room_face_emission_colour = room_colour * room_emission_mask(
+        room_colour,
+        emission_controls.enabled,
+        emission_controls.threshold,
+        emission_controls.softness
+    );
+    color front_exit_slice_emission_colour =
+        composited_slice_emission_colour
+        / math::max(slice_coverage, room_map_epsilon());
+    // A front portal is empty unless an authored depth slice covers it. Never
+    // turn the proxy glass or an uncovered portal into an emissive surface.
+    bool emission_hits_interior_surface =
+        !front_exit_hits_primary_aperture || front_exit_has_slice_surface;
+    color composited_emission_colour = front_exit_hits_primary_aperture
+        ? front_exit_slice_emission_colour
+        : room_face_emission_colour * room_transmittance
+            + composited_slice_emission_colour;
+    color emission_source_colour =
+        frame_is_valid && emission_hits_interior_surface
+        ? composited_emission_colour
+        : color(0.0);
+    color visible_room_emission = emission_source_colour
+        * glass_tint * safe_glass_transmission;
 } in material(
     geometry: material_geometry(
         cutout_opacity: room_cutout_opacity
     ),
     surface: material_surface(
-        scattering: df::diffuse_reflection_bsdf(
-            tint: composited_room_colour
-        ),
+        scattering: room_behind_glass,
         emission: material_emission(
             df::diffuse_edf(),
-            intensity: composited_room_colour * emission_strength
+            intensity: visible_room_emission * emission_strength
         )
     )
 );

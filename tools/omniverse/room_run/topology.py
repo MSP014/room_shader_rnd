@@ -6,10 +6,12 @@ import hashlib
 import math
 from collections import deque
 from dataclasses import dataclass
+from statistics import median
 from typing import Iterable
 
 from .contracts import (
     ApertureDescriptor,
+    ClassificationSummary,
     ClassifierSettings,
     Float4,
     Vector3,
@@ -87,10 +89,6 @@ def _normalise(vector: Vector3) -> Vector3:
     if length <= _EPSILON:
         return (0.0, 0.0, 0.0)
     return _multiply(vector, 1.0 / length)
-
-
-def _distance(left: Vector3, right: Vector3) -> float:
-    return _length(_subtract(left, right))
 
 
 def _horizontal_distance(
@@ -204,25 +202,39 @@ def _vertical_interval(
     return centre - half_extent, centre + half_extent
 
 
+def _intervals_are_compatible(
+    left: tuple[float, float],
+    right: tuple[float, float],
+    settings: ClassifierSettings,
+) -> bool:
+    """Compare two metre-space vertical spans against the row policy."""
+
+    left_bottom, left_top = left
+    right_bottom, right_top = right
+    overlap = max(
+        0.0,
+        min(left_top, right_top) - max(left_bottom, right_bottom),
+    )
+    minimum_height = max(
+        _EPSILON,
+        min(left_top - left_bottom, right_top - right_bottom),
+    )
+    return (
+        abs(left_bottom - right_bottom) <= settings.floor_tolerance_metres
+        and overlap / minimum_height >= settings.minimum_vertical_overlap
+    )
+
+
 def _height_bands_are_compatible(
     left: ApertureDescriptor,
     right: ApertureDescriptor,
     up_axis: Vector3,
     settings: ClassifierSettings,
 ) -> bool:
-    left_bottom, left_top = _vertical_interval(left, up_axis)
-    right_bottom, right_top = _vertical_interval(right, up_axis)
-    overlap = max(
-        0.0, min(left_top, right_top) - max(left_bottom, right_bottom)
-    )
-    minimum_height = max(
-        _EPSILON,
-        min(left_top - left_bottom, right_top - right_bottom),
-    )
-    overlap_ratio = overlap / minimum_height
-    return (
-        abs(left_bottom - right_bottom) <= settings.floor_tolerance_metres
-        and overlap_ratio >= settings.minimum_vertical_overlap
+    return _intervals_are_compatible(
+        _vertical_interval(left, up_axis),
+        _vertical_interval(right, up_axis),
+        settings,
     )
 
 
@@ -254,24 +266,538 @@ def _connection_between(
     return _Connection(left_end, right_end, distance)
 
 
-def _are_adjacent(
-    left: ApertureDescriptor,
-    right: ApertureDescriptor,
+@dataclass(frozen=True)
+class _FacadeKey:
+    """Identity of one coplanar orientation segment on one building row."""
+
+    building_root: str
+    row_id: int
+    direction_bucket: int
+    plane_component: int
+
+
+@dataclass(frozen=True)
+class _FacadeSequence:
+    """Facade-local aperture ordering established before roomID filtering."""
+
+    key: _FacadeKey
+    aperture_indices: tuple[int, ...]
+    local_pitch_metres: float | None
+
+
+def _aperture_normal(aperture: ApertureDescriptor) -> Vector3:
+    return _normalise(
+        _cross(aperture.tangent_u_metres, aperture.tangent_v_metres)
+    )
+
+
+def _horizontal_vector(vector: Vector3, up_axis: Vector3) -> Vector3:
+    vertical = _multiply(up_axis, _dot(vector, up_axis))
+    return _normalise(_subtract(vector, vertical))
+
+
+def _horizontal_coordinates(
+    position: Vector3,
+    up_axis: Vector3,
+) -> tuple[float, float]:
+    """Project metre-space positions for axis-aligned Y-up or Z-up stages."""
+
+    if abs(up_axis[1]) > 0.5:
+        return position[0], position[2]
+    return position[0], position[1]
+
+
+def _facade_angle_degrees(normal: Vector3, up_axis: Vector3) -> float:
+    horizontal = _horizontal_vector(normal, up_axis)
+    if abs(up_axis[1]) > 0.5:
+        return math.degrees(math.atan2(horizontal[2], horizontal[0]))
+    return math.degrees(math.atan2(horizontal[1], horizontal[0]))
+
+
+def _facade_bucket(
+    aperture: ApertureDescriptor,
     up_axis: Vector3,
     settings: ClassifierSettings,
-) -> tuple[bool, _Connection]:
-    # Adjacency requires compatible height, facade turn, and physical edge gap;
-    # roomID and building-root isolation are applied by the caller's buckets.
-    connection = _connection_between(left, right, up_axis)
-    left_normal = _cross(left.tangent_u_metres, left.tangent_v_metres)
-    right_normal = _cross(right.tangent_u_metres, right.tangent_v_metres)
-    return (
-        _height_bands_are_compatible(left, right, up_axis, settings)
-        and _angle_degrees(left_normal, right_normal)
-        <= settings.maximum_turn_degrees
-        and connection.distance <= settings.edge_gap_tolerance_metres,
-        connection,
+) -> int:
+    requested_snap = max(settings.facade_angle_snap_degrees, _EPSILON)
+    bucket_count = max(1, int(round(360.0 / requested_snap)))
+    # Use an exact subdivision of the circle so arbitrary preference values do
+    # not create an asymmetric bucket at the -180/+180 degree seam.
+    bucket_width = 360.0 / bucket_count
+    angle = _facade_angle_degrees(_aperture_normal(aperture), up_axis) % 360.0
+    return int(round(angle / bucket_width)) % bucket_count
+
+
+def _cluster_rows(
+    aperture_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[tuple[int, ...], ...]:
+    """Cluster building-local floor bands without world-origin quantisation."""
+
+    ordered = sorted(
+        aperture_indices,
+        key=lambda index: (
+            _vertical_interval(apertures[index], up_axis)[0],
+            _sort_key(apertures[index], settings.identity_quantisation_metres),
+        ),
     )
+    rows: list[list[int]] = []
+    for index in ordered:
+        for row in rows:
+            anchor = apertures[row[0]]
+            if _height_bands_are_compatible(
+                anchor, apertures[index], up_axis, settings
+            ):
+                row.append(index)
+                break
+        else:
+            rows.append([index])
+    return tuple(tuple(row) for row in rows)
+
+
+def _sequence_local_pitch(
+    aperture_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+) -> float | None:
+    spacings = [
+        _horizontal_distance(
+            apertures[left].centre_metres,
+            apertures[right].centre_metres,
+            up_axis,
+        )
+        for left, right in zip(aperture_indices, aperture_indices[1:])
+    ]
+    # One isolated pair cannot define its own acceptance threshold. It falls
+    # back to a scale derived from the two aperture widths instead.
+    return float(median(spacings)) if len(spacings) >= 2 else None
+
+
+def _mean_horizontal_normal(
+    aperture_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+) -> Vector3:
+    normals = tuple(
+        _horizontal_vector(_aperture_normal(apertures[index]), up_axis)
+        for index in aperture_indices
+    )
+    return _normalise(
+        (
+            sum(normal[0] for normal in normals),
+            sum(normal[1] for normal in normals),
+            sum(normal[2] for normal in normals),
+        )
+    )
+
+
+def _facade_plane_groups(
+    facade_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[tuple[int, ...], ...]:
+    """Separate parallel facade bodies before local u ordering.
+
+    Identity quantisation is reused as a stable plane-offset tolerance instead
+    of introducing a Building-specific distance. A curved or noisy facade may
+    split into several components; the mutual-nearest pass reconnects physical
+    neighbours across those components.
+    """
+
+    representative_normal = _mean_horizontal_normal(
+        facade_indices,
+        apertures,
+        up_axis,
+    )
+    plane_quantum = max(settings.identity_quantisation_metres, _EPSILON)
+    groups: dict[int, list[int]] = {}
+    for index in facade_indices:
+        plane_offset = _dot(
+            apertures[index].centre_metres, representative_normal
+        )
+        groups.setdefault(_quantise(plane_offset, plane_quantum), []).append(
+            index
+        )
+    return tuple(tuple(indices) for _key, indices in sorted(groups.items()))
+
+
+def _build_facade_sequence(
+    key: _FacadeKey,
+    aperture_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> _FacadeSequence:
+    representative_normal = _mean_horizontal_normal(
+        aperture_indices,
+        apertures,
+        up_axis,
+    )
+    facade_u = _normalise(_cross(up_axis, representative_normal))
+    ordered = tuple(
+        sorted(
+            aperture_indices,
+            key=lambda index: (
+                _dot(apertures[index].centre_metres, facade_u),
+                _sort_key(
+                    apertures[index],
+                    settings.identity_quantisation_metres,
+                ),
+            ),
+        )
+    )
+    return _FacadeSequence(
+        key=key,
+        aperture_indices=ordered,
+        local_pitch_metres=_sequence_local_pitch(
+            ordered,
+            apertures,
+            up_axis,
+        ),
+    )
+
+
+def _row_facade_sequences(
+    building_root: str,
+    row_id: int,
+    row_indices: tuple[int, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[_FacadeSequence, ...]:
+    by_direction: dict[int, list[int]] = {}
+    for index in row_indices:
+        direction_bucket = _facade_bucket(apertures[index], up_axis, settings)
+        by_direction.setdefault(direction_bucket, []).append(index)
+
+    sequences = []
+    for direction_bucket, direction_indices in sorted(by_direction.items()):
+        plane_groups = _facade_plane_groups(
+            tuple(direction_indices),
+            apertures,
+            up_axis,
+            settings,
+        )
+        for plane_component, plane_indices in enumerate(plane_groups):
+            key = _FacadeKey(
+                building_root=building_root,
+                row_id=row_id,
+                direction_bucket=direction_bucket,
+                plane_component=plane_component,
+            )
+            sequences.append(
+                _build_facade_sequence(
+                    key,
+                    plane_indices,
+                    apertures,
+                    up_axis,
+                    settings,
+                )
+            )
+    return tuple(sequences)
+
+
+def _facade_sequences(
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[_FacadeSequence, ...]:
+    """Build deterministic local facade orderings for every building row."""
+
+    by_building: dict[str, list[int]] = {}
+    for index, aperture in enumerate(apertures):
+        by_building.setdefault(aperture.building_root, []).append(index)
+
+    sequences: list[_FacadeSequence] = []
+    for building_root, building_indices in sorted(by_building.items()):
+        rows = _cluster_rows(
+            tuple(building_indices), apertures, up_axis, settings
+        )
+        for row_id, row_indices in enumerate(rows):
+            sequences.extend(
+                _row_facade_sequences(
+                    building_root,
+                    row_id,
+                    row_indices,
+                    apertures,
+                    up_axis,
+                    settings,
+                )
+            )
+    return tuple(sequences)
+
+
+def _spacing_is_local(
+    left: ApertureDescriptor,
+    right: ApertureDescriptor,
+    connection: _Connection,
+    local_pitch_metres: float | None,
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> bool:
+    ratio = max(settings.maximum_local_spacing_ratio, _EPSILON)
+    if local_pitch_metres is not None:
+        centre_spacing = _horizontal_distance(
+            left.centre_metres,
+            right.centre_metres,
+            up_axis,
+        )
+        return centre_spacing <= local_pitch_metres * ratio
+    width_scale = max(
+        _length(left.tangent_u_metres),
+        _length(right.tangent_u_metres),
+        _EPSILON,
+    )
+    return connection.distance <= width_scale * ratio
+
+
+def _record_connection(
+    left_index: int,
+    right_index: int,
+    connection: _Connection,
+    adjacency: dict[int, set[int]],
+    connections: dict[tuple[int, int], _Connection],
+) -> None:
+    low, high = sorted((left_index, right_index))
+    if left_index == low:
+        oriented = connection
+    else:
+        oriented = _Connection(
+            connection.right_end,
+            connection.left_end,
+            connection.distance,
+        )
+    adjacency[low].add(high)
+    adjacency[high].add(low)
+    connections[(low, high)] = oriented
+
+
+def _transition_candidates(
+    row_sequences: tuple[_FacadeSequence, ...],
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[tuple[int, int, _Connection], ...]:
+    """Return physical mutual-nearest pairs across facade components.
+
+    Candidates deliberately ignore roomID. The caller applies room identity
+    only after every physical window has competed for nearest-neighbour status;
+    this prevents equal IDs from jumping over an intervening different room.
+    """
+
+    facade_by_aperture = {
+        index: sequence.key
+        for sequence in row_sequences
+        for index in sequence.aperture_indices
+    }
+    aperture_indices = tuple(sorted(facade_by_aperture))
+    normals = {
+        index: _aperture_normal(apertures[index]) for index in aperture_indices
+    }
+    vertical_intervals = {
+        index: _vertical_interval(apertures[index], up_axis)
+        for index in aperture_indices
+    }
+    endpoint_positions = {
+        (index, end): _horizontal_coordinates(position, up_axis)
+        for index in aperture_indices
+        for end, position in enumerate(_aperture_edges(apertures[index]))
+    }
+    maximum_turn = _clamp(settings.maximum_turn_degrees, 0.0, 180.0)
+    minimum_normal_dot = math.cos(math.radians(maximum_turn))
+    best: dict[tuple[int, int], tuple[float, int, int]] = {}
+
+    def retain_nearest(
+        endpoint: tuple[int, int],
+        candidate: tuple[float, int, int],
+    ) -> None:
+        previous = best.get(endpoint)
+        if previous is None or candidate < previous:
+            best[endpoint] = candidate
+
+    # Height and normal predicates belong to an aperture pair, while only the
+    # four endpoint distances vary. Evaluate those shared predicates once.
+    for position, left_index in enumerate(aperture_indices):
+        for right_index in aperture_indices[position + 1 :]:
+            if (
+                facade_by_aperture[left_index]
+                == facade_by_aperture[right_index]
+            ):
+                continue
+            if not _intervals_are_compatible(
+                vertical_intervals[left_index],
+                vertical_intervals[right_index],
+                settings,
+            ):
+                continue
+            if (
+                _dot(normals[left_index], normals[right_index])
+                < minimum_normal_dot
+            ):
+                continue
+            for left_end in (0, 1):
+                left_position = endpoint_positions[(left_index, left_end)]
+                for right_end in (0, 1):
+                    right_position = endpoint_positions[
+                        (right_index, right_end)
+                    ]
+                    delta_u = left_position[0] - right_position[0]
+                    delta_v = left_position[1] - right_position[1]
+                    distance_squared = delta_u * delta_u + delta_v * delta_v
+                    retain_nearest(
+                        (left_index, left_end),
+                        (distance_squared, right_index, right_end),
+                    )
+                    retain_nearest(
+                        (right_index, right_end),
+                        (distance_squared, left_index, left_end),
+                    )
+
+    result = []
+    seen_pairs = set()
+    for endpoint, candidate in sorted(best.items()):
+        distance_squared, other_index, other_end = candidate
+        reciprocal = best.get((other_index, other_end))
+        if reciprocal is None or reciprocal[1:] != endpoint:
+            continue
+        pair = tuple(sorted((endpoint[0], other_index)))
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        left_index, right_index = pair
+        distance = math.sqrt(distance_squared)
+        if left_index == endpoint[0]:
+            connection = _Connection(endpoint[1], other_end, distance)
+        else:
+            connection = _Connection(other_end, endpoint[1], distance)
+        result.append((left_index, right_index, connection))
+    return tuple(result)
+
+
+def _build_adjacency_graph(
+    apertures: tuple[ApertureDescriptor, ...],
+    up_axis: Vector3,
+    settings: ClassifierSettings,
+) -> tuple[
+    dict[int, set[int]],
+    dict[tuple[int, int], _Connection],
+    ClassificationSummary,
+]:
+    """Build row- and facade-local adjacency before grouping by roomID."""
+
+    adjacency = {index: set() for index in range(len(apertures))}
+    connections: dict[tuple[int, int], _Connection] = {}
+    sequences = _facade_sequences(apertures, up_axis, settings)
+    pitch_by_aperture = {
+        index: sequence.local_pitch_metres
+        for sequence in sequences
+        for index in sequence.aperture_indices
+    }
+    straight_candidates = 0
+    transition_candidates = 0
+    accepted_straight = 0
+    accepted_transition = 0
+    rejected_room_id = 0
+    rejected_spacing = 0
+
+    for sequence in sequences:
+        for left_index, right_index in zip(
+            sequence.aperture_indices,
+            sequence.aperture_indices[1:],
+        ):
+            straight_candidates += 1
+            left = apertures[left_index]
+            right = apertures[right_index]
+            if left.room_id != right.room_id:
+                rejected_room_id += 1
+                continue
+            connection = _connection_between(left, right, up_axis)
+            if not _spacing_is_local(
+                left,
+                right,
+                connection,
+                sequence.local_pitch_metres,
+                up_axis,
+                settings,
+            ):
+                rejected_spacing += 1
+                continue
+            _record_connection(
+                left_index,
+                right_index,
+                connection,
+                adjacency,
+                connections,
+            )
+            accepted_straight += 1
+
+    rows: dict[tuple[str, int], list[_FacadeSequence]] = {}
+    for sequence in sequences:
+        row_key = (sequence.key.building_root, sequence.key.row_id)
+        rows.setdefault(row_key, []).append(sequence)
+    for row_sequences in rows.values():
+        for left_index, right_index, connection in _transition_candidates(
+            tuple(row_sequences), apertures, up_axis, settings
+        ):
+            transition_candidates += 1
+            pair = (left_index, right_index)
+            if pair in connections:
+                continue
+            left = apertures[left_index]
+            right = apertures[right_index]
+            if left.room_id != right.room_id:
+                rejected_room_id += 1
+                continue
+            local_pitches = tuple(
+                pitch
+                for pitch in (
+                    pitch_by_aperture[left_index],
+                    pitch_by_aperture[right_index],
+                )
+                if pitch is not None
+            )
+            local_pitch = max(local_pitches) if local_pitches else None
+            if not _spacing_is_local(
+                left,
+                right,
+                connection,
+                local_pitch,
+                up_axis,
+                settings,
+            ):
+                rejected_spacing += 1
+                continue
+            _record_connection(
+                left_index,
+                right_index,
+                connection,
+                adjacency,
+                connections,
+            )
+            accepted_transition += 1
+
+    local_pitches = tuple(
+        sequence.local_pitch_metres
+        for sequence in sequences
+        if sequence.local_pitch_metres is not None
+    )
+    summary = ClassificationSummary(
+        building_count=len({aperture.building_root for aperture in apertures}),
+        row_count=len(rows),
+        facade_count=len(sequences),
+        straight_candidate_count=straight_candidates,
+        transition_candidate_count=transition_candidates,
+        accepted_straight_edge_count=accepted_straight,
+        accepted_transition_edge_count=accepted_transition,
+        rejected_room_id_edge_count=rejected_room_id,
+        rejected_spacing_edge_count=rejected_spacing,
+        local_pitch_min_metres=(min(local_pitches) if local_pitches else None),
+        local_pitch_max_metres=(max(local_pitches) if local_pitches else None),
+    )
+    return adjacency, connections, summary
 
 
 def _connected_components(adjacency: dict[int, set[int]]) -> list[list[int]]:

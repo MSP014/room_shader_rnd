@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from itertools import count
 from pathlib import Path
 from time import perf_counter
@@ -21,15 +23,13 @@ from ..room_run.classifier import (
 )
 from ..runtime.renderer_settings import (
     _enable_rtx_cutout_opacity,
-    _enable_rtx_material_sync_loads,
-    _enable_rtx_single_sided_culling,
     _restore_rtx_cutout_opacity,
-    _restore_rtx_material_sync_loads,
-    _restore_rtx_single_sided_culling,
 )
 from ..runtime.status_log import log_room_map_warning
 from . import preferences as shared_room_preferences
 from .authoring import (
+    _ROOM_MAP_INPUT_TYPES,
+    _SHARED_ARTIST_INPUT_NAMES,
     RuntimeLayerOwner,
     _build_object_space_pose_frames,
     _ObjectSpacePoseFrame,
@@ -40,6 +40,7 @@ from .authoring import (
     author_family_bindings,
     author_family_materials,
     camera_position_primvar_exists,
+    camera_position_primvar_required,
     seed_camera_position_primvar,
 )
 from .changes import (
@@ -83,6 +84,11 @@ from .contracts import (
     RuntimeClassifierSettings,
     StageClassification,
     StageExtraction,
+)
+from .material_diagnostics import (
+    MaterialStateSnapshot,
+    capture_material_state,
+    material_state_log_details,
 )
 from .pipeline import classify_stage
 from .settings import settings_from_kit, settings_from_mapping
@@ -138,6 +144,7 @@ __all__ = [
     "author_derived_primvars",
     "author_family_bindings",
     "author_family_materials",
+    "camera_position_primvar_required",
     "camera_position_primvar_exists",
     "classify_apertures",
     "classify_stage",
@@ -156,47 +163,53 @@ _TRACE_DIAGNOSTIC_CODE = "ORMS-RUNTIME-TRACE"
 _TRACE_RUN_IDS = count(1)
 _TRACE_PATH_LIMIT = 16
 _FIRST_FRAME_SIGNAL = "StageRenderingEventType.NEW_FRAME"
-_RTX_FACE_CULLING_SETTING = "/rtx/hydra/faceCulling/enabled"
-_RTX_OPACITY_OVERRIDE_SETTING = "/rtx/material/omniRtxEnableOpacityOverride"
-_RTX_MATERIAL_SYNC_SETTINGS = (
-    "/rtx/materialDb/syncLoads",
-    "/rtx/hydra/materialSyncLoads",
-)
-_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v46"
+_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v47"
+_UNAVAILABLE_TRANSITION_VALUE = "<unavailable>"
+_RUNTIME_INPUT_LOG_DEBOUNCE_SECONDS = 0.2
 
 _RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
 _RUNTIME_FAMILY_SHADER_PATHS = tuple(
     Sdf.Path(f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader")
     for room_size in range(1, 5)
 )
-_SHARED_RUNTIME_INPUT_NAMES = frozenset(
-    {
-        "variation_seed",
-        "room_depth",
-        "room_uniform_scale",
-        "window_shift",
-        "window_aperture_scale",
-        "window_aperture_offset",
-        "enable_slice_1",
-        "enable_slice_2",
-        "enable_slice_3",
-        "enable_slice_4",
-        "slice_1_depth_percent",
-        "slice_2_depth_percent",
-        "slice_3_depth_percent",
-        "slice_4_depth_percent",
-        "slice_1_offset",
-        "slice_2_offset",
-        "slice_3_offset",
-        "slice_4_offset",
-        "slice_1_scale",
-        "slice_2_scale",
-        "slice_3_scale",
-        "slice_4_scale",
-        "fallback_colour",
-        "emission_strength",
-    }
-)
+_SHARED_RUNTIME_INPUT_NAMES = _SHARED_ARTIST_INPUT_NAMES
+
+
+@dataclass(frozen=True)
+class _RuntimeInputSyncResult:
+    """Describe whether one shared input has an effective family value."""
+
+    synchronised: bool
+    updated_family_count: int
+    reason: str
+    effective_value: object | None
+
+
+@dataclass
+class _PendingRuntimeInputLog:
+    """Retain one editing gesture while material previews update live."""
+
+    trigger: str
+    input_name: str
+    source_path: Sdf.Path
+    previous_value: object
+    sync_result: _RuntimeInputSyncResult
+    change_count: int = 1
+    scheduled_call: object | None = None
+
+
+def _schedule_runtime_input_log(
+    delay_seconds: float,
+    callback: Callable[[], None],
+) -> object | None:
+    """Schedule on Kit's asyncio loop, with a synchronous fallback."""
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        callback()
+        return None
+    return loop.call_later(delay_seconds, callback)
 
 
 def _runtime_family_input_name(path: Sdf.Path) -> str | None:
@@ -222,37 +235,95 @@ def _runtime_family_input_paths(input_name: str) -> tuple[Sdf.Path, ...]:
 
 def _synchronise_runtime_family_input(
     stage: Usd.Stage,
+    runtime_layer: Sdf.Layer,
     source_path: Sdf.Path,
-) -> int:
+) -> _RuntimeInputSyncResult:
     """Copy one shared control to every authored x1-x4 atlas material."""
 
     input_name = _runtime_family_input_name(source_path)
     source_attribute = stage.GetAttributeAtPath(source_path)
     if input_name is None or not source_attribute:
-        return 0
-    source_value = source_attribute.Get()
-    source_type = source_attribute.GetTypeName()
+        return _RuntimeInputSyncResult(
+            False,
+            0,
+            "source_input_missing",
+            None,
+        )
+    saved_source = _saved_runtime_input_spec(
+        source_attribute,
+        runtime_layer,
+    )
+    source_value = (
+        saved_source.default
+        if saved_source is not None
+        else source_attribute.Get()
+    )
+    if source_value is None:
+        return _RuntimeInputSyncResult(
+            False,
+            0,
+            "source_value_unavailable",
+            None,
+        )
+    source_type = (
+        saved_source.typeName
+        if saved_source is not None
+        else source_attribute.GetTypeName()
+    )
+    if source_type != _ROOM_MAP_INPUT_TYPES[input_name]:
+        return _RuntimeInputSyncResult(
+            False,
+            0,
+            "source_type_mismatch",
+            source_value,
+        )
+    active_paths = tuple(
+        path
+        for path in _runtime_family_input_paths(input_name)
+        if stage.GetPrimAtPath(path.GetPrimPath())
+    )
+    if not active_paths:
+        return _RuntimeInputSyncResult(
+            False,
+            0,
+            "no_active_families",
+            source_value,
+        )
     updated_count = 0
-    for target_path in _runtime_family_input_paths(input_name):
-        if target_path == source_path:
-            continue
-        target_attribute = stage.GetAttributeAtPath(target_path)
-        if not target_attribute:
-            target_prim = stage.GetPrimAtPath(target_path.GetPrimPath())
-            if not target_prim:
-                continue
-            target_attribute = (
-                UsdShade.Shader(target_prim)
-                .CreateInput(
-                    input_name,
-                    source_type,
+    with Usd.EditContext(stage, runtime_layer):
+        for target_path in active_paths:
+            target_attribute = stage.GetAttributeAtPath(target_path)
+            if not target_attribute:
+                target_prim = stage.GetPrimAtPath(target_path.GetPrimPath())
+                if not target_prim:
+                    continue
+                target_attribute = (
+                    UsdShade.Shader(target_prim)
+                    .CreateInput(
+                        input_name,
+                        source_type,
+                    )
+                    .GetAttr()
                 )
-                .GetAttr()
-            )
-        if target_attribute.Get() != source_value:
-            target_attribute.Set(source_value)
-            updated_count += 1
-    return updated_count
+            if target_attribute.Get() != source_value:
+                target_attribute.Set(source_value)
+                updated_count += 1
+    all_values_match = all(
+        (attribute := stage.GetAttributeAtPath(path))
+        and attribute.Get() is not None
+        and attribute.Get() == source_value
+        for path in active_paths
+    )
+    return _RuntimeInputSyncResult(
+        all_values_match,
+        updated_count,
+        (
+            "all_active_family_values_match"
+            if all_values_match
+            else "active_family_value_unavailable"
+        ),
+        source_value,
+    )
 
 
 def _runtime_family_input_values(
@@ -271,12 +342,49 @@ def _runtime_family_input_values(
     return ",".join(values)
 
 
-def _has_direct_runtime_input_opinion(attribute: Usd.Attribute) -> bool:
-    """Exclude values inherited from the source material specialization."""
+def _common_runtime_family_input_value(
+    stage: Usd.Stage,
+    input_name: str,
+) -> object | None:
+    """Return one non-None value only when every active family agrees."""
+
+    values = tuple(
+        attribute.Get()
+        for path in _runtime_family_input_paths(input_name)
+        if (attribute := stage.GetAttributeAtPath(path))
+    )
+    if not values or values[0] is None:
+        return None
+    return values[0] if all(value == values[0] for value in values) else None
+
+
+def _has_saved_runtime_input_opinion(
+    attribute: Usd.Attribute,
+    runtime_layer: Sdf.Layer,
+) -> bool:
+    """Find a saved override outside the classifier-owned runtime layer."""
 
     attribute_path = attribute.GetPath()
     return any(
-        spec.path == attribute_path for spec in attribute.GetPropertyStack()
+        spec.path == attribute_path and spec.layer != runtime_layer
+        for spec in attribute.GetPropertyStack()
+    )
+
+
+def _saved_runtime_input_spec(
+    attribute: Usd.Attribute,
+    runtime_layer: Sdf.Layer,
+) -> Sdf.AttributeSpec | None:
+    """Return the strongest saved value hidden by runtime defaults."""
+
+    attribute_path = attribute.GetPath()
+    return next(
+        (
+            spec
+            for spec in attribute.GetPropertyStack()
+            if spec.path == attribute_path and spec.layer != runtime_layer
+        ),
+        None,
     )
 
 
@@ -370,6 +478,101 @@ def _trace_path_details(
     }
 
 
+def _authoring_notice_details(
+    notice_count: int,
+    resynced_paths: set[str],
+    changed_info_paths: set[str],
+) -> dict[str, object]:
+    """Bound the USD notices emitted while the runtime layer is authored."""
+
+    def serialise(paths: set[str]) -> str:
+        retained = tuple(sorted(paths))[:_TRACE_PATH_LIMIT]
+        return ", ".join(retained) if retained else "<none>"
+
+    source_material_dependency_paths = {
+        path
+        for path in resynced_paths | changed_info_paths
+        if "/mtl/" in path
+        or ("/Looks/" in path and not path.startswith("/__ORMSRuntime/"))
+    }
+
+    return {
+        "authoring_notice_count": notice_count,
+        "authoring_resynced_path_count": len(resynced_paths),
+        "authoring_resynced_paths": serialise(resynced_paths),
+        "authoring_changed_info_path_count": len(changed_info_paths),
+        "authoring_changed_info_paths": serialise(changed_info_paths),
+        "source_material_dependency_notice_path_count": len(
+            source_material_dependency_paths
+        ),
+        "source_material_dependency_notice_paths": serialise(
+            source_material_dependency_paths
+        ),
+        "authoring_notice_path_limit": _TRACE_PATH_LIMIT,
+        "authoring_notice_paths_truncated": (
+            len(resynced_paths) > _TRACE_PATH_LIMIT
+            or len(changed_info_paths) > _TRACE_PATH_LIMIT
+        ),
+    }
+
+
+def _runtime_layer_scope_details(
+    layer: Sdf.Layer,
+    selected_prim_paths: Sequence[str],
+) -> dict[str, object]:
+    """Report authored specs separately from propagated USD dependency paths."""
+
+    prim_specs = []
+    pending = list(layer.rootPrims)
+    while pending:
+        prim_spec = pending.pop()
+        prim_specs.append(prim_spec)
+        pending.extend(prim_spec.nameChildren.values())
+
+    authored_paths = tuple(sorted(str(spec.path) for spec in prim_specs))
+    selected_paths = tuple(Sdf.Path(path) for path in selected_prim_paths)
+    runtime_root = Sdf.Path("/__ORMSRuntime")
+
+    def is_allowed(path_text: str) -> bool:
+        path = Sdf.Path(path_text)
+        if path.HasPrefix(runtime_root):
+            return True
+        return any(
+            path.HasPrefix(selected) or selected.HasPrefix(path)
+            for selected in selected_paths
+        )
+
+    source_material_paths = tuple(
+        path
+        for path in authored_paths
+        if "/mtl/" in path
+        or ("/Looks/" in path and not path.startswith("/__ORMSRuntime/"))
+    )
+    unexpected_paths = tuple(
+        path for path in authored_paths if not is_allowed(path)
+    )
+
+    def serialise_layer_paths(paths: Sequence[str]) -> str:
+        retained = paths[:_TRACE_PATH_LIMIT]
+        return ", ".join(retained) if retained else "<none>"
+
+    return {
+        "runtime_authored_prim_path_count": len(authored_paths),
+        "runtime_authored_prim_paths": serialise_layer_paths(authored_paths),
+        "runtime_authored_source_material_path_count": len(
+            source_material_paths
+        ),
+        "runtime_authored_source_material_paths": serialise_layer_paths(
+            source_material_paths
+        ),
+        "unexpected_runtime_authored_path_count": len(unexpected_paths),
+        "unexpected_runtime_authored_paths": serialise_layer_paths(
+            unexpected_paths
+        ),
+        "runtime_layer_scope_valid": not unexpected_paths,
+    }
+
+
 def _log_diagnostic(diagnostic: ClassifierDiagnostic) -> None:
     log_room_map_warning(
         owner="SHARED ROOM CLASSIFIER",
@@ -391,6 +594,9 @@ class SharedRoomClassifier:
         repository_root: Path,
         settings: RuntimeClassifierSettings,
         trace_log_warning: Callable[..., None] | None = None,
+        runtime_input_log_scheduler: Callable[
+            [float, Callable[[], None]], object | None
+        ] = _schedule_runtime_input_log,
     ):
         self._stage = stage
         self._repository_root = repository_root
@@ -405,7 +611,12 @@ class SharedRoomClassifier:
         self._pose_frames_by_prim: dict[
             str, tuple[_ObjectSpacePoseFrame, ...]
         ] = {}
+        self._synchronised_runtime_input_values: dict[str, object] = {}
         self._trace_log_warning = trace_log_warning
+        self._runtime_input_log_scheduler = runtime_input_log_scheduler
+        self._pending_runtime_input_logs: dict[
+            tuple[str, str], _PendingRuntimeInputLog
+        ] = {}
         self._first_frame_subscription: object | None = None
 
     @property
@@ -414,18 +625,166 @@ class SharedRoomClassifier:
 
         return self._last
 
+    @property
+    def camera_input_paths(self) -> tuple[str, ...]:
+        """Return camera inputs owned by classified window materials only."""
+
+        if self._last is None:
+            return ()
+        paths = set()
+        for attribute_path in _runtime_family_input_paths(
+            "camera_position_world"
+        ):
+            attribute = self._stage.GetAttributeAtPath(attribute_path)
+            if attribute:
+                paths.add(str(attribute.GetPath()))
+        for (
+            prim_path,
+            _face_count,
+        ) in self._last.extraction.face_counts_by_prim:
+            prim = self._stage.GetPrimAtPath(prim_path)
+            material, relationship = UsdShade.MaterialBindingAPI(
+                prim
+            ).ComputeBoundMaterial()
+            if not relationship or not material:
+                continue
+            for candidate in Usd.PrimRange(material.GetPrim()):
+                attribute = candidate.GetAttribute(
+                    "inputs:camera_position_world"
+                )
+                if attribute:
+                    paths.add(str(attribute.GetPath()))
+        return tuple(sorted(paths))
+
     def start(self, trigger: str = "manual_start") -> StageClassification:
         """Classify once, reconcile shared inputs, and subscribe to USD edits."""
 
-        runtime_layer = self._layer_owner.attach()
-        self._reclassify(runtime_layer, trigger=trigger)
+        self._reclassify(trigger=trigger)
         self._synchronise_existing_runtime_family_inputs()
+        self._remember_runtime_family_input_values()
         self._notice_key = Tf.Notice.Register(
             Usd.Notice.ObjectsChanged,
             self._on_objects_changed,
             self._stage,
         )
         return self._last  # type: ignore[return-value]
+
+    def _remember_runtime_family_input_values(self) -> None:
+        """Snapshot the last complete shared state for later transition logs."""
+
+        values = {}
+        for input_name in sorted(_SHARED_RUNTIME_INPUT_NAMES):
+            value = _common_runtime_family_input_value(
+                self._stage,
+                input_name,
+            )
+            if value is not None:
+                values[input_name] = value
+        self._synchronised_runtime_input_values = values
+
+    def _runtime_input_transition_details(
+        self,
+        *,
+        trigger: str,
+        input_name: str,
+        source_path: Sdf.Path,
+        sync_result: _RuntimeInputSyncResult,
+        previous_value: object,
+    ) -> dict[str, object]:
+        """Describe one attempted shared-value transition without inference."""
+
+        return {
+            "trigger": trigger,
+            "input": input_name,
+            "source_path": str(source_path),
+            "previous_value": previous_value,
+            "new_value": sync_result.effective_value,
+            "reason": sync_result.reason,
+            "updated_family_count": sync_result.updated_family_count,
+            "family_values": _runtime_family_input_values(
+                self._stage,
+                input_name,
+            ),
+        }
+
+    @staticmethod
+    def _cancel_scheduled_call(scheduled_call: object | None) -> None:
+        """Cancel a pending callback without depending on its concrete type."""
+
+        cancel = getattr(scheduled_call, "cancel", None)
+        if callable(cancel):
+            cancel()
+
+    def _flush_pending_runtime_input_log(
+        self,
+        key: tuple[str, str],
+    ) -> None:
+        """Emit one completed record for a coalesced editing gesture."""
+
+        pending = self._pending_runtime_input_logs.pop(key, None)
+        if pending is None:
+            return
+        self._cancel_scheduled_call(pending.scheduled_call)
+        if self._trace_log_warning is None:
+            return
+        details = self._runtime_input_transition_details(
+            trigger=pending.trigger,
+            input_name=pending.input_name,
+            source_path=pending.source_path,
+            sync_result=pending.sync_result,
+            previous_value=pending.previous_value,
+        )
+        details.update(
+            {
+                "coalesced_change_count": pending.change_count,
+                "coalescing_window_ms": int(
+                    _RUNTIME_INPUT_LOG_DEBOUNCE_SECONDS * 1000
+                ),
+            }
+        )
+        self._trace_log_warning(
+            owner="SHARED ROOM CLASSIFIER",
+            process="RUNTIME MATERIAL INPUT SYNC",
+            state="SYNCHRONISED",
+            details=details,
+        )
+
+    def _queue_runtime_input_log(
+        self,
+        *,
+        trigger: str,
+        input_name: str,
+        source_path: Sdf.Path,
+        sync_result: _RuntimeInputSyncResult,
+        previous_value: object,
+    ) -> None:
+        """Coalesce successful notices without delaying material authoring."""
+
+        key = (str(source_path), input_name)
+        pending = self._pending_runtime_input_logs.get(key)
+        if pending is None:
+            pending = _PendingRuntimeInputLog(
+                trigger=trigger,
+                input_name=input_name,
+                source_path=source_path,
+                previous_value=previous_value,
+                sync_result=sync_result,
+            )
+            self._pending_runtime_input_logs[key] = pending
+        else:
+            self._cancel_scheduled_call(pending.scheduled_call)
+            pending.sync_result = sync_result
+            pending.change_count += 1
+        pending.scheduled_call = self._runtime_input_log_scheduler(
+            _RUNTIME_INPUT_LOG_DEBOUNCE_SECONDS,
+            lambda: self._flush_pending_runtime_input_log(key),
+        )
+
+    def _flush_pending_runtime_input_logs(self) -> None:
+        """Flush completed edits before runtime teardown."""
+
+        for key in tuple(self._pending_runtime_input_logs):
+            self._flush_pending_runtime_input_log(key)
 
     def _synchronise_existing_runtime_family_inputs(self) -> None:
         """Reconcile saved family overrides before subscribing to new edits."""
@@ -436,17 +795,28 @@ class SharedRoomClassifier:
                 for path in _runtime_family_input_paths(input_name)
                 if (
                     (attribute := self._stage.GetAttributeAtPath(path))
-                    and _has_direct_runtime_input_opinion(attribute)
+                    and _has_saved_runtime_input_opinion(
+                        attribute,
+                        self._layer_owner.layer,
+                    )
                 )
             )
             if not authored_paths:
                 continue
             source_path = authored_paths[0]
-            source_value = self._stage.GetAttributeAtPath(source_path).Get()
+            source_spec = _saved_runtime_input_spec(
+                self._stage.GetAttributeAtPath(source_path),
+                self._layer_owner.layer,
+            )
+            source_value = source_spec.default
             conflicting_paths = tuple(
                 path
                 for path in authored_paths[1:]
-                if self._stage.GetAttributeAtPath(path).Get() != source_value
+                if _saved_runtime_input_spec(
+                    self._stage.GetAttributeAtPath(path),
+                    self._layer_owner.layer,
+                ).default
+                != source_value
             )
             if conflicting_paths:
                 log_room_map_warning(
@@ -465,42 +835,73 @@ class SharedRoomClassifier:
                     },
                 )
                 continue
-            updated_count = _synchronise_runtime_family_input(
+            sync_result = _synchronise_runtime_family_input(
                 self._stage,
+                self._layer_owner.layer,
                 source_path,
             )
-            if updated_count and self._trace_log_warning is not None:
+            previous_value = self._synchronised_runtime_input_values.get(
+                input_name,
+                _UNAVAILABLE_TRANSITION_VALUE,
+            )
+            if (
+                not sync_result.synchronised
+                and self._trace_log_warning is not None
+            ):
+                self._trace_log_warning(
+                    owner="SHARED ROOM CLASSIFIER",
+                    process="RUNTIME MATERIAL INPUT SYNC",
+                    state="DEFERRED",
+                    details=self._runtime_input_transition_details(
+                        trigger="manual_start",
+                        input_name=input_name,
+                        source_path=source_path,
+                        sync_result=sync_result,
+                        previous_value=previous_value,
+                    ),
+                )
+                continue
+            if (
+                sync_result.synchronised
+                and sync_result.effective_value is not None
+            ):
+                self._synchronised_runtime_input_values[input_name] = (
+                    sync_result.effective_value
+                )
+            if (
+                sync_result.updated_family_count
+                and self._trace_log_warning is not None
+            ):
                 self._trace_log_warning(
                     owner="SHARED ROOM CLASSIFIER",
                     process="RUNTIME MATERIAL INPUT SYNC",
                     state="SYNCHRONISED",
-                    details={
-                        "trigger": "manual_start",
-                        "input": input_name,
-                        "source_path": str(source_path),
-                        "updated_family_count": updated_count,
-                        "family_values": _runtime_family_input_values(
-                            self._stage,
-                            input_name,
-                        ),
-                    },
+                    details=self._runtime_input_transition_details(
+                        trigger="manual_start",
+                        input_name=input_name,
+                        source_path=source_path,
+                        sync_result=sync_result,
+                        previous_value=previous_value,
+                    ),
                 )
 
     def _reclassify(
         self,
-        runtime_layer: Sdf.Layer | None = None,
         *,
         trigger: str = "usd_change",
         trigger_details: Mapping[str, object] | None = None,
     ) -> None:
         if self._is_authoring:
             return
+        self._flush_pending_runtime_input_logs()
         self._is_authoring = True
+        notice_key: Any | None = None
         try:
-            # Rebuild the owned layer as one coherent snapshot. The authoring
-            # guard prevents these opinions from recursively invalidating it.
-            layer = runtime_layer or self._layer_owner.layer
-            layer.Clear()
+            # Build the complete replacement away from the live render stage.
+            # Only the finished Sdf layer is published into live composition.
+            authoring_stage, draft_layer = (
+                self._layer_owner.prepare_replacement()
+            )
             trace = (
                 _RuntimeTrace(
                     trigger=trigger,
@@ -509,10 +910,42 @@ class SharedRoomClassifier:
                 if self._trace_log_warning is not None
                 else None
             )
+            baseline_material_state = (
+                capture_material_state(self._stage)
+                if trace is not None
+                else None
+            )
+            authoring_notice_count = 0
+            authoring_resynced_paths: set[str] = set()
+            authoring_changed_info_paths: set[str] = set()
+
+            def capture_authoring_notice(
+                notice: Usd.Notice.ObjectsChanged,
+                _sender: Usd.Stage,
+            ) -> None:
+                nonlocal authoring_notice_count
+                authoring_notice_count += 1
+                authoring_resynced_paths.update(
+                    str(path) for path in notice.GetResyncedPaths()
+                )
+                authoring_changed_info_paths.update(
+                    str(path) for path in notice.GetChangedInfoOnlyPaths()
+                )
+
+            if trace is not None:
+                notice_key = Tf.Notice.Register(
+                    Usd.Notice.ObjectsChanged,
+                    capture_authoring_notice,
+                    self._stage,
+                )
             if trace is not None:
                 run_details: dict[str, object] = {
                     "stage_identifier": self._stage.GetRootLayer().identifier,
-                    "runtime_layer": layer.identifier,
+                    "runtime_layer": self._layer_owner.layer.identifier,
+                    "draft_layer": draft_layer.identifier,
+                    "publication_mode": (
+                        "isolated_stage_atomic_layer_transfer"
+                    ),
                     "classifier_contract": (
                         _EXPECTED_CLASSIFIER_CONTRACT_VERSION
                     ),
@@ -524,12 +957,43 @@ class SharedRoomClassifier:
                     run_details,
                 )
             self._last = classify_stage(
-                self._stage,
-                layer,
+                authoring_stage,
+                draft_layer,
                 self._settings,
                 self._repository_root,
                 phase_callback=trace.mark if trace is not None else None,
             )
+            published_layer = self._layer_owner.publish(draft_layer)
+            self._last = replace(
+                self._last,
+                runtime_layer_identifier=published_layer.identifier,
+            )
+            if trace is not None:
+                selected_prim_paths = tuple(
+                    prim_path
+                    for prim_path, _face_count in (
+                        self._last.extraction.face_counts_by_prim
+                    )
+                )
+                trace.mark(
+                    "RUNTIME_LAYER_PUBLISHED",
+                    {
+                        "publication_mode": (
+                            "isolated_stage_atomic_layer_transfer"
+                        ),
+                        "draft_layer": draft_layer.identifier,
+                        "runtime_layer": published_layer.identifier,
+                        **_authoring_notice_details(
+                            authoring_notice_count,
+                            authoring_resynced_paths,
+                            authoring_changed_info_paths,
+                        ),
+                        **_runtime_layer_scope_details(
+                            published_layer,
+                            selected_prim_paths,
+                        ),
+                    },
+                )
             geometry_ancestor_paths = set()
             for (
                 prim_path,
@@ -563,17 +1027,66 @@ class SharedRoomClassifier:
             for diagnostic in diagnostics:
                 _log_diagnostic(diagnostic)
             if trace is not None:
-                self._trace_material_submission(trace)
+                material_state_after_authoring = capture_material_state(
+                    self._stage,
+                    tuple(baseline_material_state["source_material_paths"]),
+                )
+                allowed_binding_paths = tuple(
+                    prim_path
+                    for prim_path, _face_count in (
+                        self._last.extraction.face_counts_by_prim
+                    )
+                )
+                trace.mark(
+                    "SOURCE_USD_STATE_AFTER_AUTHORING",
+                    {
+                        **material_state_log_details(
+                            material_state_after_authoring,
+                            baseline_material_state,
+                            allowed_binding_paths,
+                        ),
+                        **_authoring_notice_details(
+                            authoring_notice_count,
+                            authoring_resynced_paths,
+                            authoring_changed_info_paths,
+                        ),
+                    },
+                )
+                self._trace_material_submission(
+                    trace,
+                    baseline_material_state,
+                )
         finally:
+            if notice_key is not None:
+                notice_key.Revoke()
             self._is_authoring = False
 
-    def _trace_material_submission(self, trace: _RuntimeTrace) -> None:
+    def _trace_material_submission(
+        self,
+        trace: _RuntimeTrace,
+        baseline_material_state: MaterialStateSnapshot,
+    ) -> None:
         """Trace observable renderer boundaries without inventing completion."""
 
         self._first_frame_subscription = None
 
         def on_new_frame(_event: object) -> None:
             self._first_frame_subscription = None
+            source_material_paths = tuple(
+                baseline_material_state["source_material_paths"]
+            )
+            first_frame_material_state = capture_material_state(
+                self._stage,
+                source_material_paths,
+            )
+            allowed_binding_paths = tuple(
+                prim_path
+                for prim_path, _face_count in (
+                    self._last.extraction.face_counts_by_prim
+                    if self._last is not None
+                    else ()
+                )
+            )
             trace.mark(
                 "FIRST_FRAME_AFTER_MATERIAL_UPDATE",
                 {
@@ -581,6 +1094,11 @@ class SharedRoomClassifier:
                     "material_loading_complete": False,
                     "group_count": (
                         len(self._last.result.groups) if self._last else 0
+                    ),
+                    **material_state_log_details(
+                        first_frame_material_state,
+                        baseline_material_state,
+                        allowed_binding_paths,
                     ),
                 },
             )
@@ -622,6 +1140,73 @@ class SharedRoomClassifier:
                 },
             )
 
+    def _synchronise_changed_runtime_inputs(
+        self,
+        paths: Sequence[Sdf.Path],
+    ) -> None:
+        """Propagate shared material edits without reclassifying geometry."""
+
+        shared_input_paths = tuple(
+            path for path in paths if _runtime_family_input_name(path)
+        )
+        if not shared_input_paths:
+            return
+        self._is_authoring = True
+        try:
+            for path in shared_input_paths:
+                input_name = _runtime_family_input_name(path)
+                if input_name is None:
+                    continue
+                previous_value = self._synchronised_runtime_input_values.get(
+                    input_name,
+                    _UNAVAILABLE_TRANSITION_VALUE,
+                )
+                sync_result = _synchronise_runtime_family_input(
+                    self._stage,
+                    self._layer_owner.layer,
+                    path,
+                )
+                if (
+                    sync_result.synchronised
+                    and sync_result.effective_value is not None
+                ):
+                    self._synchronised_runtime_input_values[input_name] = (
+                        sync_result.effective_value
+                    )
+                if self._trace_log_warning is None:
+                    continue
+                if (
+                    sync_result.synchronised
+                    and sync_result.updated_family_count == 0
+                    and previous_value == sync_result.effective_value
+                ):
+                    continue
+                pending_key = (str(path), input_name)
+                if sync_result.synchronised:
+                    self._queue_runtime_input_log(
+                        trigger="usd_change",
+                        input_name=input_name,
+                        source_path=path,
+                        sync_result=sync_result,
+                        previous_value=previous_value,
+                    )
+                    continue
+                self._flush_pending_runtime_input_log(pending_key)
+                self._trace_log_warning(
+                    owner="SHARED ROOM CLASSIFIER",
+                    process="RUNTIME MATERIAL INPUT SYNC",
+                    state="DEFERRED",
+                    details=self._runtime_input_transition_details(
+                        trigger="usd_change",
+                        input_name=input_name,
+                        source_path=path,
+                        sync_result=sync_result,
+                        previous_value=previous_value,
+                    ),
+                )
+        finally:
+            self._is_authoring = False
+
     def _on_objects_changed(
         self,
         notice: Usd.Notice.ObjectsChanged,
@@ -632,39 +1217,7 @@ class SharedRoomClassifier:
         resynced_paths = tuple(notice.GetResyncedPaths())
         changed_info_paths = tuple(notice.GetChangedInfoOnlyPaths())
         paths = resynced_paths + changed_info_paths
-        shared_input_paths = tuple(
-            path for path in paths if _runtime_family_input_name(path)
-        )
-        if shared_input_paths:
-            # Artist edits to a shared control propagate across family materials
-            # without rerunning geometric classification.
-            self._is_authoring = True
-            try:
-                for path in shared_input_paths:
-                    updated_count = _synchronise_runtime_family_input(
-                        self._stage,
-                        path,
-                    )
-                    input_name = _runtime_family_input_name(path)
-                    if self._trace_log_warning is None:
-                        continue
-                    self._trace_log_warning(
-                        owner="SHARED ROOM CLASSIFIER",
-                        process="RUNTIME MATERIAL INPUT SYNC",
-                        state="SYNCHRONISED",
-                        details={
-                            "trigger": "usd_change",
-                            "input": input_name,
-                            "source_path": str(path),
-                            "updated_family_count": updated_count,
-                            "family_values": _runtime_family_input_values(
-                                self._stage,
-                                input_name,
-                            ),
-                        },
-                    )
-            finally:
-                self._is_authoring = False
+        self._synchronise_changed_runtime_inputs(paths)
         # Rigid building motion refreshes pose primvars only. Shape or topology
         # changes invalidate adjacency and require complete reclassification.
         transform_roots = _building_root_transform_change_roots(
@@ -738,6 +1291,7 @@ class SharedRoomClassifier:
     def stop(self) -> None:
         """Release subscriptions and detach only this classifier's USD layer."""
 
+        self._flush_pending_runtime_input_logs()
         self._first_frame_subscription = None
         if self._notice_key is not None:
             self._notice_key.Revoke()
@@ -746,6 +1300,7 @@ class SharedRoomClassifier:
         self._last = None
         self._building_root_shape_signatures = {}
         self._pose_frames_by_prim = {}
+        self._synchronised_runtime_input_values = {}
 
 
 _classifier: SharedRoomClassifier | None = None
@@ -866,15 +1421,31 @@ def start(
                 raise RuntimeError("Could not derive the ORMS repository root")
             repository_root = repository_root.parent
 
-    # Renderer settings and stage subscriptions are runtime-owned and restored
-    # by stop(); source USD and user preferences remain external.
+    # The cutout gate is effective only on ORMS materials that carry the
+    # explicit opt-in attribute. Scene-wide face culling remains external:
+    # acquiring it here would change unrelated single-sided building meshes.
     _repository_root = Path(repository_root).resolve()
     shared_room_preferences.register(_on_classifier_setting_changed)
     _runtime_settings = settings or settings_from_kit()
-    _enable_rtx_single_sided_culling()
     try:
+        source_material_state = capture_material_state(stage)
+        log_room_map_warning(
+            owner="SHARED ROOM CLASSIFIER",
+            process="RUNTIME SOURCE USD STATE",
+            state="BEFORE_RENDERER_SETTINGS",
+            details=material_state_log_details(source_material_state),
+        )
         _enable_rtx_cutout_opacity()
-        _enable_rtx_material_sync_loads()
+        source_material_state_after_cutout = capture_material_state(stage)
+        log_room_map_warning(
+            owner="SHARED ROOM CLASSIFIER",
+            process="RUNTIME SOURCE USD STATE",
+            state="AFTER_CUTOUT_GATE",
+            details=material_state_log_details(
+                source_material_state_after_cutout,
+                source_material_state,
+            ),
+        )
         _replace_active_classifier(stage, trigger="manual_start")
         dispatcher = carb.eventdispatcher.get_eventdispatcher()
         _context_subscription = tuple(
@@ -892,9 +1463,7 @@ def start(
             )
         )
     except Exception:
-        _restore_rtx_material_sync_loads()
         _restore_rtx_cutout_opacity()
-        _restore_rtx_single_sided_culling()
         raise
     return _classifier  # type: ignore[return-value]
 
@@ -925,6 +1494,4 @@ def stop() -> None:
     _context_subscription = None
     _repository_root = None
     _runtime_settings = None
-    _restore_rtx_material_sync_loads()
     _restore_rtx_cutout_opacity()
-    _restore_rtx_single_sided_culling()

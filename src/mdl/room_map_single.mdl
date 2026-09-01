@@ -27,6 +27,37 @@ float saturate(float value)
     return math::min(1.0, math::max(0.0, value));
 }
 
+// Select luminous atlas pixels from the already sampled linear-sRGB room
+// colour. The mask is evaluated before glass tint so art direction cannot
+// silently change which authored pixels emit.
+float room_emission_mask(
+    color source_colour,
+    bool enable_emission,
+    float emission_threshold,
+    float emission_softness
+) = let {
+    float safe_threshold = saturate(emission_threshold);
+    float safe_softness = math::max(emission_softness, 0.0);
+    float half_softness = safe_softness * 0.5;
+    float lower_threshold = saturate(safe_threshold - half_softness);
+    float upper_threshold = math::max(
+        lower_threshold + room_map_epsilon(),
+        saturate(safe_threshold + half_softness)
+    );
+    float source_luminance = math::dot(
+        float3(source_colour),
+        float3(0.2126, 0.7152, 0.0722)
+    );
+} in !enable_emission
+    ? 0.0
+    : safe_softness <= room_map_epsilon()
+    ? (source_luminance >= safe_threshold ? 1.0 : 0.0)
+    : math::smoothstep(
+        lower_threshold,
+        upper_threshold,
+        source_luminance
+    );
+
 // Stable integer mixing selects one complete UDIM room for every roomID.
 int positive_modulo(int value, int divisor)
 {
@@ -49,7 +80,11 @@ int select_room_variant(
 
 float2 udim_atlas_coordinate(float2 atlas_coordinate, int variant_index)
 {
-    return atlas_coordinate + float2(float(variant_index), 0.0);
+    int safe_variant_index = variant_index > 0 ? variant_index : 0;
+    int tile_u = safe_variant_index % 10;
+    int tile_v = safe_variant_index / 10;
+
+    return atlas_coordinate + float2(float(tile_u), float(tile_v));
 }
 
 // Only positive distances represent visible interior planes.
@@ -103,8 +138,15 @@ export material room_map_single(
     uniform int variation_seed = 0,
     float3 camera_position_world = float3(0.0),
     float room_depth = 1.0,
+    float glass_roughness = 0.1,
+    float glass_reflectivity = 0.04,
+    color glass_tint = color(1.0),
+    float glass_transmission = 1.0,
     color fallback_colour = color(1.0, 0.0, 1.0),
-    float emission_strength = 1.0
+    bool enable_emission = false,
+    float emission_strength = 1.0,
+    float emission_threshold = 0.8,
+    float emission_softness = 0.1
 ) = let {
     // Read the complete authored geometry contract before constructing a frame.
     float3 room_position_object = nvidia::support_definitions::data_lookup_float3(
@@ -262,14 +304,56 @@ export material room_map_single(
         atlas_sample.z
     );
     color room_colour = frame_is_valid ? sampled_colour : fallback_colour;
+    // Keep the analytic room visible on its proxy while adding the front-glass
+    // response. True refraction would reveal absent geometry behind the quad.
+    float safe_glass_roughness = saturate(glass_roughness);
+    float squared_glass_roughness =
+        safe_glass_roughness * safe_glass_roughness;
+    float safe_glass_reflectivity = saturate(glass_reflectivity);
+    float safe_glass_transmission = saturate(glass_transmission);
+    color tinted_room_colour = room_colour * glass_tint;
+    color glass_base_colour =
+        glass_tint * (1.0 - safe_glass_transmission)
+        + tinted_room_colour * safe_glass_transmission;
+    bsdf room_surface = df::diffuse_reflection_bsdf(
+        tint: glass_base_colour
+    );
+    bsdf glass_reflection = df::microfacet_ggx_smith_bsdf(
+        roughness_u: squared_glass_roughness,
+        roughness_v: squared_glass_roughness,
+        tint: color(1.0),
+        mode: df::scatter_reflect
+    );
+    // Roughness controls only the GGX lobe width. Keep its normal-incidence
+    // strength explicit so a sharp reflection can be diagnosed independently
+    // from tint and artistic transmission.
+    bsdf room_behind_glass = df::custom_curve_layer(
+        normal_reflectivity: safe_glass_reflectivity,
+        grazing_reflectivity: 1.0,
+        exponent: 5.0,
+        weight: 1.0,
+        layer: glass_reflection,
+        base: room_surface,
+        normal: state::normal()
+    );
+    // The baseline atlas contains no front-face lookup: every valid colour is
+    // sampled from Back, Left, Right, Ceiling, or Floor.
+    float luminous_room_mask = frame_is_valid
+        ? room_emission_mask(
+            room_colour,
+            enable_emission,
+            emission_threshold,
+            emission_softness
+        )
+        : 0.0;
+    color visible_room_emission =
+        tinted_room_colour * safe_glass_transmission * luminous_room_mask;
 } in material(
     surface: material_surface(
-        scattering: df::diffuse_reflection_bsdf(
-            tint: room_colour
-        ),
+        scattering: room_behind_glass,
         emission: material_emission(
             df::diffuse_edf(),
-            intensity: room_colour * emission_strength
+            intensity: visible_room_emission * emission_strength
         )
     )
 );

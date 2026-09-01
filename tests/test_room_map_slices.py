@@ -50,6 +50,7 @@ def test_depth_slice_stage_exposes_ordered_artist_controls():
     depths = []
     for index, expected_depth in enumerate(SLICE_DEPTHS, start=1):
         assert shader.GetInput(f"enable_slice_{index}").Get() is True
+        assert shader.GetInput(f"emission_slice_{index}").Get() is True
         assert tuple(shader.GetInput(f"slice_{index}_offset").Get()) == (
             0.0,
             0.0,
@@ -74,6 +75,8 @@ def test_depth_slice_module_defines_cross_atlas_sampling_and_depth_ordering():
     assert "color fallback_colour" in source
     assert "slice_1_depth_percent = 20.0" in source
     assert "slice_4_depth_percent = 80.0" in source
+    assert "bool emission_slice_1 = true" in source
+    assert "bool emission_slice_4 = true" in source
     assert source.count("tex::lookup_float4(") == 5
     assert "float2(0.0, 0.0)" in source
     assert "float2(0.0, 2.0 / 3.0)" in source
@@ -85,4 +88,8 @@ def test_depth_slice_module_defines_cross_atlas_sampling_and_depth_ordering():
     assert "float room_transmittance = slice_4_transmittance" in source
     assert "slice_2_colour * slice_2_opacity * slice_2_transmittance" in source
     assert "slice_4_colour * slice_4_opacity * slice_4_transmittance" in source
+    assert "color emission_colour;" in source
+    assert "struct room_emission_controls" in source
+    assert "emission.enabled && emission.slice_3_enabled" in source
+    assert "room_face_emission_colour * room_transmittance" in source
     assert "ray marching" not in source.lower()

@@ -73,6 +73,10 @@ def Xform "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "room_map"
                 float3 inputs:camera_position_world = (2, 0.5, -0.5)
                 float inputs:emission_strength = 1
+                bool inputs:emission_slice_1 = 1
+                bool inputs:emission_slice_2 = 1
+                bool inputs:emission_slice_3 = 1
+                bool inputs:emission_slice_4 = 1
                 bool inputs:enable_slice_1 = 1
                 bool inputs:enable_slice_2 = 1
                 bool inputs:enable_slice_3 = 1

@@ -468,12 +468,15 @@ def add_worklog(
         print(f"Error {resp.status_code}: {resp.text}")
 
 
-def update_issue(
-    issue_key, summary=None, description=None, assignee_id=None, estimate=None
+def _build_issue_update_fields(
+    *,
+    summary=None,
+    description=None,
+    assignee_id=None,
+    estimate=None,
+    parent_key=None,
 ):
-    """Update only the Jira fields explicitly supplied by the caller."""
-
-    base_url, headers = get_jira_session()
+    """Build the fields for a partial Jira issue update."""
 
     fields = {}
     if summary:
@@ -489,6 +492,31 @@ def update_issue(
             "originalEstimate": estimate,
             "remainingEstimate": estimate,
         }
+
+    if parent_key:
+        fields["parent"] = {"key": parent_key}
+
+    return fields
+
+
+def update_issue(
+    issue_key,
+    summary=None,
+    description=None,
+    assignee_id=None,
+    estimate=None,
+    parent_key=None,
+):
+    """Update only the Jira fields explicitly supplied by the caller."""
+
+    base_url, headers = get_jira_session()
+    fields = _build_issue_update_fields(
+        summary=summary,
+        description=description,
+        assignee_id=assignee_id,
+        estimate=estimate,
+        parent_key=parent_key,
+    )
 
     if not fields:
         print("Nothing to update.")
@@ -658,6 +686,10 @@ def main():
         "--assign-me", help="Assign to current user?", action="store_true"
     )
     p_edit.add_argument("--estimate", help="Original Estimate (e.g. 1h)")
+    p_edit.add_argument(
+        "--parent",
+        help="Parent Issue Key for hierarchy changes",
+    )
 
     # Create
     p_create = subparsers.add_parser("create", help="Create new issue")
@@ -725,6 +757,7 @@ def main():
                 ),
                 assignee_id=myself_id,
                 estimate=args.estimate,
+                parent_key=args.parent,
             )
         elif args.command == "create":
             create_issue(

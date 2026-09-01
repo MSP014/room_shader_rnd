@@ -112,3 +112,26 @@ def test_description_adf_supports_headings_and_grouped_lists():
         ]
         == "Validate in RTX Real-Time"
     )
+
+
+def test_issue_update_fields_include_parent_hierarchy():
+    jira_link = _load_jira_link()
+
+    fields = jira_link._build_issue_update_fields(
+        parent_key="KRM-95",
+        estimate="4h",
+    )
+
+    assert fields["parent"] == {"key": "KRM-95"}
+    assert fields["timetracking"] == {
+        "originalEstimate": "4h",
+        "remainingEstimate": "4h",
+    }
+
+
+def test_issue_update_fields_omit_unsupplied_parent():
+    jira_link = _load_jira_link()
+
+    fields = jira_link._build_issue_update_fields(summary="Updated summary")
+
+    assert fields == {"summary": "Updated summary"}

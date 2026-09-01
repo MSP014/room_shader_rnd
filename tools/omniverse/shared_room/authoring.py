@@ -52,6 +52,84 @@ from .stage import (
     _room_map_mesh_orientation,
 )
 
+_ROOM_MAP_INPUT_DEFAULTS = (
+    ("enable_opacity", Sdf.ValueTypeNames.Bool, True),
+    ("room_atlas", Sdf.ValueTypeNames.Asset, Sdf.AssetPath()),
+    ("room_variant_count", Sdf.ValueTypeNames.Int, 1),
+    ("variation_seed", Sdf.ValueTypeNames.Int, 0),
+    (
+        "camera_position_world",
+        Sdf.ValueTypeNames.Float3,
+        Gf.Vec3f(0.0),
+    ),
+    ("room_depth", Sdf.ValueTypeNames.Float, 1.0),
+    ("room_uniform_scale", Sdf.ValueTypeNames.Float, 1.0),
+    ("window_shift", Sdf.ValueTypeNames.Float2, Gf.Vec2f(0.0)),
+    (
+        "window_aperture_scale",
+        Sdf.ValueTypeNames.Float2,
+        Gf.Vec2f(1.0),
+    ),
+    (
+        "window_aperture_offset",
+        Sdf.ValueTypeNames.Float2,
+        Gf.Vec2f(0.0),
+    ),
+    ("enable_slice_1", Sdf.ValueTypeNames.Bool, True),
+    ("enable_slice_2", Sdf.ValueTypeNames.Bool, True),
+    ("enable_slice_3", Sdf.ValueTypeNames.Bool, True),
+    ("enable_slice_4", Sdf.ValueTypeNames.Bool, True),
+    ("slice_1_depth_percent", Sdf.ValueTypeNames.Float, 20.0),
+    ("slice_2_depth_percent", Sdf.ValueTypeNames.Float, 40.0),
+    ("slice_3_depth_percent", Sdf.ValueTypeNames.Float, 60.0),
+    ("slice_4_depth_percent", Sdf.ValueTypeNames.Float, 80.0),
+    ("slice_1_offset", Sdf.ValueTypeNames.Float2, Gf.Vec2f(0.0)),
+    ("slice_2_offset", Sdf.ValueTypeNames.Float2, Gf.Vec2f(0.0)),
+    ("slice_3_offset", Sdf.ValueTypeNames.Float2, Gf.Vec2f(0.0)),
+    ("slice_4_offset", Sdf.ValueTypeNames.Float2, Gf.Vec2f(0.0)),
+    ("slice_1_scale", Sdf.ValueTypeNames.Float2, Gf.Vec2f(1.0)),
+    ("slice_2_scale", Sdf.ValueTypeNames.Float2, Gf.Vec2f(1.0)),
+    ("slice_3_scale", Sdf.ValueTypeNames.Float2, Gf.Vec2f(1.0)),
+    ("slice_4_scale", Sdf.ValueTypeNames.Float2, Gf.Vec2f(1.0)),
+    ("glass_roughness", Sdf.ValueTypeNames.Float, 0.1),
+    ("glass_reflectivity", Sdf.ValueTypeNames.Float, 0.04),
+    (
+        "glass_tint",
+        Sdf.ValueTypeNames.Color3f,
+        Gf.Vec3f(1.0),
+    ),
+    ("glass_transmission", Sdf.ValueTypeNames.Float, 1.0),
+    (
+        "fallback_colour",
+        Sdf.ValueTypeNames.Color3f,
+        Gf.Vec3f(1.0, 0.0, 1.0),
+    ),
+    ("enable_emission", Sdf.ValueTypeNames.Bool, False),
+    ("emission_slice_1", Sdf.ValueTypeNames.Bool, True),
+    ("emission_slice_2", Sdf.ValueTypeNames.Bool, True),
+    ("emission_slice_3", Sdf.ValueTypeNames.Bool, True),
+    ("emission_slice_4", Sdf.ValueTypeNames.Bool, True),
+    ("emission_strength", Sdf.ValueTypeNames.Float, 1.0),
+    ("emission_threshold", Sdf.ValueTypeNames.Float, 0.8),
+    ("emission_softness", Sdf.ValueTypeNames.Float, 0.1),
+)
+_ROOM_MAP_INPUT_TYPES = {
+    name: value_type
+    for name, value_type, _default_value in _ROOM_MAP_INPUT_DEFAULTS
+}
+_SHARED_ARTIST_INPUT_NAMES = frozenset(
+    name
+    for name in _ROOM_MAP_INPUT_TYPES
+    if name
+    not in {
+        "enable_opacity",
+        "room_atlas",
+        "room_variant_count",
+        "camera_position_world",
+    }
+)
+_DEBUG_ATLAS_VARIANT_COUNT = 8
+
 
 class RuntimeLayerOwner:
     """Own exactly one removable ORMS sublayer beneath the Session Layer."""
@@ -60,6 +138,53 @@ class RuntimeLayerOwner:
         self.stage = stage
         self.layer = Sdf.Layer.CreateAnonymous("orms_shared_rooms.usda")
         self._attached = False
+
+    def prepare_replacement(self) -> tuple[Usd.Stage, Sdf.Layer]:
+        """Create an isolated stage and an empty candidate runtime layer."""
+
+        candidate = Sdf.Layer.CreateAnonymous("orms_shared_rooms_draft.usda")
+        shadow_session = Sdf.Layer.CreateAnonymous(
+            "orms_shared_rooms_session.usda"
+        )
+        shadow_session.TransferContent(self.stage.GetSessionLayer())
+        shadow_session.subLayerPaths = [
+            identifier
+            for identifier in shadow_session.subLayerPaths
+            if identifier != self.layer.identifier
+        ]
+        shadow_session.subLayerPaths = [
+            candidate.identifier,
+            *shadow_session.subLayerPaths,
+        ]
+        shadow_stage = Usd.Stage.Open(
+            self.stage.GetRootLayer(),
+            shadow_session,
+        )
+        if shadow_stage is None:
+            raise RuntimeError(
+                "Could not open the isolated ORMS authoring stage"
+            )
+        shadow_stage.SetLoadRules(self.stage.GetLoadRules())
+        for identifier in self.stage.GetMutedLayers():
+            shadow_stage.MuteLayer(identifier)
+        shadow_stage.SetEditTarget(candidate)
+        return shadow_stage, candidate
+
+    def publish(self, candidate: Sdf.Layer) -> Sdf.Layer:
+        """Atomically replace the live layer content with a finished draft."""
+
+        if candidate.empty and not self._attached:
+            return self.layer
+        session_layer = self.stage.GetSessionLayer()
+        sublayers = list(session_layer.subLayerPaths)
+        if self.layer.identifier not in sublayers:
+            sublayers.insert(0, self.layer.identifier)
+        with Sdf.ChangeBlock():
+            self.layer.TransferContent(candidate)
+            if not self._attached:
+                session_layer.subLayerPaths = sublayers
+        self._attached = True
+        return self.layer
 
     def attach(self) -> Sdf.Layer:
         """Attach the owned layer strongest beneath the existing Session Layer."""
@@ -521,6 +646,17 @@ def _prototype_has_room_map_mesh(prototype: Usd.Prim) -> bool:
     return False
 
 
+def camera_position_primvar_required(stage: Usd.Stage) -> bool:
+    """Return whether preserved instances need an inherited camera channel."""
+
+    return any(
+        prim.IsInstance()
+        and prim.GetPrototype()
+        and _prototype_has_room_map_mesh(prim.GetPrototype())
+        for prim in stage.Traverse()
+    )
+
+
 def author_camera_position_primvar(
     stage: Usd.Stage,
     runtime_layer: Sdf.Layer,
@@ -701,24 +837,139 @@ def apply_instance_policy(
     )
 
 
-def _find_source_room_map_shader(stage: Usd.Stage) -> UsdShade.Shader | None:
+def _room_map_source_asset(shader: UsdShade.Shader) -> str:
+    source_asset = shader.GetPrim().GetAttribute("info:mdl:sourceAsset").Get()
+    return source_asset.path.replace("\\", "/") if source_asset else ""
+
+
+def _find_bound_room_map_shader(
+    stage: Usd.Stage,
+    window_prim_paths: Sequence[str],
+) -> tuple[UsdShade.Material, UsdShade.Shader] | None:
+    """Find a compatible ORMS seed only inside selected window materials."""
+
     candidates = []
-    for prim in stage.Traverse():
-        if not prim.IsA(UsdShade.Shader):
+    for prim_path in sorted(set(window_prim_paths)):
+        prim = stage.GetPrimAtPath(prim_path)
+        if not prim:
             continue
-        source_asset = prim.GetAttribute("info:mdl:sourceAsset").Get()
-        if source_asset and source_asset.path.endswith("src/mdl/room_map.mdl"):
-            candidates.append(UsdShade.Shader(prim))
+        material, relationship = UsdShade.MaterialBindingAPI(
+            prim
+        ).ComputeBoundMaterial()
+        if not relationship or not material:
+            continue
+        for candidate in Usd.PrimRange(material.GetPrim()):
+            if not candidate.IsA(UsdShade.Shader):
+                continue
+            shader = UsdShade.Shader(candidate)
+            source_asset = _room_map_source_asset(shader)
+            if source_asset.endswith(
+                (
+                    "src/mdl/room_map.mdl",
+                    "src/mdl/room_map_single.mdl",
+                )
+            ):
+                candidates.append((material, shader))
     return (
-        min(candidates, key=lambda item: str(item.GetPath()))
+        min(candidates, key=lambda item: str(item[1].GetPath()))
         if candidates
         else None
     )
 
 
-def _atlas_family_asset(
-    repository_root: Path, room_size: int
-) -> Sdf.AssetPath:
+def _seed_input_value(
+    source_shader: UsdShade.Shader | None,
+    name: str,
+    value_type: Sdf.ValueTypeName,
+    default_value: object,
+) -> object:
+    """Retain a compatible source value, otherwise use the MDL default."""
+
+    if source_shader is None:
+        return default_value
+    source_input = source_shader.GetInput(name)
+    if not source_input or source_input.GetTypeName() != value_type:
+        return default_value
+    source_value = source_input.Get()
+    return default_value if source_value is None else source_value
+
+
+def _author_complete_room_map_inputs(
+    shader: UsdShade.Shader,
+    source_shader: UsdShade.Shader | None,
+) -> None:
+    """Author every typed input before the runtime layer reaches Hydra."""
+
+    for name, value_type, default_value in _ROOM_MAP_INPUT_DEFAULTS:
+        existing_input = shader.GetInput(name)
+        if (
+            existing_input
+            and existing_input.GetTypeName() == value_type
+            and existing_input.Get() is not None
+        ):
+            continue
+        shader.CreateInput(name, value_type).Set(
+            _seed_input_value(
+                source_shader,
+                name,
+                value_type,
+                default_value,
+            )
+        )
+
+
+@dataclass(frozen=True)
+class _AtlasFamilySource:
+    """Pair one atlas asset with the number of valid UDIM variants."""
+
+    asset: Sdf.AssetPath
+    variant_count: int
+
+
+def _resolved_source_asset(
+    source_shader: UsdShade.Shader,
+    input_name: str,
+) -> Sdf.AssetPath | None:
+    """Resolve a source-layer asset before copying it to a runtime layer."""
+
+    shader_input = source_shader.GetInput(input_name)
+    value = shader_input.Get() if shader_input else None
+    if not isinstance(value, Sdf.AssetPath) or not value.path:
+        return None
+    if value.resolvedPath:
+        return Sdf.AssetPath(value.resolvedPath)
+    for spec in shader_input.GetAttr().GetPropertyStack():
+        if spec.default != value:
+            continue
+        resolved_path = Sdf.ComputeAssetPathRelativeToLayer(
+            spec.layer,
+            value.path,
+        )
+        return Sdf.AssetPath(resolved_path)
+    return value
+
+
+def _source_x1_atlas_family(
+    source_shader: UsdShade.Shader | None,
+) -> _AtlasFamilySource | None:
+    """Return the source material's authored x1 atlas contract."""
+
+    if source_shader is None:
+        return None
+    asset = _resolved_source_asset(source_shader, "room_atlas")
+    variant_input = source_shader.GetInput("room_variant_count")
+    variant_count = variant_input.Get() if variant_input else None
+    if asset is None or not isinstance(variant_count, int):
+        return None
+    return _AtlasFamilySource(asset, max(variant_count, 1))
+
+
+def _debug_atlas_family(
+    repository_root: Path,
+    room_size: int,
+) -> _AtlasFamilySource:
+    """Return one retained labelled atlas family for runtime diagnostics."""
+
     family_name = (
         "room_map_debug" if room_size == 1 else f"room_map_debug_x{room_size}"
     )
@@ -730,7 +981,24 @@ def _atlas_family_asset(
         / family_name
         / f"{family_name}.<UDIM>.png"
     )
-    return Sdf.AssetPath(atlas_path.as_posix())
+    return _AtlasFamilySource(
+        Sdf.AssetPath(atlas_path.as_posix()),
+        _DEBUG_ATLAS_VARIANT_COUNT,
+    )
+
+
+def _atlas_family_source(
+    repository_root: Path,
+    room_size: int,
+    source_shader: UsdShade.Shader | None,
+) -> _AtlasFamilySource:
+    """Use the authored x1 atlas and retained debug atlases for x2-x4."""
+
+    if room_size == 1:
+        source_x1 = _source_x1_atlas_family(source_shader)
+        if source_x1 is not None:
+            return source_x1
+    return _debug_atlas_family(repository_root, room_size)
 
 
 def author_family_materials(
@@ -738,14 +1006,22 @@ def author_family_materials(
     runtime_layer: Sdf.Layer,
     repository_root: Path,
     usable_room_sizes: frozenset[int],
+    window_prim_paths: Sequence[str],
 ) -> dict[int, UsdShade.Material]:
     """Create no more than one shared material instance per atlas family."""
 
-    source_shader = _find_source_room_map_shader(stage)
-    source_material = (
-        UsdShade.Material(source_shader.GetPrim().GetParent())
-        if source_shader
-        else None
+    bound_source = _find_bound_room_map_shader(
+        stage,
+        window_prim_paths,
+    )
+    source_material, source_shader = (
+        bound_source if bound_source else (None, None)
+    )
+    source_supports_room_families = bool(
+        source_shader
+        and _room_map_source_asset(source_shader).endswith(
+            "src/mdl/room_map.mdl"
+        )
     )
     materials = {}
     with Usd.EditContext(stage, runtime_layer):
@@ -759,12 +1035,21 @@ def author_family_materials(
                 Sdf.ValueTypeNames.Bool,
                 custom=False,
             ).Set(True)
-            if source_material:
+            if source_supports_room_families:
                 material.GetPrim().GetSpecializes().AddSpecialize(
                     source_material.GetPath()
                 )
+                relative_shader_path = (
+                    source_shader.GetPath().MakeRelativePath(
+                        source_material.GetPath()
+                    )
+                )
                 shader = UsdShade.Shader(
-                    stage.OverridePrim(f"{material_path}/Shader")
+                    stage.OverridePrim(
+                        Sdf.Path(material_path).AppendPath(
+                            relative_shader_path
+                        )
+                    )
                 )
             else:
                 shader = UsdShade.Shader.Define(
@@ -792,21 +1077,25 @@ def author_family_materials(
                     Sdf.ValueTypeNames.Token,
                     custom=False,
                 ).Set("room_map")
-                shader.CreateInput(
-                    "camera_position_world", Sdf.ValueTypeNames.Float3
-                ).Set(Gf.Vec3f(0.0))
-                shader.CreateInput(
-                    "room_variant_count", Sdf.ValueTypeNames.Int
-                ).Set(8)
                 shader_output = shader.CreateOutput(
                     "out", Sdf.ValueTypeNames.Token
                 )
                 material.CreateSurfaceOutput("mdl").ConnectToSource(
                     shader_output
                 )
-            shader.CreateInput("room_atlas", Sdf.ValueTypeNames.Asset).Set(
-                _atlas_family_asset(repository_root, room_size)
+            _author_complete_room_map_inputs(shader, source_shader)
+            atlas_family = _atlas_family_source(
+                repository_root,
+                room_size,
+                source_shader,
             )
+            shader.CreateInput("room_atlas", Sdf.ValueTypeNames.Asset).Set(
+                atlas_family.asset
+            )
+            shader.CreateInput(
+                "room_variant_count",
+                Sdf.ValueTypeNames.Int,
+            ).Set(atlas_family.variant_count)
             shader.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(
                 True
             )
@@ -819,30 +1108,50 @@ def author_family_bindings(
     runtime_layer: Sdf.Layer,
     result: ClassificationResult,
     materials: Mapping[int, UsdShade.Material],
-) -> None:
+) -> tuple[int, int]:
     """Bind one effective shared family material to every classified face."""
 
-    faces_by_subset: dict[tuple[str, int, int], list[int]] = defaultdict(list)
+    faces_by_family: dict[tuple[str, int], list[int]] = defaultdict(list)
     for mapping in result.mappings:
         if mapping.atlas_size in materials:
-            faces_by_subset[
-                (mapping.prim_path, mapping.group_id, mapping.atlas_size)
-            ].append(mapping.face_index)
+            faces_by_family[(mapping.prim_path, mapping.atlas_size)].append(
+                mapping.face_index
+            )
 
+    subset_count = 0
+    direct_mesh_binding_count = 0
     with Usd.EditContext(stage, runtime_layer):
-        for (prim_path, group_id, room_size), face_indices in sorted(
-            faces_by_subset.items()
-        ):
+        prim_paths = sorted(
+            {prim_path for prim_path, _size in faces_by_family}
+        )
+        for prim_path in prim_paths:
             mesh = UsdGeom.Mesh(stage.GetPrimAtPath(prim_path))
             if not mesh:
                 continue
-            subset = UsdGeom.Subset.CreateGeomSubset(
-                mesh,
-                f"ormsRoom{group_id}X{room_size}",
-                UsdGeom.Tokens.face,
-                Vt.IntArray(sorted(face_indices)),
-                "materialBind",
-            )
-            UsdShade.MaterialBindingAPI.Apply(subset.GetPrim()).Bind(
-                materials[room_size]
-            )
+            families = {
+                room_size: sorted(set(faces_by_family[(prim_path, room_size)]))
+                for path, room_size in faces_by_family
+                if path == prim_path
+            }
+            face_count = len(mesh.GetFaceVertexCountsAttr().Get() or ())
+            if len(families) == 1:
+                room_size, face_indices = next(iter(families.items()))
+                if face_indices == list(range(face_count)):
+                    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(
+                        materials[room_size]
+                    )
+                    direct_mesh_binding_count += 1
+                    continue
+            for room_size, face_indices in sorted(families.items()):
+                subset = UsdGeom.Subset.CreateGeomSubset(
+                    mesh,
+                    f"ormsFamilyX{room_size}",
+                    UsdGeom.Tokens.face,
+                    Vt.IntArray(face_indices),
+                    "materialBind",
+                )
+                UsdShade.MaterialBindingAPI.Apply(subset.GetPrim()).Bind(
+                    materials[room_size]
+                )
+                subset_count += 1
+    return subset_count, direct_mesh_binding_count

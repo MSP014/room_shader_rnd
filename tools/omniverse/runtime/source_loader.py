@@ -65,6 +65,10 @@ _RUNTIME_SOURCE_MODULES = {
         "tools.omniverse.shared_room.changes",
         "shared_room/changes.py",
     ),
+    "shared_room_material_diagnostics": (
+        "tools.omniverse.shared_room.material_diagnostics",
+        "shared_room/material_diagnostics.py",
+    ),
     "runtime_renderer_settings": (
         "tools.omniverse.runtime.renderer_settings",
         "runtime/renderer_settings.py",

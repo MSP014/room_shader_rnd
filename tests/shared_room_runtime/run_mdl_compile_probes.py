@@ -24,8 +24,8 @@ _SOURCE_ASSET_PATTERN = re.compile(
 _SOURCE_SUB_IDENTIFIER_PATTERN = re.compile(
     r'uniform token info:mdl:sourceAsset:subIdentifier = "[^"]+"'
 )
-_TINT_EXPRESSION = "tint: composited_room_colour"
-_EMISSION_EXPRESSION = "intensity: composited_room_colour * emission_strength"
+_TINT_EXPRESSION = "tint: glass_base_colour"
+_EMISSION_EXPRESSION = "intensity: visible_room_emission * emission_strength"
 _COMPILE_ERROR_PATTERNS = (
     "MDLC   comp error:",
     "Unable to find SdrShaderNode",

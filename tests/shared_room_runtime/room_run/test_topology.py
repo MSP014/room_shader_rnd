@@ -1,11 +1,15 @@
 """Protect deterministic aperture topology, graph isolation, and partitioning."""
 
+import math
+
 import pytest
 
 from tools.omniverse.room_run.classifier import (
+    ClassifierSettings,
     classify_apertures,
     partition_room_run,
 )
+from tools.omniverse.room_run.topology import _facade_bucket, _up_vector
 
 from ._support import _window
 
@@ -55,3 +59,27 @@ def test_branched_graph_falls_back_to_independent_x1_mappings():
     assert {diagnostic.state for diagnostic in result.diagnostics} == {
         "BRANCHED_GRAPH"
     }
+
+
+def test_arbitrary_facade_snap_wraps_equivalent_seam_normals():
+    settings = ClassifierSettings(facade_angle_snap_degrees=7.0)
+    apertures = [
+        _window(
+            f"seam_{index}",
+            1,
+            float(index),
+            tangent_u=(
+                math.sin(math.radians(angle)),
+                0.0,
+                -math.cos(math.radians(angle)),
+            ),
+        )
+        for index, angle in enumerate((180.0, -180.0))
+    ]
+
+    buckets = {
+        _facade_bucket(aperture, _up_vector("Y"), settings)
+        for aperture in apertures
+    }
+
+    assert len(buckets) == 1

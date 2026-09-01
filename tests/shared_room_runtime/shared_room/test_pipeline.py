@@ -9,7 +9,7 @@ from tools.omniverse.shared_room.pipeline import classify_stage
 from ._support import REPOSITORY_ROOT, _window_stage
 
 
-def test_stage_classification_reuses_four_family_materials_and_face_subsets():
+def test_stage_classification_authors_all_enabled_material_families():
     stage, mesh = _window_stage((1, 1, 2, 1, 1))
     owner = RuntimeLayerOwner(stage)
     runtime_layer = owner.attach()
@@ -108,6 +108,7 @@ def test_stage_classification_reports_ordered_runtime_phases():
     assert phases[0][1]["aperture_count"] == 5
     assert phases[1][1]["mapping_count"] == 5
     assert phases[3][1]["material_count"] == 4
-    assert phases[4][1]["subset_count"] == 3
+    assert phases[4][1]["subset_count"] == 2
+    assert phases[4][1]["direct_mesh_binding_count"] == 0
 
     owner.detach()

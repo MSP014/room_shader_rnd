@@ -45,14 +45,17 @@ def settings_from_mapping(
         metrics_mode=metrics_mode,
         local_up_axis=str(values.get("local_up_axis", "Y")),
         local_meters_per_unit=float(values.get("local_meters_per_unit", 1.0)),
-        edge_gap_tolerance_metres=float(
-            values.get("edge_gap_tolerance_metres", 0.65)
-        ),
         floor_tolerance_metres=float(
             values.get("floor_tolerance_metres", 0.25)
         ),
         minimum_vertical_overlap=float(
             values.get("minimum_vertical_overlap", 0.5)
+        ),
+        facade_angle_snap_degrees=float(
+            values.get("facade_angle_snap_degrees", 5.0)
+        ),
+        maximum_local_spacing_ratio=float(
+            values.get("maximum_local_spacing_ratio", 2.0)
         ),
         maximum_turn_degrees=float(values.get("maximum_turn_degrees", 100.0)),
         corner_turn_threshold_degrees=float(
@@ -76,9 +79,10 @@ def settings_from_kit() -> RuntimeClassifierSettings:
         "metrics_mode": METRICS_MODE_AUTO,
         "local_up_axis": "Y",
         "local_meters_per_unit": 1.0,
-        "edge_gap_tolerance_metres": 0.65,
         "floor_tolerance_metres": 0.25,
         "minimum_vertical_overlap": 0.5,
+        "facade_angle_snap_degrees": 5.0,
+        "maximum_local_spacing_ratio": 2.0,
         "maximum_turn_degrees": 100.0,
         "corner_turn_threshold_degrees": 60.0,
     }

@@ -8,6 +8,7 @@ from pxr import Sdf, Usd, UsdGeom, UsdShade
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_variants.usda"
 MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
+SINGLE_MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map_single.mdl"
 
 ROOM_IDS = (0, 1, 2, 2, 0, 1)
 
@@ -23,6 +24,11 @@ def _variant_index(room_id, variation_seed, variant_count):
     safe_variant_count = max(variant_count, 1)
     mixed_id = room_id * 1664525 + variation_seed * 1013904223
     return mixed_id % safe_variant_count
+
+
+def _udim_tile_offset(variant_index):
+    safe_variant_index = max(variant_index, 0)
+    return safe_variant_index % 10, safe_variant_index // 10
 
 
 def test_variant_stage_has_disconnected_windows_with_repeated_room_ids():
@@ -93,6 +99,21 @@ def test_variant_selection_is_deterministic_and_seedable():
     assert seed_zero[2] == seed_zero[3]
     assert seed_zero != seed_one
     assert _variant_index(42, 7, 0) == 0
+
+
+def test_mdl_maps_variants_across_canonical_udim_rows():
+    assert _udim_tile_offset(0) == (0, 0)
+    assert _udim_tile_offset(9) == (9, 0)
+    assert _udim_tile_offset(10) == (0, 1)
+    assert _udim_tile_offset(55) == (5, 5)
+
+    for mdl_path in (MDL_PATH, SINGLE_MDL_PATH):
+        source = mdl_path.read_text(encoding="utf-8")
+        assert "int tile_u = safe_variant_index % 10;" in source
+        assert "int tile_v = safe_variant_index / 10;" in source
+        assert (
+            "atlas_coordinate + float2(float(tile_u), float(tile_v))" in source
+        )
 
 
 def test_mdl_uses_room_id_for_all_five_existing_atlas_lookups():

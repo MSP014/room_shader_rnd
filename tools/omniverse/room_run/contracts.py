@@ -7,7 +7,7 @@ from dataclasses import dataclass
 Vector3 = tuple[float, float, float]
 Float4 = tuple[float, float, float, float]
 
-CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v46"
+CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v47"
 
 _EPSILON = 1.0e-8
 _DERIVED_ID_LIMIT = 2_147_483_647
@@ -33,17 +33,45 @@ class ApertureDescriptor:
 
 @dataclass(frozen=True)
 class ClassifierSettings:
-    """Pure classifier settings expressed in metres and degrees."""
+    """Pure geometry policy expressed in metres, ratios, and degrees.
+
+    Floor tolerance and vertical overlap establish one row. Facade snap
+    establishes orientation buckets before local ordering. The spacing ratio
+    compares centre spacing with a facade-local pitch, or with aperture width
+    when a local pitch cannot be inferred. Maximum turn limits graph edges;
+    the lower corner threshold selects the bounded corner mapping inside an
+    already accepted linear component.
+    """
 
     enabled_room_sizes: frozenset[int] = frozenset({1, 2, 3, 4})
     available_room_sizes: frozenset[int] = frozenset({1, 2, 3, 4})
     partition_seed: int = 0
-    edge_gap_tolerance_metres: float = 0.65
     floor_tolerance_metres: float = 0.25
     minimum_vertical_overlap: float = 0.5
+    facade_angle_snap_degrees: float = 5.0
+    maximum_local_spacing_ratio: float = 2.0
     maximum_turn_degrees: float = 100.0
     corner_turn_threshold_degrees: float = 60.0
     identity_quantisation_metres: float = 0.001
+
+
+@dataclass(frozen=True)
+class ClassificationSummary:
+    """Deterministic topology counters exposed to runtime diagnostics."""
+
+    spacing_model: str = "facade_median_centre_spacing_with_width_fallback"
+    building_count: int = 0
+    row_count: int = 0
+    facade_count: int = 0
+    straight_candidate_count: int = 0
+    transition_candidate_count: int = 0
+    accepted_straight_edge_count: int = 0
+    accepted_transition_edge_count: int = 0
+    rejected_room_id_edge_count: int = 0
+    rejected_spacing_edge_count: int = 0
+    local_pitch_min_metres: float | None = None
+    local_pitch_max_metres: float | None = None
+    group_size_counts: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -108,3 +136,4 @@ class ClassificationResult:
     mappings: tuple[DerivedApertureMapping, ...]
     groups: tuple[RoomGroup, ...]
     diagnostics: tuple[ClassifierDiagnostic, ...]
+    summary: ClassificationSummary = ClassificationSummary()

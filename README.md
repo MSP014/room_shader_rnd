@@ -2,9 +2,10 @@
 
 > Building scalable parallax interiors with OpenUSD and NVIDIA MDL
 
-**Status**: MDL room, depth-slice, UDIM-variation, and shared-room baselines
-validated across Omniverse-authored and Houdini-exported fixtures • Building
-150 integration is the next production milestone
+**Status**: Renderer-validated ORMS core and Building 150 production
+integration complete with adaptive x1–x4 rooms, real x1 content, independent
+glass controls, and luminance-selected emission • artist-facing Kit packaging,
+real x2–x4 content, and urban-scale performance evidence remain planned
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
@@ -154,10 +155,10 @@ with no suggestion of the spaces or activity behind the glass.
 The goal of this RnD remains to create a native MDL Room Map material and carry
 it through to production applicability. The renderer-validated technical core
 now establishes the material, OpenUSD data contract, runtime classification,
-and retained DCC-to-Omniverse evidence. The next step is to apply that result to
-the real Building 150 asset, replacing its repetitive mirrored windows with
-view-dependent interiors that make the building feel occupied and varied
-without requiring every room to be modelled.
+and retained DCC-to-Omniverse evidence. That result has been applied to the
+real Building 150 asset: ORMS replaces the repetitive mirrored-window baseline
+with view-dependent interiors while preserving the building's non-window
+materials and avoiding physical geometry for every room.
 
 ![Starting asset — Building 150 on Moskovsky Avenue in Omniverse](docs/img/msk_150_omniverse.jpg)
 
@@ -209,8 +210,9 @@ S1–S4 order.*
 
 ### Deterministic Room Variation Across Omniverse-Authored and DCC-Exported Geometry
 
-The next stage stores three complete diagnostic interiors in one UDIM sequence
-and selects them inside MDL from an integer `roomID` and material-level seed.
+The following completed stage stored three diagnostic interiors in one UDIM
+sequence and selected them inside MDL from an integer `roomID` and
+material-level seed.
 Disconnected windows carrying the same identifier retain the same green, red,
 or blue room without requiring separate material bindings.
 
@@ -252,7 +254,7 @@ depth slices, and deterministic variation in one overview. Flat windows,
 faceted bays, and right-angle facade turns retain one continuous room
 perspective in both RTX renderer modes.*
 
-### Current Prototype Boundary
+### Current Validated Boundary
 
 #### Validated now
 
@@ -274,11 +276,21 @@ perspective in both RTX renderer modes.*
 - Shared coherent room volumes across automatically classified flat, bay, and
   right-angle window groups in both Omniverse-authored and Houdini-exported
   validation fixtures.
+- Production validation on all 232 Building 150 window apertures with adaptive
+  floor- and façade-local classification across x1–x4 families while retaining
+  the source asset and every non-window material binding.
+- Independent one-surface glass roughness, reflectivity, tint, and artistic
+  transmission controls shared across all active room families.
+- A 56-variant real x1 atlas with canonical multi-row UDIM addressing;
+  labelled eight-variant debug atlases remain active for x2–x4.
+- Luminance-selected interior emission with threshold, softness, strength, and
+  independent depth-slice eligibility, validated in both RTX renderer modes.
 
-#### Not implemented yet
+#### Remaining boundaries
 
-- Production glass integration.
-- Full Building 150 façade integration.
+- Artist-facing Kit extension lifecycle, assignment UI, and distribution.
+- Real production atlas content for x2, x3, and x4 room families.
+- Optional ORMS 2.0 glass contamination and parallax art-direction controls.
 - A geometry-versus-Room-Map performance benchmark.
 
 ---
@@ -289,28 +301,33 @@ The material-side R&D is complemented by an existing Houdini content-generation
 workflow. A procedural Solaris / Karma XPU / PDG / Copernicus pipeline can
 generate Room Map libraries by varying wallpaper, lighting, curtains, props,
 and depth-slice content. This content factory is a separate upstream authoring
-system, not part of the MDL shader itself. Current renderer validation uses the
-diagnostic UDIM variants shown above; production content integration begins
-only when ORMS is exercised on the real Building 150 asset.
+system, not part of the MDL shader itself. Current Building 150 validation uses
+a 56-variant real x1 atlas together with the retained labelled x2–x4 debug
+families. Real x2–x4 production content remains an upstream asset milestone.
 
 ## Production Validation Path
 
-The technical R&D core is close to complete. The next stage moves from isolated
-fixtures to real production geometry, then scales the accepted contract from
-one building to an urban digital-twin context.
+The technical R&D core and the first production-building integration are
+complete. The remaining validation path scales the accepted contract from one
+building to an urban digital-twin context and packages it as an artist-facing
+workflow.
 
-### Stage 1: Building 150 Integration
+### Stage 1: Building 150 Integration — Complete
 
-1. Apply the current ORMS material contract to the real Building 150 USD asset.
-2. Validate real window proportions, hierarchy, orientation, and material
-   bindings.
-3. Integrate production room atlases and deterministic façade-wide variation.
-4. Add production glass integration without breaking the PIM result.
-5. Capture an exterior camera move demonstrating visible parallax.
-6. Establish the fixed Building 150 geometry and ORMS cases required by the
-   performance benchmark.
+1. Applied the ORMS material contract to the real Building 150 USD asset
+   without modifying its source layers.
+2. Validated all 232 window apertures, hierarchy, orientation, adaptive room
+   grouping, and material-binding isolation.
+3. Integrated the 56-variant real x1 atlas and retained correctly bounded debug
+   families for x2–x4 until their real content exists.
+4. Added independent one-surface glass and luminance-selected emission without
+   breaking the PIM result or increasing its five-lookup budget.
+5. Accepted exterior camera motion and both RTX renderer modes with stable room
+   identity, parallax, reflections, and source materials.
+6. Retained the fixed Building 150 fixture for a future performance benchmark;
+   no geometry-versus-ORMS result is claimed by this integration milestone.
 
-### Stage 2: Urban Digital-Twin Scale
+### Stage 2: Urban Digital-Twin Scale — Planned
 
 1. Apply the accepted workflow to a family of several building assets.
 2. Assemble those buildings into multiple city blocks.
@@ -493,9 +510,9 @@ The validated integration contracts now include:
 - Dedicated `roomUV` transport from DCC geometry.
 - Deterministic `roomID`-to-UDIM variant selection.
 
-### Phase 3: Renderer-Validated Technical Core — Substantially complete
+### Phase 3: Renderer-Validated Technical Core — Complete
 
-The renderer-validated prototype supports:
+The renderer-validated implementation supports:
 
 - A common centred virtual-room scale across square, landscape, and portrait
   windows in Omniverse-authored and Houdini-exported test geometry.
@@ -512,22 +529,27 @@ The renderer-validated prototype supports:
 - Deterministic family fallback, manual Preferences, and runtime lifecycle
   behaviour validated in retained Omniverse-authored and Houdini-exported
   fixtures.
+- Adaptive floor- and façade-local room classification on Building 150 with
+  source-safe x1–x4 bindings and no building-specific spacing constant.
+- Independent glass roughness, reflectivity, tint, and artistic transmission.
+- A real 56-variant x1 atlas and luminance-selected emission with independent
+  per-depth-slice eligibility in both required renderer modes.
 
 The remaining work no longer concerns the core PIM mathematics. It concerns
-production packaging, deployment, asset integration, performance evidence, and
-workflow polish.
+production packaging, deployment, real x2–x4 content, performance evidence,
+urban-scale validation, and workflow polish.
 
-### Phase 4: Productionisation — Planned
+### Phase 4: Productionisation — In progress
 
-The production phase will:
+The production phase has completed Building 150 integration. Its remaining
+scope will:
 
 - package the camera bridge and classifier as a persistent Kit extension;
 - replace the manual R&D startup path with an artist-facing UI and controlled
   application lifecycle;
 - provide repeatable installation, configuration, diagnostics, and extension
   distribution;
-- integrate ORMS into the real Building 150 USD asset with production glass and
-  room content;
+- add real x2–x4 atlas content beyond the accepted real x1 family;
 - scale the workflow to a family of buildings assembled into several city
   blocks; and
 - complete the controlled geometry-versus-ORMS performance benchmark.
@@ -538,12 +560,12 @@ The production phase will:
 
 This benchmark is planned; no performance result is claimed yet. ORMS is
 designed to reduce the amount of physical interior geometry and scene
-complexity required for exterior-facing urban visualisation. Building 150 will
-be the fixed test asset, with approximately 250 visible windows or apparent
-rooms. A conventional reference will use procedurally distributed instanced
-proxy interior assets whose geometry budgets are derived from representative
-real-time or low-poly furniture assets. The PIM version will use the same
-building, camera path, and render settings.
+complexity required for exterior-facing urban visualisation. Building 150 is
+the fixed test asset, with 232 validated window apertures. A conventional
+reference will use procedurally distributed instanced proxy interior assets
+whose geometry budgets are derived from representative real-time or low-poly
+furniture assets. The PIM version will use the same building, camera path, and
+render settings.
 
 The comparison will record GPU frame time or FPS, VRAM, scene load time, and
 USD prim or instance count, plus geometry statistics where practical.
@@ -627,8 +649,10 @@ virtual rooms shared across flat, bay, and right-angle window groups. The same
 runtime contract is retained in isolated Omniverse-authored and Houdini-exported
 fixtures. A dedicated `roomUV` contract preserves ordinary asset UVs, while the
 runtime classifier derives shared-room mappings without permanent edits to
-source USD assets. Production façade integration, building-scale profiling,
-and packaged Kit extension work remain separate boundaries.
+source USD assets. Building 150 production integration now adds adaptive
+x1–x4 grouping, real x1 content, independent glass controls, and selective
+interior emission. Multi-building profiling and packaged Kit extension work
+remain separate boundaries.
 
 The retained evidence demonstrates:
 
@@ -656,9 +680,14 @@ The retained evidence demonstrates:
 Composer and follow the
 [single-room parallax contract](docs/knowledge_base/mdl/005_single_room_parallax.md).
 
-**Current multi-window proof**: Open
+**Retained multi-window proof**: Open
 `tests/shared_room_runtime/test_room_map_shared_rooms_omniverse.usda` and follow the
 [shared-room contract](docs/knowledge_base/mdl/009_shared_multi_window_rooms.md).
+
+**Current production integration**: Follow the
+[Building 150 integration record](docs/knowledge_base/mdl/010_building_150_integration.md)
+for the external-asset boundary, fixture, renderer evidence, material controls,
+and completed validation sequence.
 
 ---
 
@@ -694,7 +723,11 @@ Your support funds:
 
 ## 📜 Changelog
 
-* **Week of 31 August, 2026:** Completed the renderer-validated ORMS technical core with eight deterministic UDIM variants, physical aperture controls, automatic x1–x4 shared rooms across flat, bay, and bounded corner layouts, reversible instance handling, and retained Omniverse-authored and Houdini-exported OpenUSD evidence in RTX Real-Time and RTX Interactive.
+* **Week of 31 August, 2026:** Completed the renderer-validated ORMS technical
+  core and Building 150 production integration: adaptive x1–x4 rooms across
+  232 apertures, source-safe material bindings, a 56-variant real x1 atlas,
+  independent one-surface glass controls, luminance-selected per-slice
+  emission, and accepted RTX Real-Time and RTX Interactive evidence.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

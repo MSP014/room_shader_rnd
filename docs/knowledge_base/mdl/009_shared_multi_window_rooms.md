@@ -160,13 +160,17 @@ x1–x4 atlas family. Each runtime material specialises the canonical source
 `room_map` material and overrides only `room_atlas`. Artist inputs such as
 `window_aperture_scale`, room depth, slice controls, and variation settings
 therefore have one source of truth and continue to compose into every family.
-Each family uses tiles `1001…1008` from its own directory under
-`assets/_external/tex/`. Face subsets bind the selected family without
-changing the source material binding. A rectangular corner may bind two such
-subsets on one mesh, keyed by the same group identity but different xA/xB
-families. Atlas family is deliberately separate from the common box width and
-orientation. The shared `roomID` selects the same variant number in both
-families.
+The retained labelled debug families use tiles `1001…1008` from their own
+directories under `assets/_external/tex/`. The source material may instead
+author an independent x1 atlas and matching variant count. Canonical UDIM
+addressing uses ten tiles per row, so variant index `n` maps to
+`(u = n % 10, v = n / 10)` and can continue beyond tile `1010`. Face subsets
+bind the selected family without changing the source material binding. A
+rectangular corner may bind two such subsets on one mesh, keyed by the same
+group identity but different xA/xB families. Atlas family is deliberately
+separate from the common box width and orientation. Matching production
+families must retain compatible variant identity when both sides of one room
+use different atlas sizes.
 
 The MDL material consumes `ormsRoomParameters` and the baked
 `ormsRoomMapPosition`, scales virtual width by the decoded room width, and

@@ -104,6 +104,25 @@ def test_single_room_module_uses_the_frame_camera_and_five_face_atlas_contract()
     assert "uniform int variation_seed = 0" in source
     assert "int variant_index = select_room_variant(" in source
     assert "udim_atlas_coordinate(atlas_coordinate, variant_index)" in source
+    assert "float glass_roughness = 0.1" in source
+    assert "float glass_reflectivity = 0.04" in source
+    assert "color glass_tint = color(1.0)" in source
+    assert "float glass_transmission = 1.0" in source
+    assert "bool enable_emission = false" in source
+    assert "float emission_threshold = 0.8" in source
+    assert "float emission_softness = 0.1" in source
+    assert "float room_emission_mask(" in source
+    assert "float3(source_colour)" in source
+    assert "math::smoothstep(" in source
+    assert (
+        "tinted_room_colour * safe_glass_transmission * luminous_room_mask"
+        in source
+    )
+    assert "bsdf room_behind_glass = df::custom_curve_layer(" in source
+    assert "normal_reflectivity: safe_glass_reflectivity" in source
+    assert "scattering: room_behind_glass" in source
+    assert "mode: df::scatter_reflect" in source
+    assert "mode: df::scatter_reflect_transmit" not in source
     assert "bridged_camera_position_world - room_position" in source
     assert "float tangent_u_extent = math::length(tangent_u_raw);" in source
     assert "float tangent_v_extent = math::length(tangent_v_raw);" in source

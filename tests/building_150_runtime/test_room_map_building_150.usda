@@ -1,0 +1,74 @@
+#usda 1.0
+
+# KRM-98 validation wrapper over the immutable Building 150 component asset.
+# Runtime ORMS opinions belong in the Session Layer, not this source fixture.
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Building 150 production-asset validation wrapper"
+        string "orms:jira" = "KRM-98"
+        string "orms:sourceAsset" = "assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def DomeLight "RoomMapEnvironment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Xform "Building150" (
+        prepend references = @../../assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd@</Moskovskiy_av_150>
+    )
+    {
+        over "geo"
+        {
+            over "render"
+            {
+                over "Windows_Glass" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/RoomMapSource>
+                }
+            }
+        }
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMapSource"
+        {
+            token outputs:mdl:surface.connect = </World/Looks/RoomMapSource/Shader.outputs:out>
+
+            def Shader "Shader"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../../src/mdl/room_map_single.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
+                float3 inputs:camera_position_world = (30, 16, 75)
+                bool inputs:enable_emission = 1
+                float inputs:emission_softness = 0.1
+                float inputs:emission_strength = 5
+                float inputs:emission_threshold = 0.8
+                float inputs:glass_reflectivity = 0.04
+                float inputs:glass_roughness = 0.1
+                color3f inputs:glass_tint = (1, 1, 1)
+                float inputs:glass_transmission = 1
+                asset inputs:room_atlas = @../../assets/_external/tex/room_maps/room_map.<UDIM>.png@
+                float inputs:room_depth = 1
+                int inputs:room_variant_count = 56
+                int inputs:variation_seed = 0
+                token outputs:out
+            }
+        }
+    }
+}

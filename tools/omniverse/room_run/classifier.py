@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter
+from dataclasses import replace
 from typing import Iterable
 
 from .contracts import (
     CLASSIFIER_CONTRACT_VERSION,
     ApertureDescriptor,
     ClassificationResult,
+    ClassificationSummary,
     ClassifierDiagnostic,
     ClassifierSettings,
     DerivedApertureMapping,
@@ -22,7 +24,7 @@ from .mapping import (
     _group_mappings,
 )
 from .topology import (
-    _are_adjacent,
+    _build_adjacency_graph,
     _connected_components,
     _derived_id,
     _frame_is_valid,
@@ -37,6 +39,7 @@ __all__ = [
     "CLASSIFIER_CONTRACT_VERSION",
     "ApertureDescriptor",
     "ClassificationResult",
+    "ClassificationSummary",
     "ClassifierDiagnostic",
     "ClassifierSettings",
     "DerivedApertureMapping",
@@ -115,198 +118,179 @@ def classify_apertures(
             diagnostics=tuple(diagnostics),
         )
 
-    # Equal roomID values remain isolated by building root; disconnected runs
-    # inside a bucket are separated by the physical adjacency graph below.
-    buckets: dict[tuple[str, int], list[ApertureDescriptor]] = defaultdict(
-        list
+    # Establish rows and facade-local indices across every window before
+    # roomID filtering. Equal IDs therefore cannot skip an intervening window.
+    valid_tuple = tuple(valid_apertures)
+    adjacency, connections, summary = _build_adjacency_graph(
+        valid_tuple,
+        up,
+        settings,
     )
-    for aperture in valid_apertures:
-        buckets[(aperture.building_root, aperture.room_id)].append(aperture)
 
-    for (building_root, room_id), bucket in sorted(buckets.items()):
-        bucket_tuple = tuple(
-            sorted(
-                bucket,
-                key=lambda aperture: _sort_key(
-                    aperture, settings.identity_quantisation_metres
-                ),
-            )
+    # Each connected component must linearise cleanly before it can share a
+    # virtual room. Ambiguous topology degrades locally, never speculatively.
+    for component in _connected_components(adjacency):
+        first = valid_tuple[component[0]]
+        building_root = first.building_root
+        room_id = first.room_id
+        ordered_indices, fallback_state = _order_linear_component(
+            component,
+            adjacency,
+            connections,
+            valid_tuple,
+            settings,
         )
-        # Build an undirected endpoint graph from metric-space aperture bounds.
-        adjacency = {index: set() for index in range(len(bucket_tuple))}
-        connections = {}
-        for left_index, left in enumerate(bucket_tuple):
-            for right_index in range(left_index + 1, len(bucket_tuple)):
-                right = bucket_tuple[right_index]
-                adjacent, connection = _are_adjacent(
-                    left,
-                    right,
+        if ordered_indices is None:
+            for index in component:
+                aperture = valid_tuple[index]
+                mappings.append(
+                    _fallback_mapping(
+                        aperture, fallback_state or "INVALID_GRAPH"
+                    )
+                )
+            diagnostics.append(
+                ClassifierDiagnostic(
+                    state=fallback_state or "INVALID_GRAPH",
+                    prim_path=valid_tuple[component[0]].prim_path,
+                    details=(
+                        ("building_root", building_root),
+                        ("room_id", room_id),
+                        ("aperture_count", len(component)),
+                    ),
+                )
+            )
+            continue
+
+        run = tuple(valid_tuple[index] for index in ordered_indices)
+        run_key = _run_stable_key(run, settings)
+        corner_turns = _corner_turn_positions(
+            run,
+            settings.corner_turn_threshold_degrees,
+        )
+        if len(corner_turns) > 1:
+            for index in ordered_indices:
+                mappings.append(
+                    _fallback_mapping(
+                        valid_tuple[index], "MULTI_CORNER_LAYOUT"
+                    )
+                )
+            diagnostics.append(
+                ClassifierDiagnostic(
+                    state="MULTI_CORNER_LAYOUT",
+                    prim_path=run[0].prim_path,
+                    details=(
+                        ("building_root", building_root),
+                        ("room_id", room_id),
+                        ("aperture_count", len(run)),
+                        ("corner_count", len(corner_turns)),
+                    ),
+                )
+            )
+            continue
+
+        # One bounded corner may retain both legs in a single room box;
+        # unsupported leg sizes partition independently as straight runs.
+        group_specs = []
+        if corner_turns:
+            split_index = corner_turns[0]
+            leg_sizes = (split_index, len(run) - split_index)
+            corner_room_size = max(leg_sizes)
+            if max(leg_sizes) <= 4 and set(leg_sizes) <= usable_sizes:
+                group_specs.append(
+                    (
+                        run,
+                        tuple(ordered_indices),
+                        corner_room_size,
+                        min(leg_sizes),
+                    )
+                )
+            else:
+                for leg_number, (leg_start, leg_end) in enumerate(
+                    ((0, split_index), (split_index, len(run)))
+                ):
+                    leg = run[leg_start:leg_end]
+                    leg_indices = tuple(ordered_indices[leg_start:leg_end])
+                    partitions = partition_room_run(
+                        len(leg),
+                        usable_sizes,
+                        settings.partition_seed,
+                        f"{run_key}|leg={leg_number}",
+                    )
+                    offset = 0
+                    for group_size in partitions:
+                        group_specs.append(
+                            (
+                                leg[offset : offset + group_size],
+                                leg_indices[offset : offset + group_size],
+                                group_size,
+                                1,
+                            )
+                        )
+                        offset += group_size
+        else:
+            partitions = partition_room_run(
+                len(run),
+                usable_sizes,
+                settings.partition_seed,
+                run_key,
+            )
+            offset = 0
+            for group_size in partitions:
+                group_specs.append(
+                    (
+                        run[offset : offset + group_size],
+                        tuple(ordered_indices[offset : offset + group_size]),
+                        group_size,
+                        1,
+                    )
+                )
+                offset += group_size
+
+        # Convert every accepted group directly into the affine mapping that
+        # MDL consumes, keeping scene analysis out of fragment evaluation.
+        for group_number, (
+            group_apertures,
+            group_indices,
+            group_size,
+            group_depth_size,
+        ) in enumerate(group_specs):
+            group_key = (
+                f"{run_key}|group={group_number}|width={group_size}|"
+                f"depth={group_depth_size}|apertures={len(group_apertures)}"
+            )
+            group_id = _derived_id(group_key)
+            groups.append(
+                RoomGroup(
+                    stable_key=group_key,
+                    derived_id=group_id,
+                    room_id=room_id,
+                    building_root=building_root,
+                    aperture_keys=tuple(
+                        aperture.key for aperture in group_apertures
+                    ),
+                    room_size=group_size,
+                    room_depth_size=group_depth_size,
+                )
+            )
+            mappings.extend(
+                _group_mappings(
+                    group_apertures,
+                    group_indices,
+                    connections,
                     up,
+                    group_key,
+                    group_size,
+                    group_depth_size,
                     settings,
                 )
-                if not adjacent:
-                    continue
-                adjacency[left_index].add(right_index)
-                adjacency[right_index].add(left_index)
-                connections[(left_index, right_index)] = connection
-
-        # Each connected component must linearise cleanly before it can share a
-        # virtual room. Ambiguous topology degrades locally, never speculatively.
-        for component in _connected_components(adjacency):
-            ordered_indices, fallback_state = _order_linear_component(
-                component,
-                adjacency,
-                connections,
-                bucket_tuple,
-                settings,
             )
-            if ordered_indices is None:
-                for index in component:
-                    aperture = bucket_tuple[index]
-                    mappings.append(
-                        _fallback_mapping(
-                            aperture, fallback_state or "INVALID_GRAPH"
-                        )
-                    )
-                diagnostics.append(
-                    ClassifierDiagnostic(
-                        state=fallback_state or "INVALID_GRAPH",
-                        prim_path=bucket_tuple[component[0]].prim_path,
-                        details=(
-                            ("building_root", building_root),
-                            ("room_id", room_id),
-                            ("aperture_count", len(component)),
-                        ),
-                    )
-                )
-                continue
 
-            run = tuple(bucket_tuple[index] for index in ordered_indices)
-            run_key = _run_stable_key(run, settings)
-            corner_turns = _corner_turn_positions(
-                run,
-                settings.corner_turn_threshold_degrees,
-            )
-            if len(corner_turns) > 1:
-                for index in ordered_indices:
-                    mappings.append(
-                        _fallback_mapping(
-                            bucket_tuple[index], "MULTI_CORNER_LAYOUT"
-                        )
-                    )
-                diagnostics.append(
-                    ClassifierDiagnostic(
-                        state="MULTI_CORNER_LAYOUT",
-                        prim_path=run[0].prim_path,
-                        details=(
-                            ("building_root", building_root),
-                            ("room_id", room_id),
-                            ("aperture_count", len(run)),
-                            ("corner_count", len(corner_turns)),
-                        ),
-                    )
-                )
-                continue
-
-            # One bounded corner may retain both legs in a single room box;
-            # unsupported leg sizes partition independently as straight runs.
-            group_specs = []
-            if corner_turns:
-                split_index = corner_turns[0]
-                leg_sizes = (split_index, len(run) - split_index)
-                corner_room_size = max(leg_sizes)
-                if max(leg_sizes) <= 4 and set(leg_sizes) <= usable_sizes:
-                    group_specs.append(
-                        (
-                            run,
-                            tuple(ordered_indices),
-                            corner_room_size,
-                            min(leg_sizes),
-                        )
-                    )
-                else:
-                    for leg_number, (leg_start, leg_end) in enumerate(
-                        ((0, split_index), (split_index, len(run)))
-                    ):
-                        leg = run[leg_start:leg_end]
-                        leg_indices = tuple(ordered_indices[leg_start:leg_end])
-                        partitions = partition_room_run(
-                            len(leg),
-                            usable_sizes,
-                            settings.partition_seed,
-                            f"{run_key}|leg={leg_number}",
-                        )
-                        offset = 0
-                        for group_size in partitions:
-                            group_specs.append(
-                                (
-                                    leg[offset : offset + group_size],
-                                    leg_indices[offset : offset + group_size],
-                                    group_size,
-                                    1,
-                                )
-                            )
-                            offset += group_size
-            else:
-                partitions = partition_room_run(
-                    len(run),
-                    usable_sizes,
-                    settings.partition_seed,
-                    run_key,
-                )
-                offset = 0
-                for group_size in partitions:
-                    group_specs.append(
-                        (
-                            run[offset : offset + group_size],
-                            tuple(
-                                ordered_indices[offset : offset + group_size]
-                            ),
-                            group_size,
-                            1,
-                        )
-                    )
-                    offset += group_size
-
-            # Convert every accepted group directly into the affine mapping that
-            # MDL consumes, keeping scene analysis out of fragment evaluation.
-            for group_number, (
-                group_apertures,
-                group_indices,
-                group_size,
-                group_depth_size,
-            ) in enumerate(group_specs):
-                group_key = (
-                    f"{run_key}|group={group_number}|width={group_size}|"
-                    f"depth={group_depth_size}|apertures={len(group_apertures)}"
-                )
-                group_id = _derived_id(group_key)
-                groups.append(
-                    RoomGroup(
-                        stable_key=group_key,
-                        derived_id=group_id,
-                        room_id=room_id,
-                        building_root=building_root,
-                        aperture_keys=tuple(
-                            aperture.key for aperture in group_apertures
-                        ),
-                        room_size=group_size,
-                        room_depth_size=group_depth_size,
-                    )
-                )
-                mappings.extend(
-                    _group_mappings(
-                        group_apertures,
-                        group_indices,
-                        connections,
-                        up,
-                        group_key,
-                        group_size,
-                        group_depth_size,
-                        settings,
-                    )
-                )
-
+    summary = replace(
+        summary,
+        group_size_counts=tuple(
+            sorted(Counter(group.room_size for group in groups).items())
+        ),
+    )
     return ClassificationResult(
         mappings=tuple(sorted(mappings, key=lambda item: item.aperture_key)),
         groups=tuple(sorted(groups, key=lambda item: item.stable_key)),
@@ -320,4 +304,5 @@ def classify_apertures(
                 ),
             )
         ),
+        summary=summary,
     )

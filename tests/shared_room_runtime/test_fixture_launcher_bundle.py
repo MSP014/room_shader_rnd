@@ -51,6 +51,11 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
     assert '"Unable to find SdrShaderNode"' in runner
     assert 'terminal = "COMPILE_ERROR"' in runner
     assert 'sourceAsset:subIdentifier = "room_map"' in runner
+    assert '_TINT_EXPRESSION = "tint: glass_base_colour"' in runner
+    assert (
+        '_EMISSION_EXPRESSION = "intensity: visible_room_emission '
+        '* emission_strength"' in runner
+    )
 
 
 def test_minimal_compile_probe_covers_fail_open_binary_backface_cutout():

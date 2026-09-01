@@ -27,15 +27,7 @@ else:
         stop_runtime_modules,
     )
 
-_CONTRACT_VERSION = "shared_room_runtime_v46"
-_RUNTIME_CAMERA_INPUT_PATHS = (
-    "/World.primvars:ormsCameraPositionWorld",
-) + tuple(
-    f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader"
-    ".inputs:camera_position_world"
-    for room_size in range(1, 5)
-)
-
+_CONTRACT_VERSION = "shared_room_runtime_v47"
 _ROOM_RUN_DEPENDENCY_ORDER = (
     "room_run_contracts",
     "room_run_topology",
@@ -48,6 +40,7 @@ _SHARED_ROOM_DEPENDENCY_ORDER = (
     "shared_room_pipeline",
     "shared_room_settings",
     "shared_room_changes",
+    "shared_room_material_diagnostics",
     "shared_room_preferences",
 )
 
@@ -109,10 +102,17 @@ def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
 
     stage = omni.usd.get_context().get_stage()
     initial_camera_position = bridge.active_camera_world_position(stage)
+    camera_primvar_required = bool(
+        stage is not None and shared.camera_position_primvar_required(stage)
+    )
     camera_primvar_preexisting = bool(
         stage is not None and shared.camera_position_primvar_exists(stage)
     )
-    if stage is not None and initial_camera_position is not None:
+    if (
+        stage is not None
+        and initial_camera_position is not None
+        and camera_primvar_required
+    ):
         camera_primvar_path = shared.seed_camera_position_primvar(
             stage,
             initial_camera_position,
@@ -141,6 +141,7 @@ def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
             details={
                 "stage_available": stage is not None,
                 "camera_available": initial_camera_position is not None,
+                "camera_primvar_required": camera_primvar_required,
                 "before_classifier_start": True,
                 "preexisting_before_runtime": camera_primvar_preexisting,
             },
@@ -167,7 +168,7 @@ def reload_and_start(repository_root: str | Path):
             "corners": "; ".join(corner_summaries),
         },
     )
-    camera_bridge = bridge.start(_RUNTIME_CAMERA_INPUT_PATHS)
+    camera_bridge = bridge.start(classifier.camera_input_paths)
     return classifier, camera_bridge
 
 

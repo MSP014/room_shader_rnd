@@ -26,7 +26,7 @@ def test_mdl_records_use_the_indexed_heading_contract():
     index = INDEX_PATH.read_text(encoding="utf-8")
 
     assert [path.name[:3] for path in records] == [
-        f"{number:03d}" for number in range(1, 10)
+        f"{number:03d}" for number in range(1, 11)
     ]
     for path in records:
         source = path.read_text(encoding="utf-8")

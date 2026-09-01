@@ -48,6 +48,47 @@ def test_floor_sequences_are_classified_independently():
     assert _group_sizes_in_geometry_order(result, floor_2) == [2, 2, 1, 1, 1]
 
 
+def test_facade_local_spacing_is_scale_independent():
+    compact = [_window(f"w{index}", 11, index * 3.0) for index in range(3)]
+    large = [
+        _window(
+            f"large_{index}",
+            12,
+            index * 30.0,
+            width=10.0,
+            height=10.0,
+        )
+        for index in range(3)
+    ]
+
+    compact_result = classify_apertures(compact)
+    large_result = classify_apertures(large)
+
+    assert [group.room_size for group in compact_result.groups] == [3]
+    assert [group.room_size for group in large_result.groups] == [3]
+    assert compact_result.summary.rejected_spacing_edge_count == 0
+    assert large_result.summary.rejected_spacing_edge_count == 0
+
+
+def test_different_facade_spacings_are_classified_independently():
+    front = [_window(f"w{index}", 21, index * 3.0) for index in range(3)]
+    back = [
+        _window(
+            f"back_{index}",
+            22,
+            index * 1.1,
+            z=10.0,
+            tangent_u=(-1.0, 0.0, 0.0),
+        )
+        for index in range(3)
+    ]
+
+    result = classify_apertures(front + back)
+
+    assert sorted(group.room_size for group in result.groups) == [3, 3]
+    assert result.summary.facade_count == 2
+
+
 def test_long_run_partition_is_repeatable_and_primitive_order_independent():
     apertures = [_window(f"w{index}", 9, index * 1.1) for index in range(17)]
     shuffled = list(apertures)
