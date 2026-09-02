@@ -103,7 +103,7 @@ def test_long_run_partition_is_repeatable_and_primitive_order_independent():
     assert all(1 <= group.room_size <= 4 for group in first.groups)
 
 
-def test_unavailable_or_disabled_families_are_excluded_from_partitioning():
+def test_unavailable_or_disabled_families_degrade_to_supported_groups():
     apertures = [_window(f"w{index}", 3, index * 1.1) for index in range(12)]
     settings = ClassifierSettings(
         enabled_room_sizes=frozenset({1, 2, 3}),
@@ -115,6 +115,22 @@ def test_unavailable_or_disabled_families_are_excluded_from_partitioning():
 
     assert {group.room_size for group in result.groups} <= {1, 2}
     assert sum(group.room_size for group in result.groups) == 12
+
+
+def test_disabled_x4_family_degrades_existing_x4_group_to_x1():
+    apertures = [_window(f"w{index}", 3, index * 1.1) for index in range(4)]
+
+    enabled = classify_apertures(apertures, ClassifierSettings())
+    disabled = classify_apertures(
+        apertures,
+        ClassifierSettings(
+            enabled_room_sizes=frozenset({1, 2, 3}),
+        ),
+    )
+
+    assert [group.room_size for group in enabled.groups] == [4]
+    assert [group.room_size for group in disabled.groups] == [1, 1, 1, 1]
+    assert {mapping.room_size for mapping in disabled.mappings} == {1}
 
 
 def test_degenerate_frame_and_missing_x1_atlas_are_explicit_fallbacks():

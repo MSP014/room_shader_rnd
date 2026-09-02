@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from pxr import Sdf, Usd, UsdShade
 
 from ..room_run.classifier import classify_apertures
+from ..runtime.resources import RuntimeResources, coerce_runtime_resources
 from .authoring import (
     apply_instance_policy,
     author_camera_position_primvar,
@@ -54,10 +56,13 @@ def classify_stage(
     stage: Usd.Stage,
     runtime_layer: Sdf.Layer,
     settings: RuntimeClassifierSettings,
-    repository_root: Path,
+    resources_or_repository_root: RuntimeResources | Path,
     phase_callback: ClassificationPhaseCallback | None = None,
+    material_input_values: Mapping[str, object] | None = None,
 ) -> StageClassification:
     """Classify one already-open stage and author its ephemeral mapping."""
+
+    resources = coerce_runtime_resources(resources_or_repository_root)
 
     def report_phase(phase: str, **details: object) -> None:
         if phase_callback is not None:
@@ -74,10 +79,12 @@ def classify_stage(
         stage, runtime_layer, settings
     )
     metrics = resolve_stage_metrics(stage, settings)
-    available_room_sizes = discover_atlas_family_availability(repository_root)
+    available_room_sizes = discover_atlas_family_availability(resources)
     extraction = extract_stage_apertures(stage, metrics)
     extraction = StageExtraction(
         apertures=extraction.apertures,
+        source_prim_paths=extraction.source_prim_paths,
+        source_material_paths=extraction.source_material_paths,
         face_counts_by_prim=extraction.face_counts_by_prim,
         diagnostics=instance_diagnostics + extraction.diagnostics,
     )
@@ -132,6 +139,8 @@ def classify_stage(
     if culling_diagnostics:
         extraction = StageExtraction(
             apertures=extraction.apertures,
+            source_prim_paths=extraction.source_prim_paths,
+            source_material_paths=extraction.source_material_paths,
             face_counts_by_prim=extraction.face_counts_by_prim,
             diagnostics=extraction.diagnostics + culling_diagnostics,
         )
@@ -146,10 +155,6 @@ def classify_stage(
             camera_position_primvar_path or "unavailable"
         ),
     )
-    usable_room_sizes = (
-        settings.core_settings(available_room_sizes).enabled_room_sizes
-        & available_room_sizes
-    )
     preserved_source_x1_count = sum(
         diagnostic.state == "INSTANCE_PRESERVED_X1_FALLBACK"
         for diagnostic in extraction.diagnostics
@@ -157,15 +162,18 @@ def classify_stage(
     window_prim_paths = tuple(
         sorted({mapping.prim_path for mapping in result.mappings})
     )
-    # Keep every enabled atlas family ready for later x1-x4 classifications.
-    # Material discovery remains restricted to the selected window meshes.
+    # Keep every available atlas family alive while the stage runtime exists.
+    # Family toggles change only grouping and subset indices. Destroying an MDL
+    # material on disable and recreating it on enable leaves newly rebound
+    # faces transparent while RTX recompiles the material.
     materials = (
         author_family_materials(
             stage,
             runtime_layer,
-            repository_root,
-            usable_room_sizes,
+            resources,
+            available_room_sizes,
             window_prim_paths,
+            material_input_values,
         )
         if result.mappings
         else {}

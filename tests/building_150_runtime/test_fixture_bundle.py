@@ -6,16 +6,34 @@ from pathlib import Path
 import pytest
 from pxr import Sdf, Usd, UsdGeom, UsdShade
 
+from tools.omniverse.runtime.assignment import (
+    AutoAssignmentOwner,
+    evaluate_windows_glass,
+)
 from tools.omniverse.shared_room import controller as classifier_module
 from tools.omniverse.shared_room.controller import (
     RuntimeClassifierSettings,
     SharedRoomClassifier,
 )
+from tools.omniverse.shared_room.stage import (
+    extract_stage_apertures,
+    resolve_stage_metrics,
+)
 
 FIXTURE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = FIXTURE_ROOT.parents[1]
 STAGE_PATH = FIXTURE_ROOT / "test_room_map_building_150.usda"
+SOURCE_STAGE_PATH = (
+    REPOSITORY_ROOT
+    / "assets"
+    / "_external"
+    / "usd"
+    / "Moskovskiy_av_150"
+    / "usd"
+    / "Moskovskiy_av_150.usd"
+)
 WINDOW_PATH = "/World/Building150/geo/render/Windows_Glass"
+SOURCE_WINDOW_PATH = "/Moskovskiy_av_150/geo/render/Windows_Glass"
 EXPECTED_RUNTIME_INPUT_TYPES = {
     **{
         name: Sdf.ValueTypeNames.Bool
@@ -72,6 +90,50 @@ EXPECTED_RUNTIME_INPUT_TYPES = {
     "fallback_colour": Sdf.ValueTypeNames.Color3f,
     "glass_tint": Sdf.ValueTypeNames.Color3f,
 }
+
+
+def test_building_150_source_window_is_auto_assignment_candidate():
+    stage = Usd.Stage.Open(str(SOURCE_STAGE_PATH), load=Usd.Stage.LoadAll)
+
+    decisions = evaluate_windows_glass(stage)
+
+    assert len(decisions) == 1
+    assert decisions[0].eligible
+    assert decisions[0].prim_path == SOURCE_WINDOW_PATH
+    assert decisions[0].source_material_path == (
+        "/Moskovskiy_av_150/mtl/base_lod00_mat"
+    )
+
+
+def test_building_150_auto_assignment_feeds_runtime_without_manual_script():
+    stage = Usd.Stage.Open(str(SOURCE_STAGE_PATH), load=Usd.Stage.LoadAll)
+    owner = AutoAssignmentOwner(
+        stage,
+        source_asset_path="room_map.mdl",
+        atlas_asset_path="debug/x1/room_map_debug.<UDIM>.png",
+        atlas_variant_count=8,
+    )
+
+    result = owner.apply()
+    metrics = resolve_stage_metrics(stage, RuntimeClassifierSettings())
+    extraction = extract_stage_apertures(stage, metrics)
+
+    assert result.assigned_prim_paths == (SOURCE_WINDOW_PATH,)
+    assert len(extraction.apertures) == 232
+    window = stage.GetPrimAtPath(SOURCE_WINDOW_PATH)
+    material, relationship = UsdShade.MaterialBindingAPI(
+        window
+    ).ComputeBoundMaterial()
+    assert relationship
+    assert str(material.GetPath()) == "/__ORMSAutoAssignment/Looks/RoomMap"
+
+    owner.stop()
+
+    restored, relationship = UsdShade.MaterialBindingAPI(
+        window
+    ).ComputeBoundMaterial()
+    assert relationship
+    assert str(restored.GetPath()) == ("/Moskovskiy_av_150/mtl/base_lod00_mat")
 
 
 def test_building_150_runtime_is_published_in_one_live_stage_change(

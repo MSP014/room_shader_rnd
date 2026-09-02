@@ -1,0 +1,22 @@
+[package]
+title = "Omniverse Room Map Shader"
+version = "0.1.5"
+description = "Register and run ORMS materials on compatible OpenUSD assets."
+category = "Rendering"
+support_level = "Sample"
+readme = "README.md"
+changelog = "CHANGELOG.md"
+icon = "data/icon.png"
+preview_image = "data/preview.png"
+keywords = ["kit", "mdl", "openusd", "room map", "shader"]
+repository = "https://github.com/MSP014/room_shader_rnd"
+
+[dependencies]
+"omni.usd" = {}
+"omni.mdl.neuraylib" = {}
+"omni.kit.material.library" = {}
+"omni.kit.menu.utils" = {}
+"omni.kit.widget.settings" = {}
+
+[[python.module]]
+name = "msp.orms.runtime.extension"

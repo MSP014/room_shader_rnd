@@ -71,11 +71,6 @@ _REQUIRED_SOURCE_PRIMVARS = (
     "tangentv",
     "roomUV",
 )
-_ROOM_MAP_SOURCE_ASSET_SUFFIXES = (
-    "src/mdl/room_map.mdl",
-    "src/mdl/room_map_single.mdl",
-)
-_ROOM_MAP_SINGLE_SOURCE_ASSET_SUFFIX = "src/mdl/room_map_single.mdl"
 CAMERA_POSITION_PRIMVAR_NAME = "ormsCameraPositionWorld"
 CAMERA_POSITION_PRIMVAR_PATH = Sdf.Path(
     f"/World.primvars:{CAMERA_POSITION_PRIMVAR_NAME}"
@@ -144,6 +139,8 @@ class StageExtraction:
     """Face-level apertures and mesh sizes extracted from one composed stage."""
 
     apertures: tuple[ApertureDescriptor, ...]
+    source_prim_paths: tuple[str, ...]
+    source_material_paths: tuple[str, ...]
     face_counts_by_prim: tuple[tuple[str, int], ...]
     diagnostics: tuple[ClassifierDiagnostic, ...]
 

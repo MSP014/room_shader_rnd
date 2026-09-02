@@ -41,13 +41,13 @@ _SHARED_ROOM_DEPENDENCY_ORDER = (
     "shared_room_settings",
     "shared_room_changes",
     "shared_room_material_diagnostics",
-    "shared_room_preferences",
+    "shared_room_material_controls",
 )
 
 
 def _load_runtime_stack(
     loader: RuntimeSourceLoader,
-) -> tuple[ModuleType, ModuleType, ModuleType, ModuleType]:
+) -> tuple[ModuleType, ModuleType, ModuleType, ModuleType, ModuleType]:
     """Load and validate the dependency graph around the active stage probe."""
 
     status = loader.load("status_log")
@@ -61,6 +61,8 @@ def _load_runtime_stack(
         },
     )
     loader.load("runtime_resource_metrics")
+    resources = loader.load("runtime_resources")
+    loader.load("runtime_stage_visibility")
     loader.load("stage_load_state")
     stage_probe = loader.load("stage_load_probe")
     stage_probe.start()
@@ -92,7 +94,7 @@ def _load_runtime_stack(
             "stage_load_probe": stage_probe.__file__,
         },
     )
-    return stage_probe, core, shared, bridge
+    return stage_probe, core, shared, bridge, resources
 
 
 def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
@@ -148,16 +150,44 @@ def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
         )
 
 
-def reload_and_start(repository_root: str | Path):
+def reload_and_start(
+    repository_root: str | Path,
+    *,
+    mdl_source_asset: str | None = None,
+    atlas_families: tuple[tuple[int, str, int], ...] | None = None,
+):
     """Replace cached ORMS modules with exact source and start the runtime."""
 
     root = Path(repository_root).resolve()
     loader = RuntimeSourceLoader(root)
     loader.prepare()
-    _stage_probe, _core, shared, bridge = _load_runtime_stack(loader)
+    _stage_probe, _core, shared, bridge, resources = _load_runtime_stack(
+        loader
+    )
+
+    runtime_resources = None
+    if mdl_source_asset is not None or atlas_families is not None:
+        if mdl_source_asset is None or atlas_families is None:
+            raise ValueError(
+                "Pass both mdl_source_asset and atlas_families for packaged ORMS"
+            )
+        runtime_resources = resources.RuntimeResources(
+            mdl_source_asset=mdl_source_asset,
+            atlas_families=tuple(
+                resources.RuntimeAtlasFamily(
+                    room_size,
+                    asset_path,
+                    variant_count,
+                )
+                for room_size, asset_path, variant_count in atlas_families
+            ),
+        )
 
     _seed_initial_camera(shared, bridge)
-    classifier = shared.start(root)
+    classifier = shared.start(
+        root,
+        resources=runtime_resources,
+    )
     corner_summaries = corner_box_summaries(classifier.last_classification)
     shared.log_room_map_warning(
         owner="SHARED ROOM CLASSIFIER",

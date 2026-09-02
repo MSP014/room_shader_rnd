@@ -124,7 +124,9 @@ def test_mdl_uses_binary_physical_and_corner_front_exit_cutouts():
     assert "? front_exit_has_slice_surface ? 1.0 : 0.0" in source
     assert "color front_exit_slice_colour = composited_slice_colour" in source
     assert "math::max(slice_coverage, room_map_epsilon())" in source
-    assert "float production_cutout_opacity =" in source
+    assert (
+        "float production_cutout_opacity = !frame_is_valid\n" "        ? 1.0"
+    ) in source
     assert "float room_cutout_opacity = enable_opacity" in source
     assert "? production_cutout_opacity" in source
     assert ": 1.0;" in source

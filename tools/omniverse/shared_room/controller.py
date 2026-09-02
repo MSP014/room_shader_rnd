@@ -25,8 +25,8 @@ from ..runtime.renderer_settings import (
     _enable_rtx_cutout_opacity,
     _restore_rtx_cutout_opacity,
 )
+from ..runtime.resources import RuntimeResources, coerce_runtime_resources
 from ..runtime.status_log import log_room_map_warning
-from . import preferences as shared_room_preferences
 from .authoring import (
     _ROOM_MAP_INPUT_TYPES,
     _SHARED_ARTIST_INPUT_NAMES,
@@ -85,6 +85,7 @@ from .contracts import (
     StageClassification,
     StageExtraction,
 )
+from .material_controls import material_input_values_from_kit
 from .material_diagnostics import (
     MaterialStateSnapshot,
     capture_material_state,
@@ -591,21 +592,28 @@ class SharedRoomClassifier:
     def __init__(
         self,
         stage: Usd.Stage,
-        repository_root: Path,
+        resources_or_repository_root: RuntimeResources | Path,
         settings: RuntimeClassifierSettings,
         trace_log_warning: Callable[..., None] | None = None,
         runtime_input_log_scheduler: Callable[
             [float, Callable[[], None]], object | None
         ] = _schedule_runtime_input_log,
+        material_input_values: Mapping[str, object] | None = None,
     ):
         self._stage = stage
-        self._repository_root = repository_root
+        self._resources = coerce_runtime_resources(
+            resources_or_repository_root
+        )
         self._settings = settings
+        self._material_input_values = dict(material_input_values or {})
         self._layer_owner = RuntimeLayerOwner(stage)
         self._notice_key: Any | None = None
         self._is_authoring = False
         self._last: StageClassification | None = None
         self._geometry_ancestor_paths: frozenset[str] = frozenset()
+        self._source_prim_root_paths: frozenset[str] = frozenset()
+        self._source_material_ancestor_paths: frozenset[str] = frozenset()
+        self._source_material_root_paths: frozenset[str] = frozenset()
         self._building_root_paths: frozenset[str] = frozenset()
         self._building_root_shape_signatures: dict[str, tuple[float, ...]] = {}
         self._pose_frames_by_prim: dict[
@@ -656,18 +664,84 @@ class SharedRoomClassifier:
                     paths.add(str(attribute.GetPath()))
         return tuple(sorted(paths))
 
+    def set_material_input_values(
+        self,
+        values: Mapping[str, object],
+    ) -> int:
+        """Apply one central control set to every active atlas family."""
+
+        self._material_input_values = {
+            name: value
+            for name, value in values.items()
+            if name in _SHARED_RUNTIME_INPUT_NAMES
+        }
+        if self._last is None:
+            return 0
+        updated_count = 0
+        self._is_authoring = True
+        try:
+            with Usd.EditContext(self._stage, self._layer_owner.layer):
+                for name, value in self._material_input_values.items():
+                    for path in _runtime_family_input_paths(name):
+                        attribute = self._stage.GetAttributeAtPath(path)
+                        if attribute and attribute.Get() != value:
+                            attribute.Set(value)
+                            updated_count += 1
+        finally:
+            self._is_authoring = False
+        self._remember_runtime_family_input_values()
+        return updated_count
+
+    def set_settings(
+        self,
+        settings: RuntimeClassifierSettings,
+    ) -> StageClassification | None:
+        """Reclassify once when the central classifier settings change."""
+
+        if settings == self._settings:
+            return self._last
+        self._settings = settings
+        self._reclassify(trigger="settings_change")
+        self._remember_runtime_family_input_values()
+        return self._last
+
     def start(self, trigger: str = "manual_start") -> StageClassification:
         """Classify once, reconcile shared inputs, and subscribe to USD edits."""
 
         self._reclassify(trigger=trigger)
         self._synchronise_existing_runtime_family_inputs()
         self._remember_runtime_family_input_values()
-        self._notice_key = Tf.Notice.Register(
-            Usd.Notice.ObjectsChanged,
-            self._on_objects_changed,
-            self._stage,
-        )
+        self.resume()
         return self._last  # type: ignore[return-value]
+
+    def pause(self) -> None:
+        """Freeze the published runtime layer while releasing live updates."""
+
+        self._flush_pending_runtime_input_logs()
+        first_frame_subscription, self._first_frame_subscription = (
+            self._first_frame_subscription,
+            None,
+        )
+        reset = getattr(first_frame_subscription, "reset", None)
+        if callable(reset):
+            reset()
+        if self._notice_key is not None:
+            self._notice_key.Revoke()
+            self._notice_key = None
+
+    def resume(self) -> None:
+        """Resume USD change handling without rebuilding the frozen layer."""
+
+        if self._last is None:
+            raise RuntimeError(
+                "Cannot resume ORMS before initial classification"
+            )
+        if self._notice_key is None:
+            self._notice_key = Tf.Notice.Register(
+                Usd.Notice.ObjectsChanged,
+                self._on_objects_changed,
+                self._stage,
+            )
 
     def _remember_runtime_family_input_values(self) -> None:
         """Snapshot the last complete shared state for later transition logs."""
@@ -960,8 +1034,9 @@ class SharedRoomClassifier:
                 authoring_stage,
                 draft_layer,
                 self._settings,
-                self._repository_root,
+                self._resources,
                 phase_callback=trace.mark if trace is not None else None,
+                material_input_values=self._material_input_values,
             )
             published_layer = self._layer_owner.publish(draft_layer)
             self._last = replace(
@@ -995,16 +1070,29 @@ class SharedRoomClassifier:
                     },
                 )
             geometry_ancestor_paths = set()
-            for (
-                prim_path,
-                _face_count,
-            ) in self._last.extraction.face_counts_by_prim:
+            for prim_path in self._last.extraction.source_prim_paths:
                 geometry_ancestor_paths.update(
                     str(prefix)
                     for prefix in Sdf.Path(prim_path).GetPrefixes()
                     if prefix.IsPrimPath()
                 )
             self._geometry_ancestor_paths = frozenset(geometry_ancestor_paths)
+            self._source_prim_root_paths = frozenset(
+                self._last.extraction.source_prim_paths
+            )
+            source_material_ancestor_paths = set()
+            for material_path in self._last.extraction.source_material_paths:
+                source_material_ancestor_paths.update(
+                    str(prefix)
+                    for prefix in Sdf.Path(material_path).GetPrefixes()
+                    if prefix.IsPrimPath()
+                )
+            self._source_material_ancestor_paths = frozenset(
+                source_material_ancestor_paths
+            )
+            self._source_material_root_paths = frozenset(
+                self._last.extraction.source_material_paths
+            )
             self._building_root_paths = frozenset(
                 aperture.building_root
                 for aperture in self._last.extraction.apertures
@@ -1108,11 +1196,10 @@ class SharedRoomClassifier:
             {
                 "first_frame_signal": _FIRST_FRAME_SIGNAL,
                 "material_loading_complete": False,
-                "material_family_count": len(
-                    self._settings.core_settings(
-                        self._last.available_room_sizes
-                    ).enabled_room_sizes
-                    & self._last.available_room_sizes
+                "material_family_count": (
+                    len(self._last.available_room_sizes)
+                    if self._last.result.mappings
+                    else 0
                 ),
             },
         )
@@ -1245,6 +1332,11 @@ class SharedRoomClassifier:
                 self._geometry_ancestor_paths,
                 self._building_root_paths,
                 changed_shape_roots,
+                source_prim_root_paths=self._source_prim_root_paths,
+                source_material_ancestor_paths=(
+                    self._source_material_ancestor_paths
+                ),
+                source_material_root_paths=self._source_material_root_paths,
                 resynced=True,
             )
         ) + tuple(
@@ -1256,6 +1348,11 @@ class SharedRoomClassifier:
                 self._geometry_ancestor_paths,
                 self._building_root_paths,
                 changed_shape_roots,
+                source_prim_root_paths=self._source_prim_root_paths,
+                source_material_ancestor_paths=(
+                    self._source_material_ancestor_paths
+                ),
+                source_material_root_paths=self._source_material_root_paths,
                 resynced=False,
             )
         )
@@ -1291,13 +1388,14 @@ class SharedRoomClassifier:
     def stop(self) -> None:
         """Release subscriptions and detach only this classifier's USD layer."""
 
-        self._flush_pending_runtime_input_logs()
-        self._first_frame_subscription = None
-        if self._notice_key is not None:
-            self._notice_key.Revoke()
-            self._notice_key = None
+        self.pause()
         self._layer_owner.detach()
         self._last = None
+        self._geometry_ancestor_paths = frozenset()
+        self._source_prim_root_paths = frozenset()
+        self._source_material_ancestor_paths = frozenset()
+        self._source_material_root_paths = frozenset()
+        self._building_root_paths = frozenset()
         self._building_root_shape_signatures = {}
         self._pose_frames_by_prim = {}
         self._synchronised_runtime_input_values = {}
@@ -1305,21 +1403,9 @@ class SharedRoomClassifier:
 
 _classifier: SharedRoomClassifier | None = None
 _context_subscription: Any | None = None
-_repository_root: Path | None = None
+_runtime_resources: RuntimeResources | None = None
 _runtime_settings: RuntimeClassifierSettings | None = None
-
-
-def _on_classifier_setting_changed() -> None:
-    global _runtime_settings
-    if _repository_root is None:
-        return
-    import omni.usd
-
-    _runtime_settings = settings_from_kit()
-    _replace_active_classifier(
-        omni.usd.get_context().get_stage(),
-        trigger="settings_change",
-    )
+_runtime_material_input_values: dict[str, object] = {}
 
 
 def _replace_active_classifier(
@@ -1331,13 +1417,18 @@ def _replace_active_classifier(
     if _classifier:
         _classifier.stop()
         _classifier = None
-    if stage is None or _repository_root is None or _runtime_settings is None:
+    if (
+        stage is None
+        or _runtime_resources is None
+        or _runtime_settings is None
+    ):
         return
     _classifier = SharedRoomClassifier(
         stage,
-        _repository_root,
+        _runtime_resources,
         _runtime_settings,
         trace_log_warning=log_room_map_warning,
+        material_input_values=_runtime_material_input_values,
     )
     _classifier.start(trigger=trigger)
 
@@ -1370,13 +1461,15 @@ def _on_stage_event(event: object) -> None:
 def start(
     repository_root: str | Path | None = None,
     settings: RuntimeClassifierSettings | None = None,
+    resources: RuntimeResources | None = None,
 ) -> SharedRoomClassifier:
     """Start on the already-open stage, then subscribe to later stage changes."""
 
     import carb.eventdispatcher
     import omni.usd
 
-    global _context_subscription, _repository_root, _runtime_settings
+    global _context_subscription, _runtime_material_input_values
+    global _runtime_resources, _runtime_settings
     # A fresh start restores every singleton-owned resource from a previous run,
     # making repeated Script Editor execution deterministic and leak-free.
     stop()
@@ -1409,7 +1502,7 @@ def start(
         raise RuntimeError(
             "Open a USD stage before starting the ORMS classifier"
         )
-    if repository_root is None:
+    if repository_root is None and resources is None:
         root_real_path = stage.GetRootLayer().realPath
         if not root_real_path:
             raise RuntimeError(
@@ -1424,9 +1517,16 @@ def start(
     # The cutout gate is effective only on ORMS materials that carry the
     # explicit opt-in attribute. Scene-wide face culling remains external:
     # acquiring it here would change unrelated single-sided building meshes.
-    _repository_root = Path(repository_root).resolve()
-    shared_room_preferences.register(_on_classifier_setting_changed)
+    if resources is not None:
+        _runtime_resources = resources
+    else:
+        if repository_root is None:
+            raise RuntimeError(
+                "ORMS runtime resources or a repository root are required"
+            )
+        _runtime_resources = RuntimeResources.from_repository(repository_root)
     _runtime_settings = settings or settings_from_kit()
+    _runtime_material_input_values = material_input_values_from_kit()
     try:
         source_material_state = capture_material_state(stage)
         log_room_map_warning(
@@ -1477,11 +1577,11 @@ def inspect() -> StageClassification | None:
 def stop() -> None:
     """Stop subscriptions and remove only the ORMS-owned runtime sublayer."""
 
-    global _classifier, _context_subscription, _repository_root, _runtime_settings
+    global _classifier, _context_subscription, _runtime_material_input_values
+    global _runtime_resources, _runtime_settings
     if _classifier:
         _classifier.stop()
         _classifier = None
-    shared_room_preferences.unregister()
     subscriptions = (
         _context_subscription
         if isinstance(_context_subscription, tuple)
@@ -1492,6 +1592,7 @@ def stop() -> None:
         if callable(reset):
             reset()
     _context_subscription = None
-    _repository_root = None
+    _runtime_resources = None
     _runtime_settings = None
+    _runtime_material_input_values = {}
     _restore_rtx_cutout_opacity()

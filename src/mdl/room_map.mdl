@@ -1031,7 +1031,11 @@ export material room_map(
         slice_composite.front_exit_coverage;
     float slice_coverage = saturate(1.0 - room_transmittance);
     bool front_exit_has_slice_surface = front_exit_slice_coverage >= 0.5;
-    float production_cutout_opacity = physical_surface_cutout_opacity < 0.5
+    // Invalid source mappings must remain visible as fallback_colour. Running
+    // aperture cutouts without a runtime frame can otherwise erase the proxy.
+    float production_cutout_opacity = !frame_is_valid
+        ? 1.0
+        : physical_surface_cutout_opacity < 0.5
         ? 0.0
         : front_exit_hits_primary_aperture
         ? front_exit_has_slice_surface ? 1.0 : 0.0

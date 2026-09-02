@@ -13,6 +13,39 @@ from .contracts import (
     RuntimeClassifierSettings,
 )
 
+CLASSIFIER_SETTING_DEFAULTS: dict[str, object] = {
+    "enable_x2": True,
+    "enable_x3": True,
+    "enable_x4": True,
+    "partition_seed": 0,
+    "instance_policy": INSTANCE_POLICY_PRESERVE,
+    "metrics_mode": METRICS_MODE_AUTO,
+    "local_up_axis": "Y",
+    "local_meters_per_unit": 1.0,
+    "floor_tolerance_metres": 0.25,
+    "minimum_vertical_overlap": 0.5,
+    "facade_angle_snap_degrees": 5.0,
+    "maximum_local_spacing_ratio": 2.0,
+    "maximum_turn_degrees": 100.0,
+    "corner_turn_threshold_degrees": 60.0,
+}
+
+
+def classifier_setting_path(name: str) -> str:
+    """Return one persistent classifier setting path."""
+
+    return f"{KIT_SETTINGS_ROOT}/{name}"
+
+
+def ensure_classifier_setting_defaults() -> None:
+    """Declare classifier defaults without replacing persistent choices."""
+
+    import carb.settings
+
+    settings = carb.settings.get_settings()
+    for name, default in CLASSIFIER_SETTING_DEFAULTS.items():
+        settings.set_default(classifier_setting_path(name), default)
+
 
 def settings_from_mapping(
     values: Mapping[str, object],
@@ -70,25 +103,8 @@ def settings_from_kit() -> RuntimeClassifierSettings:
     import carb.settings
 
     settings = carb.settings.get_settings()
-    defaults = {
-        "enable_x2": True,
-        "enable_x3": True,
-        "enable_x4": True,
-        "partition_seed": 0,
-        "instance_policy": INSTANCE_POLICY_PRESERVE,
-        "metrics_mode": METRICS_MODE_AUTO,
-        "local_up_axis": "Y",
-        "local_meters_per_unit": 1.0,
-        "floor_tolerance_metres": 0.25,
-        "minimum_vertical_overlap": 0.5,
-        "facade_angle_snap_degrees": 5.0,
-        "maximum_local_spacing_ratio": 2.0,
-        "maximum_turn_degrees": 100.0,
-        "corner_turn_threshold_degrees": 60.0,
-    }
+    ensure_classifier_setting_defaults()
     values = {}
-    for name, default in defaults.items():
-        path = f"{KIT_SETTINGS_ROOT}/{name}"
-        settings.set_default(path, default)
-        values[name] = settings.get(path)
+    for name in CLASSIFIER_SETTING_DEFAULTS:
+        values[name] = settings.get(classifier_setting_path(name))
     return settings_from_mapping(values)

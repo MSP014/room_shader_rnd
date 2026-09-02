@@ -58,7 +58,7 @@ def test_runtime_loader_seeds_camera_before_classifier_and_bridge_start():
     source = Path(reload_room_map_runtime.__file__).read_text(encoding="utf-8")
 
     seed_offset = source.index("shared.seed_camera_position_primvar(")
-    classifier_offset = source.index("classifier = shared.start(root)")
+    classifier_offset = source.index("classifier = shared.start(")
     bridge_offset = source.index(
         "camera_bridge = bridge.start(classifier.camera_input_paths)"
     )

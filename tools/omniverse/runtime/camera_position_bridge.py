@@ -63,6 +63,14 @@ class CameraPositionBridge:
         self._reported_active_paths: set[Sdf.Path] = set()
         self._warned_no_inputs = False
         self._last_position: tuple[float, float, float] | None = None
+        self._subscription = None
+        self.resume()
+
+    def resume(self) -> None:
+        """Resume viewport-camera updates without changing the last value."""
+
+        if self._subscription is not None:
+            return
         self._subscription = (
             carb.eventdispatcher.get_eventdispatcher().observe_event(
                 event_name=omni.kit.app.GLOBAL_EVENT_UPDATE,
@@ -164,13 +172,18 @@ class CameraPositionBridge:
                     self._reported_active_paths.add(material_input_path)
         self._last_position = position
 
-    def stop(self) -> None:
-        """Release the per-frame update subscription owned by this bridge."""
+    def pause(self) -> None:
+        """Freeze the last authored camera value and release live updates."""
 
         reset = getattr(self._subscription, "reset", None)
         if callable(reset):
             reset()
         self._subscription = None
+
+    def stop(self) -> None:
+        """Release the per-frame update subscription owned by this bridge."""
+
+        self.pause()
 
 
 _bridge: CameraPositionBridge | None = None

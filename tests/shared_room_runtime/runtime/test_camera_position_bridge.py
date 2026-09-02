@@ -83,5 +83,9 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
         in bridge_source
     )
     assert "omni.kit.app.GLOBAL_EVENT_UPDATE" in bridge_source
+    assert "def pause(self) -> None:" in bridge_source
+    assert "def resume(self) -> None:" in bridge_source
+    assert "self.resume()" in bridge_source
+    assert "self.pause()" in bridge_source
     assert "get_update_event_stream" not in bridge_source
     assert "carb.log_warn(" not in bridge_source

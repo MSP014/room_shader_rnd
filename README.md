@@ -1,18 +1,116 @@
-# Parallax Interior Mapping for City-Scale OpenUSD Digital Twins
+# Omniverse Room Map Shader for OpenUSD Digital Twins
 
-> Building scalable parallax interiors with OpenUSD and NVIDIA MDL
+> An installable NVIDIA Omniverse Kit extension for scalable parallax interiors
 
-**Status**: Renderer-validated ORMS core and Building 150 production
-integration complete with adaptive x1–x4 rooms, real x1 content, independent
-glass controls, and luminance-selected emission • artist-facing Kit packaging,
-real x2–x4 content, and urban-scale performance evidence remain planned
+**Status**: `msp.orms.runtime` 0.1.5 is installed and accepted through a local
+Kit extension registry with Extension Manager, AUTOLOAD, Material Library,
+automatic window assignment, central ORMS controls, and both required RTX
+renderer modes. Final KRM-92 UI polish, real x2–x4 content, and urban-scale
+performance evidence remain planned.
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
-**ORMS (Omniverse Room Map Shader)** is the shorthand used in this repository
-for the OpenUSD / NVIDIA MDL implementation described below. The underlying
-technique — Parallax Interior Mapping (PIM) — is well established and predates
-this project.
+**ORMS (Omniverse Room Map Shader)** is delivered as the installable
+`msp.orms.runtime` Kit extension around the OpenUSD / NVIDIA MDL implementation
+described below. The underlying technique — Parallax Interior Mapping (PIM) —
+is well established and predates this project.
+
+Once installed, ORMS is enabled and configured through the ordinary Kit user
+interface. It does not require users to copy Python into Script Editor or add
+`--ext-folder` and `--enable` arguments to every application launch.
+
+---
+
+## Install and Use the Kit Extension
+
+The currently accepted distribution path is a local filesystem Kit registry.
+Publishing and installation are separate responsibilities.
+
+### Publish to the Registry — Developer or Distributor
+
+The registry owner publishes the standalone extension from this repository
+into a configured Kit App Template registry:
+
+```powershell
+python tools/publish_orms_local_registry.py `
+    --kit-app-root E:\path\to\kit-app-template
+```
+
+This is a release operation. Artists installing ORMS from an already
+configured registry do not run the publication script.
+
+### Install and Run — Artist or Extension User
+
+Once the application is connected to a registry containing ORMS, use the
+normal Kit workflow:
+
+1. Launch the application normally; for a Kit App Template checkout, use
+   `./repo.sh launch` on Linux or `.\repo.bat launch` on Windows.
+2. Open `Window > Extensions` and find `Omniverse Room Map Shader`.
+3. Select `Install`, enable the extension, and select `AUTOLOAD`.
+4. On later launches, start the Kit application normally. ORMS is discovered
+   from the registry and starts without repository-specific command-line
+   arguments.
+
+Open `Window > ORMS` to access lifecycle controls and the `ORMS Classifier`,
+`Material Parameters`, and `Interior Atlases` tabs. Compatible
+`Windows_Glass` meshes are recognised and assigned automatically. The same
+material remains available for manual assignment through
+`Create > Material > ORMS > Omniverse Room Map Shader`.
+
+`Start` activates an eligible stage, `Stop` freezes its current calculated
+result, `Restart` rebuilds the ORMS runtime, and `Restore Original Asset`
+removes ORMS-owned Session Layer state and reveals the source material binding.
+Disabling the extension performs the same source-safe teardown.
+
+The installed package contains public x1–x4 debug atlases. Production atlases
+remain external content and are selected independently for each room family in
+the `Interior Atlases` tab.
+
+For package construction and local-registry administration, see the
+[extension README](exts/msp.orms.runtime/README.md).
+
+## Extension Architecture
+
+The Kit extension is the product boundary; shader maths, OpenUSD
+classification, runtime state, resource resolution, and UI wiring remain
+separate implementation zones:
+
+```text
+Extension Manager / AUTOLOAD
+    -> extension.py                 minimal Kit entry point
+       -> service.py                lifecycle and stage coordination
+          -> MDL + Material Library registration
+          -> reversible Windows_Glass assignment
+          -> lifecycle state machine
+             -> shared-room classifier and Session Layer authoring
+             -> active-camera material bridge
+          -> Window > ORMS          lifecycle controls and three settings tabs
+```
+
+| Component | Responsibility |
+| --- | --- |
+| `extension.py` | Starts and stops the extension without owning runtime logic. |
+| `service.py` | Coordinates stage events, assignment, lifecycle, settings, startup, and teardown. |
+| `lifecycle.py` | Owns the `Inactive`, `Running`, `Stopped`, and `Failed` state transitions. |
+| `lifecycle_controls.py` | Presents lifecycle commands and delegates them to the service. |
+| `settings_window.py` | Owns the dockable `Window > ORMS` shell and its Kit model subscriptions. |
+| `tools/omniverse/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
+| `tools/omniverse/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
+| `resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
+| `mdl_registration.py` | Owns portable MDL search-path registration and symmetric cleanup. |
+| `material_visibility.py` | Adds only the required ORMS entry to restrictive host Material Library filters. |
+| `material_library.py` | Composes MDL registration, visibility, and the ORMS source-asset entry. |
+| `runtime_imports.py` | Prevents stale Python modules during in-process extension upgrades. |
+| `tools/omniverse/runtime/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
+| `tools/omniverse/room_run/` | Performs deterministic, Kit-independent x1–x4 room classification. |
+| `tools/omniverse/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
+
+Automatic assignment and generated ORMS state use separate anonymous Session
+sublayers. Their implementation prims are hidden from the ordinary Stage tree,
+and removing those layers restores the source asset without rewriting its USD
+files. Common material parameters are presented once in the ORMS window and
+fanned out to the active x1–x4 materials.
 
 ---
 
@@ -285,10 +383,21 @@ perspective in both RTX renderer modes.*
   labelled eight-variant debug atlases remain active for x2–x4.
 - Luminance-selected interior emission with threshold, softness, strength, and
   independent depth-slice eligibility, validated in both RTX renderer modes.
+- Installable `msp.orms.runtime` 0.1.5 packaging, publication, installation,
+  enablement, and AUTOLOAD through a local Kit extension registry.
+- Automatic assignment of contract-valid `Windows_Glass` meshes through a
+  reversible ORMS-owned Session sublayer, with source restoration on teardown.
+- Material Library creation and manual binding without Script Editor code.
+- A dockable `Window > ORMS` panel with lifecycle controls, central material
+  parameters, classifier settings, and independent x1–x4 production-atlas
+  locations.
+- Version-safe in-process extension upgrades and duplicate-free
+  disable/re-enable behaviour.
 
 #### Remaining boundaries
 
-- Artist-facing Kit extension lifecycle, assignment UI, and distribution.
+- Final KRM-92 UI polish and artist-facing assignment inspection and override
+  controls.
 - Real production atlas content for x2, x3, and x4 room families.
 - Optional ORMS 2.0 glass contamination and parallax art-direction controls.
 - A geometry-versus-Room-Map performance benchmark.
@@ -307,10 +416,10 @@ families. Real x2–x4 production content remains an upstream asset milestone.
 
 ## Production Validation Path
 
-The technical R&D core and the first production-building integration are
-complete. The remaining validation path scales the accepted contract from one
-building to an urban digital-twin context and packages it as an artist-facing
-workflow.
+The technical R&D core, first production-building integration, and installable
+Kit extension are complete. The remaining validation path refines the
+artist-facing UI and scales the accepted contract from one building to an
+urban digital-twin context.
 
 ### Stage 1: Building 150 Integration — Complete
 
@@ -469,12 +578,27 @@ for the classification, primvar, fallback, instancing, and renderer evidence.
 
 ### 8. **Production Kit Extension and Artist Workflow**
 
-The accepted camera bridge and shared-room classifier currently remain manual
-R&D modules. Productionisation will package them as a Kit extension with
-persistent startup integration, clear lifecycle ownership, an artist-facing
-UI, installable configuration, diagnostics, and repeatable distribution. This
-stage must retain the source-layer immutability and renderer behaviour already
-validated by the isolated fixtures.
+[`exts/msp.orms.runtime`](exts/msp.orms.runtime/) is now a standalone,
+installable Kit extension rather than a manual runtime launcher. Its manifest,
+Python package, MDL resources, public debug atlases, icons, changelog, and
+Extension Manager documentation are materialised into one non-overwriting
+release bundle and published through Kit's ordinary extension-registry flow.
+
+Installed version 0.1.5 has passed the local-registry workflow end to end:
+package verification, publication, Extension Manager installation, enablement,
+AUTOLOAD, in-process upgrade, normal application relaunch, Material Library
+creation, automatic assignment, both RTX modes, source restoration, and clean
+disable/re-enable.
+
+The canonical module ownership and Session Layer flow are described once in
+[Extension Architecture](#extension-architecture). This milestone section
+records the installed result rather than repeating that architecture.
+
+The [KRM-91 integration record](docs/knowledge_base/mdl/011_orms_kit_extension.md)
+contains the architecture, failure history, and installed acceptance evidence.
+The [KRM-92 UI plan](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md)
+defines the remaining artist-facing presentation work without reopening the
+accepted extension runtime.
 
 ---
 
@@ -526,29 +650,27 @@ The renderer-validated implementation supports:
 - Physical aperture scale and offset controls across differing window sizes.
 - Reversible Preserve and Session de-instance policies for referenced
   instanceable components.
-- Deterministic family fallback, manual Preferences, and runtime lifecycle
+- Deterministic family fallback, central ORMS settings, and runtime lifecycle
   behaviour validated in retained Omniverse-authored and Houdini-exported
-  fixtures.
+  fixtures and in the installed extension.
 - Adaptive floor- and façade-local room classification on Building 150 with
   source-safe x1–x4 bindings and no building-specific spacing constant.
 - Independent glass roughness, reflectivity, tint, and artistic transmission.
 - A real 56-variant x1 atlas and luminance-selected emission with independent
   per-depth-slice eligibility in both required renderer modes.
 
-The remaining work no longer concerns the core PIM mathematics. It concerns
-production packaging, deployment, real x2–x4 content, performance evidence,
-urban-scale validation, and workflow polish.
+The remaining work no longer concerns the core PIM mathematics or the Kit
+extension boundary. It concerns KRM-92 UI polish, real x2–x4 content,
+performance evidence, and urban-scale validation.
 
 ### Phase 4: Productionisation — In progress
 
-The production phase has completed Building 150 integration. Its remaining
-scope will:
+The production phase has completed Building 150 integration and the installed
+Kit extension boundary. ORMS now has repeatable packaging, local-registry
+publication, Extension Manager installation, AUTOLOAD, configuration,
+diagnostics, and controlled lifecycle behaviour. Its remaining scope will:
 
-- package the camera bridge and classifier as a persistent Kit extension;
-- replace the manual R&D startup path with an artist-facing UI and controlled
-  application lifecycle;
-- provide repeatable installation, configuration, diagnostics, and extension
-  distribution;
+- complete the KRM-92 artist-facing UI and assignment-management pass;
 - add real x2–x4 atlas content beyond the accepted real x1 family;
 - scale the workflow to a family of buildings assembled into several city
   blocks; and
@@ -575,64 +697,29 @@ USD prim or instance count, plus geometry statistics where practical.
 ## Repository Structure
 
 ```text
-docs/
-├── adr/                    # Architecture Decision Records
-├── img/                    # Visual proof captures and diagnostic atlas
-└── knowledge_base/
-    └── mdl/                # MDL diagnostics and implementation contracts
-
-src/
-└── mdl/                    # PIM prototype and diagnostic MDL modules
-
+exts/msp.orms.runtime/              # Installable Kit extension package
+src/mdl/                            # Canonical ORMS MDL sources
 tools/omniverse/
-├── room_run/                # Deterministic, Kit-independent classification
-│   ├── contracts.py         # Classifier input and result contracts
-│   ├── topology.py          # Adjacency, ordering, and partitioning
-│   ├── mapping.py           # Straight, bay, and corner mappings
-│   └── classifier.py        # Pure classification orchestration
-├── shared_room/             # OpenUSD interpretation and Session Layer state
-│   ├── contracts.py         # Settings and authored primvar contract
-│   ├── stage.py             # Stage metrics and aperture extraction
-│   ├── authoring.py         # Primvars, materials, bindings, and instances
-│   ├── pipeline.py          # Stage-to-classifier authoring flow
-│   ├── changes.py           # USD notice and pose-change classification
-│   ├── settings.py          # Kit setting translation
-│   ├── preferences.py       # Artist-facing persistent controls
-│   └── controller.py        # Runtime subscriptions and teardown
-├── runtime/                 # Reusable Omniverse runtime infrastructure
-│   ├── source_loader.py     # Exact-source package loading and cleanup
-│   ├── diagnostics.py       # Pure classified-room summaries
-│   ├── renderer_settings.py # Temporary RTX setting ownership
-│   ├── resource_metrics.py  # Host, Hydra, and renderer snapshots
-│   ├── stage_load_state.py  # Pure asynchronous asset-batch state
-│   ├── stage_load_probe.py  # Kit event adapter and progress trace
-│   ├── camera_position_bridge.py
-│   └── status_log.py
-├── reload_room_map_runtime.py
-│                              # Manual runtime composition entry point
-├── room_run_classifier.py   # Historical import-path compatibility alias
-└── shared_room_classifier.py # Historical import-path compatibility alias
-
-tests/shared_room_runtime/
-├── room_run/                # Mirrors the pure-classifier package
-├── shared_room/             # Mirrors OpenUSD authoring and controller code
-├── runtime/                 # Mirrors loader and runtime infrastructure
-├── integration/             # Cross-package and retained-fixture contracts
-├── kit_exts/                # Fixture-launcher extension bundle
-└── test_room_map_*.usda     # Retained Omniverse and Houdini compositions
-
-tests/                       # Isolated shader, USD, and tooling contracts
-
-environment.yml             # Reproducible Python 3.12 Conda baseline
-requirements.in/.txt        # Direct and locked repository dependencies
+├── room_run/                       # Kit-independent classification
+├── shared_room/                    # OpenUSD runtime authoring
+├── runtime/                        # Reusable Kit infrastructure
+└── reload_room_map_runtime.py      # Development-only manual entry point
+tests/
+├── kit_extension/                  # Extension and lifecycle seams
+├── shared_room_runtime/            # Classifier and OpenUSD fixtures
+└── building_150_runtime/           # Production-building integration fixture
+docs/
+├── adr/                            # Architecture decisions
+├── img/                            # Retained visual evidence
+└── knowledge_base/mdl/             # Ordered implementation records
+tools/package_orms_extension.py     # Standalone package builder
+tools/publish_orms_local_registry.py # Registry publication workflow
 ```
 
-The packages follow a one-way dependency path: `runtime` provides reusable Kit
-infrastructure, `room_run` owns pure topology and mapping, and `shared_room`
-combines both around OpenUSD Session Layer authoring. The top-level reload entry
-point composes those packages, while the two classifier aliases preserve older
-experimental imports. Tests mirror the package boundaries; retained fixtures
-and cross-package contracts live under `integration`.
+This is a directory inventory, not a second architecture specification. Module
+ownership and runtime flow are defined in
+[Extension Architecture](#extension-architecture). The manual reload entry
+point remains a development tool rather than the user launch path.
 
 **Key Documentation**:
 
@@ -651,8 +738,11 @@ fixtures. A dedicated `roomUV` contract preserves ordinary asset UVs, while the
 runtime classifier derives shared-room mappings without permanent edits to
 source USD assets. Building 150 production integration now adds adaptive
 x1–x4 grouping, real x1 content, independent glass controls, and selective
-interior emission. Multi-building profiling and packaged Kit extension work
-remain separate boundaries.
+interior emission. The same system is packaged as an installable Kit extension
+with registry installation, AUTOLOAD, Material Library integration, reversible
+automatic assignment, central controls, external production-atlas routing,
+version-safe upgrades, and symmetric teardown. Multi-building profiling and
+final KRM-92 UI polish remain separate boundaries.
 
 The retained evidence demonstrates:
 
@@ -672,7 +762,20 @@ The retained evidence demonstrates:
 
 ## Getting Started
 
-**For developers**: See [Knowledge Base](docs/knowledge_base/) for technical deep dive
+**For artists and extension users**: In a Kit application already connected to
+the ORMS registry, install `Omniverse Room Map Shader` through Extension
+Manager, enable `AUTOLOAD`, and open `Window > ORMS`. Artists do not run the
+registry publication tool. The complete workflow is described in
+[Install and Use the Kit Extension](#install-and-use-the-kit-extension).
+
+**For extension developers and distributors**: See the
+[extension README](exts/msp.orms.runtime/README.md), the publication section
+above, the
+[KRM-91 integration record](docs/knowledge_base/mdl/011_orms_kit_extension.md),
+and the [KRM-92 UI plan](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md).
+
+**For shader and OpenUSD developers**: See the
+[Knowledge Base](docs/knowledge_base/) for the technical contracts.
 
 **For researchers**: Check `docs/adr/` for design rationale
 
@@ -727,7 +830,11 @@ Your support funds:
   core and Building 150 production integration: adaptive x1–x4 rooms across
   232 apertures, source-safe material bindings, a 56-variant real x1 atlas,
   independent one-surface glass controls, luminance-selected per-slice
-  emission, and accepted RTX Real-Time and RTX Interactive evidence.
+  emission, and accepted RTX Real-Time and RTX Interactive evidence; packaged
+  the result as installable `msp.orms.runtime` 0.1.5 with local-registry
+  publication, Extension Manager installation, AUTOLOAD, Material Library,
+  reversible automatic assignment, central ORMS controls, lifecycle commands,
+  external production-atlas routing, and clean source restoration.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

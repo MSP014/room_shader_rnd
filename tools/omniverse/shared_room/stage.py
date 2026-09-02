@@ -8,10 +8,15 @@ from pathlib import Path
 from pxr import Gf, Usd, UsdGeom, UsdShade
 
 from ..room_run.contracts import ApertureDescriptor, ClassifierDiagnostic
+from ..runtime.resources import (
+    ROOM_MAP_MDL_FILENAME,
+    ROOM_MAP_SINGLE_MDL_FILENAME,
+    RuntimeResources,
+    coerce_runtime_resources,
+    mdl_source_asset_name,
+)
 from .contracts import (
     _REQUIRED_SOURCE_PRIMVARS,
-    _ROOM_MAP_SINGLE_SOURCE_ASSET_SUFFIX,
-    _ROOM_MAP_SOURCE_ASSET_SUFFIXES,
     METRICS_MODE_AUTO,
     METRICS_MODE_LOCAL_OVERRIDE,
     ResolvedStageMetrics,
@@ -131,28 +136,12 @@ def resolve_stage_metrics(
 
 
 def discover_atlas_family_availability(
-    repository_root: Path,
+    resources_or_repository_root: RuntimeResources | Path,
 ) -> frozenset[int]:
-    """Return x1 through x4 only when all eight UDIM tiles resolve locally."""
+    """Return the x1 through x4 families validated by the resource boundary."""
 
-    family_names = {
-        1: "room_map_debug",
-        2: "room_map_debug_x2",
-        3: "room_map_debug_x3",
-        4: "room_map_debug_x4",
-    }
-    texture_root = repository_root / "assets" / "_external" / "tex"
-    available = []
-    for size, family_name in family_names.items():
-        family_directory = texture_root / family_name
-        if all(
-            (
-                family_directory / f"{family_name}.{tile_number:04d}.png"
-            ).is_file()
-            for tile_number in range(1001, 1009)
-        ):
-            available.append(size)
-    return frozenset(available)
+    resources = coerce_runtime_resources(resources_or_repository_root)
+    return resources.available_room_sizes
 
 
 def _face_vertex_indices(mesh: UsdGeom.Mesh) -> tuple[tuple[int, ...], ...]:
@@ -322,35 +311,52 @@ def _building_root(prim: Usd.Prim) -> str:
     return str(prefixes[0]) if prefixes else str(path)
 
 
-def _bound_material_uses_source_asset(
+def _bound_material_using_source_asset(
     prim: Usd.Prim,
-    source_asset_suffixes: Sequence[str],
-) -> bool:
+    source_asset_names: Sequence[str],
+) -> UsdShade.Material | None:
     material, relationship = UsdShade.MaterialBindingAPI(
         prim
     ).ComputeBoundMaterial()
     if not relationship or not material:
-        return False
+        return None
     for candidate in Usd.PrimRange(material.GetPrim()):
         source_asset = candidate.GetAttribute("info:mdl:sourceAsset").Get()
-        if source_asset and source_asset.path.endswith(
-            tuple(source_asset_suffixes)
+        if (
+            source_asset
+            and mdl_source_asset_name(source_asset.path) in source_asset_names
         ):
-            return True
-    return False
+            return material
+    return None
+
+
+def _bound_material_uses_source_asset(
+    prim: Usd.Prim,
+    source_asset_names: Sequence[str],
+) -> bool:
+    return bool(_bound_material_using_source_asset(prim, source_asset_names))
 
 
 def _has_room_map_material_binding(prim: Usd.Prim) -> bool:
     return _bound_material_uses_source_asset(
         prim,
-        _ROOM_MAP_SOURCE_ASSET_SUFFIXES,
+        (ROOM_MAP_MDL_FILENAME, ROOM_MAP_SINGLE_MDL_FILENAME),
+    )
+
+
+def stage_has_room_map_source_mesh(stage: Usd.Stage) -> bool:
+    """Return whether the composed stage contains runtime-readable ORMS work."""
+
+    return any(
+        prim.IsA(UsdGeom.Mesh) and _has_room_map_material_binding(prim)
+        for prim in stage.Traverse()
     )
 
 
 def _has_source_authored_x1_material_binding(prim: Usd.Prim) -> bool:
     return _bound_material_uses_source_asset(
         prim,
-        (_ROOM_MAP_SINGLE_SOURCE_ASSET_SUFFIX,),
+        (ROOM_MAP_SINGLE_MDL_FILENAME,),
     )
 
 
@@ -362,6 +368,8 @@ def extract_stage_apertures(
 
     xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
     apertures = []
+    source_prim_paths = []
+    source_material_paths = set()
     face_counts_by_prim = []
     diagnostics = []
 
@@ -370,15 +378,31 @@ def extract_stage_apertures(
     for prim in stage.Traverse():
         if not prim.IsA(UsdGeom.Mesh):
             continue
-        if not _has_room_map_material_binding(prim):
+        source_material = _bound_material_using_source_asset(
+            prim,
+            (ROOM_MAP_MDL_FILENAME, ROOM_MAP_SINGLE_MDL_FILENAME),
+        )
+        if source_material is None:
             continue
+        source_prim_paths.append(str(prim.GetPath()))
+        source_material_paths.add(str(source_material.GetPath()))
         mesh = UsdGeom.Mesh(prim)
         primvars = UsdGeom.PrimvarsAPI(mesh)
         source_primvars = {
             name: primvars.GetPrimvar(name)
             for name in _REQUIRED_SOURCE_PRIMVARS
         }
-        if not all(source_primvars.values()):
+        missing_primvars = tuple(
+            name for name, primvar in source_primvars.items() if not primvar
+        )
+        if missing_primvars:
+            diagnostics.append(
+                _diagnostic(
+                    "MISSING_SOURCE_PRIMVARS",
+                    str(prim.GetPath()),
+                    primvars=",".join(missing_primvars),
+                )
+            )
             continue
 
         faces = _face_vertex_indices(mesh)
@@ -483,6 +507,8 @@ def extract_stage_apertures(
 
     return StageExtraction(
         apertures=tuple(apertures),
+        source_prim_paths=tuple(sorted(source_prim_paths)),
+        source_material_paths=tuple(sorted(source_material_paths)),
         face_counts_by_prim=tuple(sorted(face_counts_by_prim)),
         diagnostics=tuple(diagnostics),
     )

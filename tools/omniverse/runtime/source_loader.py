@@ -17,6 +17,14 @@ _RUNTIME_SOURCE_MODULES = {
         "tools.omniverse.runtime.resource_metrics",
         "runtime/resource_metrics.py",
     ),
+    "runtime_resources": (
+        "tools.omniverse.runtime.resources",
+        "runtime/resources.py",
+    ),
+    "runtime_stage_visibility": (
+        "tools.omniverse.runtime.stage_visibility",
+        "runtime/stage_visibility.py",
+    ),
     "stage_load_state": (
         "tools.omniverse.runtime.stage_load_state",
         "runtime/stage_load_state.py",
@@ -69,13 +77,13 @@ _RUNTIME_SOURCE_MODULES = {
         "tools.omniverse.shared_room.material_diagnostics",
         "shared_room/material_diagnostics.py",
     ),
+    "shared_room_material_controls": (
+        "tools.omniverse.shared_room.material_controls",
+        "shared_room/material_controls.py",
+    ),
     "runtime_renderer_settings": (
         "tools.omniverse.runtime.renderer_settings",
         "runtime/renderer_settings.py",
-    ),
-    "shared_room_preferences": (
-        "tools.omniverse.shared_room.preferences",
-        "shared_room/preferences.py",
     ),
     "shared_room_classifier": (
         "tools.omniverse.shared_room.controller",

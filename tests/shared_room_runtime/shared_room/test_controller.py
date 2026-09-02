@@ -1,7 +1,7 @@
 """Protect runtime tracing, USD change routing, pose refresh, and teardown."""
 
 import pytest
-from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
+from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 
 from tools.omniverse.shared_room import controller as classifier_module
 from tools.omniverse.shared_room.controller import (
@@ -14,6 +14,85 @@ from tools.omniverse.shared_room.controller import (
 )
 
 from ._support import REPOSITORY_ROOT, _window_stage
+
+
+def test_manual_room_map_binding_reclassifies_without_runtime_reload(
+    monkeypatch,
+):
+    stage, mesh = _window_stage((1,))
+    room_map_material, relationship = UsdShade.MaterialBindingAPI(
+        mesh.GetPrim()
+    ).ComputeBoundMaterial()
+    assert relationship
+    generic_material = UsdShade.Material.Define(
+        stage,
+        "/World/Building/Looks/Base",
+    )
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(generic_material)
+    monkeypatch.setattr(
+        classifier_module,
+        "_subscribe_to_next_rendered_frame",
+        lambda _callback: object(),
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(),
+    )
+
+    initial = classifier.start()
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(room_map_material)
+
+    assert not initial.extraction.apertures
+    assert classifier.last_classification is not None
+    assert len(classifier.last_classification.extraction.apertures) == 1
+    classifier.stop()
+
+
+def test_pause_preserves_runtime_layer_and_resume_reuses_it(monkeypatch):
+    stage, _mesh = _window_stage((1, 2, 3, 4))
+
+    class FirstFrameSubscription:
+        reset_count = 0
+
+        def reset(self):
+            self.reset_count += 1
+
+    first_frame_subscription = FirstFrameSubscription()
+    monkeypatch.setattr(
+        classifier_module,
+        "_subscribe_to_next_rendered_frame",
+        lambda _callback: first_frame_subscription,
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(),
+        trace_log_warning=lambda **_record: None,
+    )
+
+    classification = classifier.start()
+    runtime_layer_identifier = classifier._layer_owner.layer.identifier
+
+    classifier.pause()
+
+    assert classifier.last_classification is classification
+    assert runtime_layer_identifier in stage.GetSessionLayer().subLayerPaths
+    assert classifier._notice_key is None
+    assert classifier._first_frame_subscription is None
+    assert first_frame_subscription.reset_count == 1
+
+    classifier.resume()
+
+    assert classifier.last_classification is classification
+    assert classifier._notice_key is not None
+    assert runtime_layer_identifier in stage.GetSessionLayer().subLayerPaths
+
+    classifier.stop()
+
+    assert (
+        runtime_layer_identifier not in stage.GetSessionLayer().subLayerPaths
+    )
 
 
 def test_runtime_trace_does_not_claim_material_completion(
@@ -171,6 +250,56 @@ def test_info_only_input_ancestors_do_not_reclassify(
     classifier.start()
 
     classifier._on_objects_changed(InputNotice(), stage)
+
+    assert classification_calls == 1
+
+    classifier.stop()
+
+
+def test_renderer_resyncs_do_not_reclassify(monkeypatch):
+    stage, _mesh = _window_stage((1, 1))
+    original_classify_stage = classifier_module.classify_stage
+    classification_calls = 0
+
+    def tracked_classify_stage(*args, **kwargs):
+        nonlocal classification_calls
+        classification_calls += 1
+        return original_classify_stage(*args, **kwargs)
+
+    class RendererNotice:
+        @staticmethod
+        def GetResyncedPaths():
+            return tuple(
+                Sdf.Path(path)
+                for path in (
+                    "/OmniKit_Viewport_LightRig",
+                    "/Render",
+                    "/Render/OmniverseKit",
+                    "/Render/OmniverseKit/HydraTextures",
+                    (
+                        "/Render/OmniverseKit/HydraTextures/"
+                        "omni_kit_widget_viewport_ViewportTexture_0"
+                    ),
+                )
+            )
+
+        @staticmethod
+        def GetChangedInfoOnlyPaths():
+            return ()
+
+    monkeypatch.setattr(
+        classifier_module,
+        "classify_stage",
+        tracked_classify_stage,
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(),
+    )
+    classifier.start()
+
+    classifier._on_objects_changed(RendererNotice(), stage)
 
     assert classification_calls == 1
 
@@ -445,6 +574,117 @@ def test_runtime_artist_controls_are_shared_across_atlas_families():
     x3_shader.GetInput("room_atlas").Set(Sdf.AssetPath("custom_x3.png"))
 
     assert x1_shader.GetInput("room_atlas").Get() == x1_atlas_before
+
+    classifier.stop()
+
+
+def test_central_material_change_updates_families_without_reclassification(
+    monkeypatch,
+):
+    stage, _mesh = _window_stage((1, 1))
+    original_classify_stage = classifier_module.classify_stage
+    classification_calls = 0
+
+    def tracked_classify_stage(*args, **kwargs):
+        nonlocal classification_calls
+        classification_calls += 1
+        return original_classify_stage(*args, **kwargs)
+
+    monkeypatch.setattr(
+        classifier_module,
+        "classify_stage",
+        tracked_classify_stage,
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(),
+    )
+    classifier.start()
+
+    updated_count = classifier.set_material_input_values(
+        {"glass_roughness": 0.42}
+    )
+
+    assert updated_count == 4
+    assert classification_calls == 1
+    for room_size in range(1, 5):
+        shader = UsdShade.Shader(
+            stage.GetPrimAtPath(
+                f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader"
+            )
+        )
+        assert shader.GetInput("glass_roughness").Get() == pytest.approx(0.42)
+
+    classifier.stop()
+
+
+def test_enabling_x4_reuses_material_and_reauthors_x1_rooms(monkeypatch):
+    stage, _mesh = _window_stage((7, 7, 7, 7, 8))
+    original_classify_stage = classifier_module.classify_stage
+    classification_calls = 0
+    records = []
+
+    def tracked_classify_stage(*args, **kwargs):
+        nonlocal classification_calls
+        classification_calls += 1
+        return original_classify_stage(*args, **kwargs)
+
+    monkeypatch.setattr(
+        classifier_module,
+        "classify_stage",
+        tracked_classify_stage,
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(
+            enabled_room_sizes=frozenset({1, 2, 3}),
+        ),
+        trace_log_warning=lambda **record: records.append(record),
+    )
+
+    initial = classifier.start()
+    x4_material_path = "/__ORMSRuntime/Looks/RoomMapX4"
+    x4_subset_path = "/World/Building/Windows/ormsFamilyX4"
+    x4_material_before = stage.GetPrimAtPath(x4_material_path)
+
+    assert [group.room_size for group in initial.result.groups] == [1] * 5
+    assert x4_material_before
+    assert not stage.GetPrimAtPath(x4_subset_path)
+
+    resynced_paths = []
+    notice_key = Tf.Notice.Register(
+        Usd.Notice.ObjectsChanged,
+        lambda notice, _sender: resynced_paths.extend(
+            notice.GetResyncedPaths()
+        ),
+        stage,
+    )
+    try:
+        updated = classifier.set_settings(RuntimeClassifierSettings())
+    finally:
+        notice_key.Revoke()
+
+    assert updated is not None
+    assert sorted(group.room_size for group in updated.result.groups) == [1, 4]
+    assert classification_calls == 2
+    assert [
+        record["details"]["trigger"]
+        for record in records
+        if record["state"] == "RUNTIME_RUN_BEGIN"
+    ] == ["manual_start", "settings_change"]
+    assert Sdf.Path("/World/Building/Windows") in resynced_paths
+    assert Sdf.Path(x4_material_path) not in resynced_paths
+    assert stage.GetPrimAtPath(x4_material_path)
+    x4_subset = UsdGeom.Subset(stage.GetPrimAtPath(x4_subset_path))
+    assert x4_subset
+    assert list(x4_subset.GetIndicesAttr().Get()) == [0, 1, 2, 3]
+    bound_material, relationship = UsdShade.MaterialBindingAPI(
+        x4_subset.GetPrim()
+    ).ComputeBoundMaterial()
+    assert relationship
+    assert bound_material.GetPath() == x4_material_before.GetPath()
 
     classifier.stop()
 

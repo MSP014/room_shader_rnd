@@ -11,6 +11,7 @@ from tools.omniverse.shared_room.stage import (
     discover_atlas_family_availability,
     extract_stage_apertures,
     resolve_stage_metrics,
+    stage_has_room_map_source_mesh,
 )
 
 from ._support import REPOSITORY_ROOT, _window_stage
@@ -50,6 +51,14 @@ def test_missing_metrics_and_conflicting_local_override_are_diagnostic_only():
     assert override.diagnostics[0].state == "LOCAL_STAGE_METRICS_OVERRIDE"
 
 
+def test_runtime_source_gate_ignores_an_empty_stage():
+    empty_stage = Usd.Stage.CreateInMemory()
+    room_map_stage, _ = _window_stage((1,))
+
+    assert not stage_has_room_map_source_mesh(empty_stage)
+    assert stage_has_room_map_source_mesh(room_map_stage)
+
+
 def test_extraction_converts_stage_units_to_metres():
     stage, _ = _window_stage((1,))
     UsdGeom.SetStageMetersPerUnit(stage, 0.01)
@@ -61,6 +70,25 @@ def test_extraction_converts_stage_units_to_metres():
     assert aperture.centre_metres == pytest.approx((0.005, 0.005, 0.0))
     assert aperture.tangent_u_metres == pytest.approx((0.01, 0.0, 0.0))
     assert aperture.tangent_v_metres == pytest.approx((0.0, 0.01, 0.0))
+
+
+def test_manually_bound_mesh_reports_missing_source_primvars():
+    stage, mesh = _window_stage((1,))
+    mesh.GetPrim().RemoveProperty("primvars:roomUV")
+    metrics = resolve_stage_metrics(stage, RuntimeClassifierSettings())
+
+    extraction = extract_stage_apertures(stage, metrics)
+
+    assert not extraction.apertures
+    assert extraction.source_prim_paths == (str(mesh.GetPath()),)
+    assert extraction.source_material_paths == (
+        "/World/Building/Looks/RoomMap",
+    )
+    assert len(extraction.diagnostics) == 1
+    diagnostic = extraction.diagnostics[0]
+    assert diagnostic.state == "MISSING_SOURCE_PRIMVARS"
+    assert diagnostic.prim_path == str(mesh.GetPath())
+    assert dict(diagnostic.details)["primvars"] == "roomUV"
 
 
 def test_all_four_repository_atlas_families_are_complete():

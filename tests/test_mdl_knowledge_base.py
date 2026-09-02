@@ -16,6 +16,15 @@ REQUIRED_HEADINGS = (
     "## Boundary",
 )
 
+PLANNED_HEADINGS = (
+    "## Record",
+    "## Purpose",
+    "## Accepted starting point",
+    "## Implementation plan",
+    "## Acceptance plan",
+    "## Boundary",
+)
+
 
 def _records():
     return tuple(sorted(KNOWLEDGE_BASE.glob("[0-9][0-9][0-9]_*.md")))
@@ -26,14 +35,20 @@ def test_mdl_records_use_the_indexed_heading_contract():
     index = INDEX_PATH.read_text(encoding="utf-8")
 
     assert [path.name[:3] for path in records] == [
-        f"{number:03d}" for number in range(1, 11)
+        f"{number:03d}" for number in range(1, 13)
     ]
     for path in records:
         source = path.read_text(encoding="utf-8")
-        positions = [source.index(heading) for heading in REQUIRED_HEADINGS]
+        headings = (
+            PLANNED_HEADINGS
+            if "| State | Planned" in source
+            else REQUIRED_HEADINGS
+        )
+        positions = [source.index(heading) for heading in headings]
 
         assert positions == sorted(positions), path.name
-        assert "| Evidence state |" in source
+        if headings is REQUIRED_HEADINGS:
+            assert "| Evidence state |" in source
         assert f"({path.name})" in index
 
 

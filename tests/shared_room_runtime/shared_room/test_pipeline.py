@@ -1,7 +1,13 @@
 """Protect ordered stage classification and bounded material-family authoring."""
 
-from pxr import Gf, UsdGeom, UsdShade
+import pytest
+from pxr import Gf, Sdf, UsdGeom, UsdShade
 
+from tools.omniverse.runtime.resources import (
+    RuntimeAtlasFamily,
+    RuntimeResources,
+)
+from tools.omniverse.shared_room import authoring as authoring_module
 from tools.omniverse.shared_room.authoring import RuntimeLayerOwner
 from tools.omniverse.shared_room.contracts import RuntimeClassifierSettings
 from tools.omniverse.shared_room.pipeline import classify_stage
@@ -9,7 +15,7 @@ from tools.omniverse.shared_room.pipeline import classify_stage
 from ._support import REPOSITORY_ROOT, _window_stage
 
 
-def test_stage_classification_authors_all_enabled_material_families():
+def test_stage_classification_authors_all_available_material_families():
     stage, mesh = _window_stage((1, 1, 2, 1, 1))
     owner = RuntimeLayerOwner(stage)
     runtime_layer = owner.attach()
@@ -82,6 +88,53 @@ def test_stage_classification_authors_all_enabled_material_families():
     assert not stage.GetPrimAtPath("/__ORMSRuntime")
 
 
+def test_central_material_values_are_authored_to_every_family():
+    stage, _mesh = _window_stage((1, 1))
+    owner = RuntimeLayerOwner(stage)
+
+    classify_stage(
+        stage,
+        owner.attach(),
+        RuntimeClassifierSettings(),
+        REPOSITORY_ROOT,
+        material_input_values={
+            "glass_roughness": 0.37,
+            "window_shift": Gf.Vec2f(0.2, -0.1),
+        },
+    )
+
+    for room_size in range(1, 5):
+        shader = UsdShade.Shader(
+            stage.GetPrimAtPath(
+                f"/__ORMSRuntime/Looks/RoomMapX{room_size}/Shader"
+            )
+        )
+        assert shader.GetInput("glass_roughness").Get() == pytest.approx(0.37)
+        assert tuple(shader.GetInput("window_shift").Get()) == pytest.approx(
+            (0.2, -0.1)
+        )
+
+
+def test_runtime_implementation_scope_is_hidden_from_stage_ui(monkeypatch):
+    stage, _mesh = _window_stage((1,))
+    owner = RuntimeLayerOwner(stage)
+    hidden_paths = []
+    monkeypatch.setattr(
+        authoring_module,
+        "hide_in_stage_window",
+        lambda prim: hidden_paths.append(str(prim.GetPath())) or True,
+    )
+
+    classify_stage(
+        stage,
+        owner.attach(),
+        RuntimeClassifierSettings(),
+        REPOSITORY_ROOT,
+    )
+
+    assert hidden_paths == ["/__ORMSRuntime"]
+
+
 def test_stage_classification_reports_ordered_runtime_phases():
     stage, _mesh = _window_stage((1, 1, 2, 1, 1))
     owner = RuntimeLayerOwner(stage)
@@ -110,5 +163,56 @@ def test_stage_classification_reports_ordered_runtime_phases():
     assert phases[3][1]["material_count"] == 4
     assert phases[4][1]["subset_count"] == 2
     assert phases[4][1]["direct_mesh_binding_count"] == 0
+
+    owner.detach()
+
+
+def test_stage_classification_consumes_installation_neutral_resources():
+    stage, _mesh = _window_stage((1, 1))
+    source_shader = UsdShade.Shader(
+        stage.GetPrimAtPath("/World/Building/Looks/RoomMap/Shader")
+    )
+    source_shader.GetPrim().GetAttribute("info:mdl:sourceAsset").Set(
+        Sdf.AssetPath("room_map.mdl")
+    )
+    owner = RuntimeLayerOwner(stage)
+    runtime_layer = owner.attach()
+    resources = RuntimeResources(
+        mdl_source_asset="room_map.mdl",
+        atlas_families=(
+            RuntimeAtlasFamily(
+                1,
+                "packaged/debug/x1/room_map_debug.<UDIM>.png",
+                8,
+            ),
+            RuntimeAtlasFamily(
+                2,
+                "licensed/pack/x2/room_map.<UDIM>.png",
+                32,
+            ),
+        ),
+    )
+
+    classification = classify_stage(
+        stage,
+        runtime_layer,
+        RuntimeClassifierSettings(),
+        resources,
+    )
+
+    shader = UsdShade.Shader(
+        stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX2/Shader")
+    )
+    material = UsdShade.Material(
+        stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX2")
+    )
+    assert classification.available_room_sizes == frozenset({1, 2})
+    assert material.GetPrim().HasAuthoredSpecializes()
+    assert shader.GetInput("room_atlas").Get() == Sdf.AssetPath(
+        "licensed/pack/x2/room_map.<UDIM>.png"
+    )
+    assert shader.GetInput("room_variant_count").Get() == 32
+    assert not stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX3")
+    assert not stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX4")
 
     owner.detach()

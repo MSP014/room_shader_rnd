@@ -442,7 +442,7 @@ def test_houdini_fixture_preserves_export_and_classifies_all_families():
     assert stage.GetRootLayer().ExportToString() == root_before
 
 
-def test_disabled_atlas_families_repartition_fixture_without_source_edits():
+def test_disabled_atlas_families_fall_back_without_source_edits():
     stage, owner, classification = _classify(
         HOUDINI_FIXTURE,
         RuntimeClassifierSettings(enabled_room_sizes=frozenset({1, 2})),
@@ -453,6 +453,8 @@ def test_disabled_atlas_families_repartition_fixture_without_source_edits():
         1,
         2,
     }
-    assert _family_material_sizes(stage) == {1, 2}
+    # Available families stay alive while disabled geometry falls back to x1.
+    # This prevents transparent faces while RTX recompiles a recreated shader.
+    assert _family_material_sizes(stage) == {1, 2, 3, 4}
 
     owner.detach()

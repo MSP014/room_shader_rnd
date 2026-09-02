@@ -20,7 +20,9 @@ proof.
 | [007 — Room Variants](007_room_variants.md) | KRM-90 | Deterministic roomID-to-UDIM selection | Renderer-validated |
 | [008 — Window Apertures](008_window_apertures.md) | KRM-94 | Physical aperture scale and offset | Renderer-validated |
 | [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Renderer-validated; final repository quality gate reserved for pre-commit |
-| [010 — Building 150 Integration](010_building_150_integration.md) | KRM-98 | Production-asset fixture, adaptive façade classification, surface integration, and deferred emission sequence | OpenUSD-validated; renderer validation pending |
+| [010 — Building 150 Integration](010_building_150_integration.md) | KRM-98 | Production-asset fixture, adaptive façade classification, glass integration, real x1 content, and luminance-selected emission | Accepted in RTX Real-Time and RTX Interactive Path Tracing; real x2–x4 content remains external follow-up work |
+| [011 — ORMS Kit Extension Integration](011_orms_kit_extension.md) | KRM-91 | Installable Kit boundary, portable MDL registration, Material Library entry, and reversible Windows Glass assignment | Installed `0.1.5` accepted in both required RTX modes |
+| [012 — ORMS UI and Artist Workflow](012_orms_ui_and_artist_workflow.md) | KRM-92 | Artist-facing panel structure, assignment controls, atlas configuration, and Extension Manager guidance | Planned next implementation task |
 
 ## Record contract
 
@@ -39,7 +41,10 @@ Every numbered record uses the following top-level headings in this order:
 
 Topic-specific third-level headings are allowed inside these sections. A
 planned result must be labelled as pending; it must not be written as accepted
-renderer evidence.
+renderer evidence. A numbered record reserved for the next implementation task
+may temporarily replace the accepted-contract and evidence sections with an
+explicit starting point, implementation plan, and acceptance plan, provided
+its record state remains `Planned`.
 
 ## Writing rules
 
@@ -58,7 +63,8 @@ renderer evidence.
 
 ## Maintenance
 
-Add the next zero-padded record only when implementation or research evidence
-exists. Update this index in the same change. When a pending visual boundary is
-accepted, update the record's evidence state and validation date without
-rewriting the historical contract.
+Add the next zero-padded evidence record when implementation or research
+evidence exists. A planned hand-off record may reserve the next number when its
+scope and acceptance boundary are explicit. Update this index in the same
+change. When a pending visual boundary is accepted, update the record's
+evidence state and validation date without rewriting the historical contract.

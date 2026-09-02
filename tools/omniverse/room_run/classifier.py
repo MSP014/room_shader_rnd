@@ -93,13 +93,16 @@ def classify_apertures(
             )
         )
 
-    # x1 is the universal safe path. Without its complete atlas family no
-    # component can be partitioned into a valid Room Map result.
+    # x1 is the universal safe path. Geometry is first grouped independently
+    # of artist family toggles; a disabled or unavailable x2-x4 family is then
+    # degraded to stable x1 groups instead of repartitioning neighbouring
+    # windows into a different multi-window layout.
     usable_sizes = (
         set(settings.enabled_room_sizes)
         & set(settings.available_room_sizes)
         & {1, 2, 3, 4}
     )
+    classification_sizes = {1, 2, 3, 4}
     if 1 not in usable_sizes:
         for aperture in valid_apertures:
             mappings.append(_fallback_mapping(aperture, "MISSING_X1_ATLAS"))
@@ -195,7 +198,7 @@ def classify_apertures(
             split_index = corner_turns[0]
             leg_sizes = (split_index, len(run) - split_index)
             corner_room_size = max(leg_sizes)
-            if max(leg_sizes) <= 4 and set(leg_sizes) <= usable_sizes:
+            if max(leg_sizes) <= 4:
                 group_specs.append(
                     (
                         run,
@@ -212,7 +215,7 @@ def classify_apertures(
                     leg_indices = tuple(ordered_indices[leg_start:leg_end])
                     partitions = partition_room_run(
                         len(leg),
-                        usable_sizes,
+                        classification_sizes,
                         settings.partition_seed,
                         f"{run_key}|leg={leg_number}",
                     )
@@ -230,7 +233,7 @@ def classify_apertures(
         else:
             partitions = partition_room_run(
                 len(run),
-                usable_sizes,
+                classification_sizes,
                 settings.partition_seed,
                 run_key,
             )
@@ -246,6 +249,26 @@ def classify_apertures(
                 )
                 offset += group_size
 
+        resolved_group_specs = []
+        for group_spec in group_specs:
+            (
+                group_apertures,
+                group_indices,
+                group_size,
+                _group_depth_size,
+            ) = group_spec
+            if group_size in usable_sizes:
+                resolved_group_specs.append(group_spec)
+                continue
+            resolved_group_specs.extend(
+                ((aperture,), (index,), 1, 1)
+                for aperture, index in zip(
+                    group_apertures,
+                    group_indices,
+                    strict=True,
+                )
+            )
+
         # Convert every accepted group directly into the affine mapping that
         # MDL consumes, keeping scene analysis out of fragment evaluation.
         for group_number, (
@@ -253,7 +276,7 @@ def classify_apertures(
             group_indices,
             group_size,
             group_depth_size,
-        ) in enumerate(group_specs):
+        ) in enumerate(resolved_group_specs):
             group_key = (
                 f"{run_key}|group={group_number}|width={group_size}|"
                 f"depth={group_depth_size}|apertures={len(group_apertures)}"

@@ -12,6 +12,8 @@ def test_runtime_source_manifest_covers_every_split_dependency():
 
     expected = {
         "runtime_resource_metrics",
+        "runtime_resources",
+        "runtime_stage_visibility",
         "stage_load_state",
         "stage_load_probe",
         "room_run_contracts",
@@ -24,8 +26,9 @@ def test_runtime_source_manifest_covers_every_split_dependency():
         "shared_room_pipeline",
         "shared_room_settings",
         "shared_room_changes",
+        "shared_room_material_diagnostics",
+        "shared_room_material_controls",
         "runtime_renderer_settings",
-        "shared_room_preferences",
         "shared_room_classifier",
     }
 

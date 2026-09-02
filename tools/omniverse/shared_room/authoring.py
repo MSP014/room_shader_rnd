@@ -14,6 +14,14 @@ from ..room_run.contracts import (
     ClassifierDiagnostic,
     DerivedApertureMapping,
 )
+from ..runtime.resources import (
+    ROOM_MAP_MDL_FILENAME,
+    RuntimeResources,
+    coerce_runtime_resources,
+    is_room_map_source_asset,
+    mdl_source_asset_name,
+)
+from ..runtime.stage_visibility import hide_in_stage_window
 from .contracts import (
     _REQUIRED_SOURCE_PRIMVARS,
     _RTX_CUTOUT_OPT_IN_ATTRIBUTE,
@@ -128,7 +136,6 @@ _SHARED_ARTIST_INPUT_NAMES = frozenset(
         "camera_position_world",
     }
 )
-_DEBUG_ATLAS_VARIANT_COUNT = 8
 
 
 class RuntimeLayerOwner:
@@ -863,12 +870,7 @@ def _find_bound_room_map_shader(
                 continue
             shader = UsdShade.Shader(candidate)
             source_asset = _room_map_source_asset(shader)
-            if source_asset.endswith(
-                (
-                    "src/mdl/room_map.mdl",
-                    "src/mdl/room_map_single.mdl",
-                )
-            ):
+            if is_room_map_source_asset(source_asset):
                 candidates.append((material, shader))
     return (
         min(candidates, key=lambda item: str(item[1].GetPath()))
@@ -918,6 +920,20 @@ def _author_complete_room_map_inputs(
         )
 
 
+def _author_shared_material_inputs(
+    shader: UsdShade.Shader,
+    values: Mapping[str, object],
+) -> None:
+    """Author central artist controls onto one generated atlas family."""
+
+    for name, value in values.items():
+        if name not in _SHARED_ARTIST_INPUT_NAMES:
+            continue
+        shader_input = shader.GetInput(name)
+        if shader_input:
+            shader_input.Set(value)
+
+
 @dataclass(frozen=True)
 class _AtlasFamilySource:
     """Pair one atlas asset with the number of valid UDIM variants."""
@@ -965,30 +981,20 @@ def _source_x1_atlas_family(
 
 
 def _debug_atlas_family(
-    repository_root: Path,
+    resources: RuntimeResources,
     room_size: int,
 ) -> _AtlasFamilySource:
-    """Return one retained labelled atlas family for runtime diagnostics."""
+    """Return one validated diagnostic or externally configured atlas family."""
 
-    family_name = (
-        "room_map_debug" if room_size == 1 else f"room_map_debug_x{room_size}"
-    )
-    atlas_path = (
-        repository_root
-        / "assets"
-        / "_external"
-        / "tex"
-        / family_name
-        / f"{family_name}.<UDIM>.png"
-    )
+    family = resources.atlas_family(room_size)
     return _AtlasFamilySource(
-        Sdf.AssetPath(atlas_path.as_posix()),
-        _DEBUG_ATLAS_VARIANT_COUNT,
+        Sdf.AssetPath(family.asset_path),
+        family.variant_count,
     )
 
 
 def _atlas_family_source(
-    repository_root: Path,
+    resources: RuntimeResources,
     room_size: int,
     source_shader: UsdShade.Shader | None,
 ) -> _AtlasFamilySource:
@@ -998,17 +1004,20 @@ def _atlas_family_source(
         source_x1 = _source_x1_atlas_family(source_shader)
         if source_x1 is not None:
             return source_x1
-    return _debug_atlas_family(repository_root, room_size)
+    return _debug_atlas_family(resources, room_size)
 
 
 def author_family_materials(
     stage: Usd.Stage,
     runtime_layer: Sdf.Layer,
-    repository_root: Path,
-    usable_room_sizes: frozenset[int],
+    resources_or_repository_root: RuntimeResources | Path,
+    available_room_sizes: frozenset[int],
     window_prim_paths: Sequence[str],
+    material_input_values: Mapping[str, object] | None = None,
 ) -> dict[int, UsdShade.Material]:
-    """Create no more than one shared material instance per atlas family."""
+    """Keep one shared material alive for every available atlas family."""
+
+    resources = coerce_runtime_resources(resources_or_repository_root)
 
     bound_source = _find_bound_room_map_shader(
         stage,
@@ -1019,15 +1028,15 @@ def author_family_materials(
     )
     source_supports_room_families = bool(
         source_shader
-        and _room_map_source_asset(source_shader).endswith(
-            "src/mdl/room_map.mdl"
-        )
+        and mdl_source_asset_name(_room_map_source_asset(source_shader))
+        == ROOM_MAP_MDL_FILENAME
     )
     materials = {}
     with Usd.EditContext(stage, runtime_layer):
-        UsdGeom.Scope.Define(stage, "/__ORMSRuntime")
+        runtime_root = UsdGeom.Scope.Define(stage, "/__ORMSRuntime")
+        hide_in_stage_window(runtime_root.GetPrim())
         UsdGeom.Scope.Define(stage, "/__ORMSRuntime/Looks")
-        for room_size in sorted(usable_room_sizes & {1, 2, 3, 4}):
+        for room_size in sorted(available_room_sizes & {1, 2, 3, 4}):
             material_path = f"/__ORMSRuntime/Looks/RoomMapX{room_size}"
             material = UsdShade.Material.Define(stage, material_path)
             material.GetPrim().CreateAttribute(
@@ -1065,13 +1074,7 @@ def author_family_materials(
                     "info:mdl:sourceAsset",
                     Sdf.ValueTypeNames.Asset,
                     custom=False,
-                ).Set(
-                    Sdf.AssetPath(
-                        (
-                            repository_root / "src" / "mdl" / "room_map.mdl"
-                        ).as_posix()
-                    )
-                )
+                ).Set(Sdf.AssetPath(resources.mdl_source_asset))
                 shader_prim.CreateAttribute(
                     "info:mdl:sourceAsset:subIdentifier",
                     Sdf.ValueTypeNames.Token,
@@ -1084,8 +1087,12 @@ def author_family_materials(
                     shader_output
                 )
             _author_complete_room_map_inputs(shader, source_shader)
+            _author_shared_material_inputs(
+                shader,
+                material_input_values or {},
+            )
             atlas_family = _atlas_family_source(
-                repository_root,
+                resources,
                 room_size,
                 source_shader,
             )

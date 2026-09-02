@@ -85,3 +85,81 @@ def test_change_filter_excludes_camera_runtime_and_artist_inputs():
         geometry_ancestors,
         resynced=False,
     )
+
+
+def test_change_filter_excludes_unrelated_renderer_resyncs():
+    stage, _mesh = _window_stage((1,))
+    geometry_ancestors = frozenset(
+        {
+            "/World",
+            "/World/Building",
+            "/World/Building/Windows",
+        }
+    )
+    building_roots = frozenset({"/World/Building"})
+
+    for path in (
+        "/OmniKit_Viewport_LightRig",
+        "/Render",
+        "/Render/OmniverseKit",
+        "/Render/OmniverseKit/HydraTextures",
+        (
+            "/Render/OmniverseKit/HydraTextures/"
+            "omni_kit_widget_viewport_ViewportTexture_0"
+        ),
+    ):
+        assert not _is_relevant_change(
+            stage,
+            Sdf.Path(path),
+            geometry_ancestors,
+            building_roots,
+            resynced=True,
+        )
+
+    for path in (
+        "/Render/Proxy.points",
+        "/Render/Proxy.primvars:roomID",
+        "/Render/Proxy.material:binding",
+        "/Render/Shader.info:mdl:sourceAsset",
+    ):
+        assert not _is_relevant_change(
+            stage,
+            Sdf.Path(path),
+            geometry_ancestors,
+            building_roots,
+            resynced=False,
+        )
+
+
+def test_change_filter_retains_geometry_and_material_dependencies():
+    stage, _mesh = _window_stage((1,))
+    geometry_ancestors = frozenset(
+        {
+            "/World",
+            "/World/Building",
+            "/World/Building/Windows",
+        }
+    )
+    building_roots = frozenset({"/World/Building"})
+    material_ancestors = frozenset(
+        {
+            "/ExternalLooks",
+            "/ExternalLooks/RoomMap",
+        }
+    )
+    material_roots = frozenset({"/ExternalLooks/RoomMap"})
+
+    for path in (
+        "/World/Building/NewWindows",
+        "/ExternalLooks",
+        "/ExternalLooks/RoomMap/Shader",
+    ):
+        assert _is_relevant_change(
+            stage,
+            Sdf.Path(path),
+            geometry_ancestors,
+            building_roots,
+            source_material_ancestor_paths=material_ancestors,
+            source_material_root_paths=material_roots,
+            resynced=True,
+        )

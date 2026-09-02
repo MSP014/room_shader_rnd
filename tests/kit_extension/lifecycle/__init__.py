@@ -1,0 +1,1 @@
+"""Lifecycle-specific extension tests."""

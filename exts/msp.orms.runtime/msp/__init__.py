@@ -1,0 +1,1 @@
+"""MSP Kit extension namespace."""
