@@ -9,6 +9,7 @@ from pathlib import Path
 from types import ModuleType
 
 _OWNED_MODULE_PREFIXES = (
+    "tools.omniverse.interior_sets.",
     "tools.omniverse.runtime.",
     "tools.omniverse.room_run.",
     "tools.omniverse.shared_room.",
@@ -30,10 +31,25 @@ _OWNED_MODULE_NAMES = frozenset(
 _PACKAGE_DIRECTORIES = (
     ("tools", "tools"),
     ("tools.omniverse", "tools/omniverse"),
+    ("tools.omniverse.interior_sets", "tools/omniverse/interior_sets"),
     ("tools.omniverse.runtime", "tools/omniverse/runtime"),
     ("tools.omniverse.room_run", "tools/omniverse/room_run"),
     ("tools.omniverse.shared_room", "tools/omniverse/shared_room"),
 )
+
+
+def discover_runtime_root(module_file: str | Path) -> Path:
+    """Resolve packaged runtime code, falling back to the source checkout."""
+
+    extension_root = Path(module_file).resolve().parents[3]
+    packaged_root = extension_root / "data" / "runtime"
+    checkout_root = extension_root.parents[1]
+    for candidate in (packaged_root, checkout_root):
+        if (candidate / "tools" / "omniverse").is_dir():
+            return candidate
+    raise FileNotFoundError(
+        "The ORMS extension has no packaged Python runtime"
+    )
 
 
 @dataclass(frozen=True)

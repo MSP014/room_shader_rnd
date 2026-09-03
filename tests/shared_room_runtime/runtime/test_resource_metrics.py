@@ -98,3 +98,24 @@ def test_renderer_snapshot_treats_single_room_fallback_as_non_cutout():
     assert snapshot["mdl_enable_opacity_values"] == {
         "/__ORMSRuntime/Looks/RoomMapX1": "not_applicable"
     }
+
+
+def test_renderer_snapshot_counts_per_interior_set_materials():
+    stage = Usd.Stage.CreateInMemory()
+    for set_token in ("Set_default", "Set_kitchens"):
+        for room_size in (1, 2, 3, 4):
+            material = UsdShade.Material.Define(
+                stage,
+                (f"/__ORMSRuntime/Looks/{set_token}/" f"RoomMapX{room_size}"),
+            )
+            UsdShade.Shader.Define(
+                stage,
+                material.GetPath().AppendChild("Shader"),
+            )
+
+    snapshot = _renderer_snapshot(
+        settings=SimpleNamespace(get=lambda _path: None),
+        stage=stage,
+    )
+
+    assert snapshot.get("runtime_material_count") == 8, snapshot

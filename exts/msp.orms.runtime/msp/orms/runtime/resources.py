@@ -7,6 +7,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.omniverse.interior_sets.contracts import VariantIdentityManifest
+
+from .atlas_manifest import debug_variant_manifest, load_variant_manifest
+from .runtime_imports import discover_runtime_root
+
 MATERIAL_SOURCE_ASSET = "room_map.mdl"
 MATERIAL_SUBIDENTIFIER = "room_map"
 DEBUG_VARIANT_COUNT = 8
@@ -37,6 +42,7 @@ class AtlasResource:
     asset_path: Path
     variant_count: int
     source: str
+    variant_manifest: VariantIdentityManifest | None = None
 
 
 @dataclass(frozen=True)
@@ -54,16 +60,7 @@ class ResourceLayout:
 
         extension_root = Path(module_file).resolve().parents[3]
         checkout_root = extension_root.parents[1]
-        packaged_runtime_root = extension_root / "data" / "runtime"
-        runtime_root = (
-            packaged_runtime_root
-            if (packaged_runtime_root / "tools" / "omniverse").is_dir()
-            else checkout_root
-        )
-        if not (runtime_root / "tools" / "omniverse").is_dir():
-            raise FileNotFoundError(
-                "The ORMS extension has no packaged Python runtime"
-            )
+        runtime_root = discover_runtime_root(module_file)
 
         packaged_mdl_root = extension_root / "data" / "mdl"
         checkout_mdl_root = checkout_root / "src" / "mdl"
@@ -111,6 +108,7 @@ class ResourceLayout:
                             if asset_path == packaged_asset
                             else "checkout"
                         ),
+                        debug_variant_manifest(DEBUG_VARIANT_COUNT),
                     )
                 )
 
@@ -196,6 +194,7 @@ def discover_production_atlas(
         asset_path=asset_path,
         variant_count=len(tiles),
         source="production",
+        variant_manifest=load_variant_manifest(directory, len(tiles)),
     )
 
 

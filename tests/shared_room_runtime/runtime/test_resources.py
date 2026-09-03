@@ -1,14 +1,36 @@
 """Protect the installation-neutral ORMS runtime resource contract."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from tools.omniverse.runtime.resources import (
     RuntimeAtlasFamily,
     RuntimeResources,
+    coerce_runtime_resources,
     is_room_map_source_asset,
 )
+
+
+def test_structural_coercion_survives_reloaded_module_identity():
+    previous_module_record = SimpleNamespace(
+        mdl_source_asset="packaged/room_map.mdl",
+        atlas_families=(
+            SimpleNamespace(
+                room_size=1,
+                asset_path="debug/x1.<UDIM>.png",
+                variant_count=8,
+                source="packaged",
+            ),
+        ),
+    )
+
+    resources = coerce_runtime_resources(previous_module_record)
+
+    assert isinstance(resources, RuntimeResources)
+    assert resources.mdl_source_asset == "packaged/room_map.mdl"
+    assert resources.atlas_family(1).source == "packaged"
 
 
 def _touch_udim_family(asset_path: Path) -> None:

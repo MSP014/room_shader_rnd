@@ -1,11 +1,15 @@
 """Protect deterministic standalone ORMS extension packaging."""
 
 import json
+import subprocess  # nosec B404
+import sys
 from pathlib import Path
 
 import pytest
 
 from tools.package_orms_extension import build_extension
+
+from ._support import REPOSITORY_ROOT
 
 
 def _touch_debug_sources(repository_root: Path) -> None:
@@ -99,3 +103,36 @@ def test_builder_refuses_to_overwrite_existing_output(tmp_path):
 
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         build_extension(repository_root, output)
+
+
+def test_packaged_entry_point_imports_without_source_checkout(tmp_path):
+    output = tmp_path / "bundle" / "msp.orms.runtime"
+    built = build_extension(REPOSITORY_ROOT, output)
+    script = """
+import importlib
+import sys
+import types
+
+bundle = sys.argv[1]
+sys.path.insert(0, bundle)
+omni = types.ModuleType("omni")
+omni.__path__ = []
+omni_ext = types.ModuleType("omni.ext")
+omni_ext.IExt = type("IExt", (), {})
+omni.ext = omni_ext
+sys.modules["omni"] = omni
+sys.modules["omni.ext"] = omni_ext
+module = importlib.import_module("msp.orms.runtime.extension")
+print(module.__file__)
+"""
+
+    result = subprocess.run(  # nosec B603
+        (sys.executable, "-I", "-c", script, str(built)),
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert str(built) in result.stdout

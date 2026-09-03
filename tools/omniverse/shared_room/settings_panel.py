@@ -7,6 +7,8 @@ from functools import partial
 
 from .material_controls import MATERIAL_CONTROLS, material_setting_path
 from .settings import classifier_setting_path
+from .ui_buttons import selection_button
+from .ui_sections import collapsable_frame
 
 SETTINGS_TAB_LABELS = (
     "ORMS Classifier",
@@ -29,6 +31,14 @@ class _SettingsPanelBuilder:
         apply_atlases: Callable[[], None],
         build_lifecycle_controls: Callable[[], None],
         watch_model: ModelCallback,
+        build_material_panel: Callable[[], tuple[object, ...]] | None = None,
+        build_atlas_panel: Callable[[], tuple[object, ...]] | None = None,
+        active_tab_index: int = 0,
+        tab_changed: Callable[[int], None] | None = None,
+        debug_atlases_collapsed: bool = False,
+        debug_atlases_collapsed_changed: Callable[[bool], None] | None = None,
+        section_collapsed: Callable[[str, bool], bool] | None = None,
+        section_collapsed_changed: Callable[[str, bool], None] | None = None,
     ) -> None:
         self._atlas_paths = atlas_paths
         self._classifier_changed = classifier_changed
@@ -36,6 +46,17 @@ class _SettingsPanelBuilder:
         self._apply_atlases = apply_atlases
         self._build_lifecycle_controls = build_lifecycle_controls
         self._watch_model = watch_model
+        self._build_material_panel = build_material_panel
+        self._build_atlas_panel = build_atlas_panel
+        self._active_tab_index = max(
+            0,
+            min(active_tab_index, len(SETTINGS_TAB_LABELS) - 1),
+        )
+        self._tab_changed = tab_changed
+        self._debug_atlases_collapsed = debug_atlases_collapsed
+        self._debug_atlases_collapsed_changed = debug_atlases_collapsed_changed
+        self._section_collapsed = section_collapsed
+        self._section_collapsed_changed = section_collapsed_changed
         self._models: list[object] = []
 
     @property
@@ -108,13 +129,49 @@ class _SettingsPanelBuilder:
         self._models.append(model)
         self._watch_model(model, self._classifier_changed)
 
+    def _section_frame(
+        self,
+        ui: object,
+        title: str,
+        section_id: str,
+        *,
+        collapsed: bool = False,
+    ) -> object:
+        """Build one content-sized section with retained state."""
+
+        current = (
+            self._section_collapsed(section_id, collapsed)
+            if self._section_collapsed is not None
+            else collapsed
+        )
+        changed = (
+            (
+                lambda value: self._section_collapsed_changed(
+                    section_id,
+                    value,
+                )
+            )
+            if self._section_collapsed_changed is not None
+            else None
+        )
+        return collapsable_frame(
+            ui,
+            title,
+            collapsed=current,
+            collapsed_changed=changed,
+        )
+
     def _build_classifier(self) -> None:
         import omni.ui as ui
         from omni.kit.widget.settings import SettingType
 
         self._build_lifecycle_controls()
 
-        with ui.CollapsableFrame("Room families"):
+        with self._section_frame(
+            ui,
+            "Room families",
+            "classifier:room_families",
+        ):
             with ui.VStack():
                 for size in (2, 3, 4):
                     self._setting_row(
@@ -130,7 +187,11 @@ class _SettingsPanelBuilder:
                     changed=self._classifier_changed,
                 )
 
-        with ui.CollapsableFrame("USD composition"):
+        with self._section_frame(
+            ui,
+            "USD composition",
+            "classifier:usd_composition",
+        ):
             with ui.VStack():
                 self._combo_row(
                     "Instance policy",
@@ -154,7 +215,11 @@ class _SettingsPanelBuilder:
                     changed=self._classifier_changed,
                 )
 
-        with ui.CollapsableFrame("Geometric tolerances"):
+        with self._section_frame(
+            ui,
+            "Geometric tolerances",
+            "classifier:geometric_tolerances",
+        ):
             with ui.VStack():
                 for label, name in (
                     ("Row snap (metres)", "floor_tolerance_metres"),
@@ -190,6 +255,9 @@ class _SettingsPanelBuilder:
         import omni.ui as ui
         from omni.kit.widget.settings import SettingType
 
+        if self._build_material_panel is not None:
+            self._models.extend(self._build_material_panel())
+            return
         kind_types = {
             "bool": SettingType.BOOL,
             "int": SettingType.INT,
@@ -201,7 +269,11 @@ class _SettingsPanelBuilder:
             dict.fromkeys(control.group for control in MATERIAL_CONTROLS)
         )
         for group in groups:
-            with ui.CollapsableFrame(group):
+            with self._section_frame(
+                ui,
+                group,
+                f"material:legacy_group:{group.casefold()}",
+            ):
                 with ui.VStack():
                     for control in MATERIAL_CONTROLS:
                         if control.group != group:
@@ -219,7 +291,13 @@ class _SettingsPanelBuilder:
         import omni.ui as ui
         from omni.kit.widget.settings import SettingType
 
-        with ui.CollapsableFrame("Packaged debug atlases"):
+        frame = collapsable_frame(
+            ui,
+            "Packaged debug atlas fallback (global)",
+            collapsed=self._debug_atlases_collapsed,
+            collapsed_changed=self._debug_atlases_collapsed_changed,
+        )
+        with frame:
             with ui.VStack():
                 for room_size in range(1, 5):
                     self._setting_row(
@@ -231,7 +309,15 @@ class _SettingsPanelBuilder:
                         enabled=False,
                     )
 
-        with ui.CollapsableFrame("Production atlas override"):
+        if self._build_atlas_panel is not None:
+            self._models.extend(self._build_atlas_panel())
+            return
+
+        with self._section_frame(
+            ui,
+            "Production atlas override",
+            "atlases:legacy_production_override",
+        ):
             with ui.VStack():
                 ui.Label(
                     "Choose one folder per room family. Each folder must "
@@ -264,22 +350,26 @@ class _SettingsPanelBuilder:
         tab_buttons = []
 
         def select_tab(index: int) -> None:
+            self._active_tab_index = index
             for item_index, frame in enumerate(tab_frames):
                 frame.visible = item_index == index
             for item_index, button in enumerate(tab_buttons):
                 button.selected = item_index == index
+            if self._tab_changed is not None:
+                self._tab_changed(index)
 
         with ui.VStack(height=0, spacing=6):
             with ui.HStack(height=32):
                 for index, label in enumerate(SETTINGS_TAB_LABELS):
                     tab_buttons.append(
-                        ui.Button(
+                        selection_button(
+                            ui,
                             label,
-                            selected=index == 0,
-                            clicked_fn=partial(select_tab, index),
+                            selected=index == self._active_tab_index,
+                            clicked=partial(select_tab, index),
                         )
                     )
-            with ui.ZStack():
+            with ui.ZStack(height=0):
                 for index, build_tab in enumerate(
                     (
                         self._build_classifier,
@@ -287,7 +377,11 @@ class _SettingsPanelBuilder:
                         self._build_atlases,
                     )
                 ):
-                    frame = ui.VStack(visible=index == 0, spacing=6)
+                    frame = ui.VStack(
+                        visible=index == self._active_tab_index,
+                        height=0,
+                        spacing=6,
+                    )
                     tab_frames.append(frame)
                     with frame:
                         build_tab()
@@ -301,6 +395,14 @@ def build_settings_panel(
     apply_atlases: Callable[[], None],
     build_lifecycle_controls: Callable[[], None],
     watch_model: ModelCallback,
+    build_material_panel: Callable[[], tuple[object, ...]] | None = None,
+    build_atlas_panel: Callable[[], tuple[object, ...]] | None = None,
+    active_tab_index: int = 0,
+    tab_changed: Callable[[int], None] | None = None,
+    debug_atlases_collapsed: bool = False,
+    debug_atlases_collapsed_changed: Callable[[bool], None] | None = None,
+    section_collapsed: Callable[[str, bool], bool] | None = None,
+    section_collapsed_changed: Callable[[str, bool], None] | None = None,
 ) -> tuple[object, ...]:
     """Build the panel and return models owned by the containing window."""
 
@@ -311,6 +413,14 @@ def build_settings_panel(
         apply_atlases=apply_atlases,
         build_lifecycle_controls=build_lifecycle_controls,
         watch_model=watch_model,
+        build_material_panel=build_material_panel,
+        build_atlas_panel=build_atlas_panel,
+        active_tab_index=active_tab_index,
+        tab_changed=tab_changed,
+        debug_atlases_collapsed=debug_atlases_collapsed,
+        debug_atlases_collapsed_changed=(debug_atlases_collapsed_changed),
+        section_collapsed=section_collapsed,
+        section_collapsed_changed=section_collapsed_changed,
     )
     builder.build()
     return builder.models

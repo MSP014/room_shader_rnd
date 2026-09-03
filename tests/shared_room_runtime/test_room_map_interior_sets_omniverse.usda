@@ -1,0 +1,107 @@
+#usda 1.0
+
+# Compact installed-extension fixture for Interior Set assignment, priority,
+# material isolation, resource fallback, and source-safe lifecycle checks.
+(
+    customLayerData = {
+        string "orms:fixtureOrigin" = "Referenced accepted ORMS geometry"
+    }
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def DomeLight "RoomMapEnvironment"
+    {
+        float inputs:exposure = 0
+        float inputs:intensity = 1000
+        asset inputs:texture:file = @../../assets/_external/hdri/kloofendal_48d_partly_cloudy_puresky_4k.exr@
+        token inputs:texture:format = "latlong"
+        float xformOp:rotateX = -90
+        uniform token[] xformOpOrder = ["xformOp:rotateX"]
+    }
+
+    def Scope "Looks"
+    {
+        def Material "RoomMapSource" (
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/Looks/RoomMapSource>
+        )
+        {
+        }
+    }
+
+    def Xform "BuildingA" (
+        kind = "component"
+    )
+    {
+        def Mesh "LivingRoom_Windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX2>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, -2)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Mesh "Kitchens_Windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX2>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, 2)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Mesh "ShopFront_Windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX3DifferentWidths>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, 2)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Mesh "Library_Windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX1>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, 12)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+        def Mesh "Archive_Glass" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX1>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, 14)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+    }
+
+    def Xform "BuildingB" (
+        kind = "component"
+    )
+    {
+        double3 xformOp:translate = (0, 2, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Mesh "Kitchens_Windows" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+            prepend references = @test_room_map_shared_rooms_omniverse.usda@</World/Building/RoomX2>
+        )
+        {
+            rel material:binding = </World/Looks/RoomMapSource>
+            double3 xformOp:translate = (0, 0, 2)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+    }
+}

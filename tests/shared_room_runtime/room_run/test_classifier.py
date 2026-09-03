@@ -1,5 +1,6 @@
 """Protect the public pure-classifier orchestration and fallback contract."""
 
+from dataclasses import replace
 from random import Random
 
 from tools.omniverse.room_run.classifier import (
@@ -11,6 +12,8 @@ from ._support import (
     _group_sizes_in_geometry_order,
     _window,
 )
+
+KITCHENS_SET_ID = "11111111-1111-1111-1111-111111111111"
 
 
 def test_equal_room_id_forms_only_geometrically_contiguous_runs():
@@ -28,6 +31,23 @@ def test_equal_room_id_forms_only_geometrically_contiguous_runs():
     assert {mapping.slice_start_depth for mapping in result.mappings} == {0.0}
     assert _group_sizes_in_geometry_order(result, apertures) == [2, 2, 1, 2, 2]
     assert not result.diagnostics
+
+
+def test_different_interior_sets_cannot_share_one_room():
+    living_room = _window("w0", 1, 0.0)
+    kitchen = replace(
+        _window("w1", 1, 1.1),
+        interior_set_id=KITCHENS_SET_ID,
+    )
+
+    result = classify_apertures((living_room, kitchen))
+
+    assert [group.room_size for group in result.groups] == [1, 1]
+    assert {group.interior_set_id for group in result.groups} == {
+        living_room.interior_set_id,
+        KITCHENS_SET_ID,
+    }
+    assert result.summary.rejected_interior_set_edge_count == 1
 
 
 def test_floor_sequences_are_classified_independently():
@@ -115,6 +135,36 @@ def test_unavailable_or_disabled_families_degrade_to_supported_groups():
 
     assert {group.room_size for group in result.groups} <= {1, 2}
     assert sum(group.room_size for group in result.groups) == 12
+
+
+def test_atlas_availability_is_resolved_independently_per_set():
+    living = [_window(f"w{index}", 3, index * 1.1) for index in range(2)]
+    kitchens = [
+        replace(
+            _window(f"k{index}", 4, 5.0 + index * 1.1),
+            interior_set_id=KITCHENS_SET_ID,
+        )
+        for index in range(2)
+    ]
+    settings = ClassifierSettings(
+        available_room_sizes_by_set=(
+            (living[0].interior_set_id, frozenset({1, 2})),
+            (KITCHENS_SET_ID, frozenset({1})),
+        )
+    )
+
+    result = classify_apertures(living + kitchens, settings)
+
+    sizes_by_set = {
+        set_id: sorted(
+            group.room_size
+            for group in result.groups
+            if group.interior_set_id == set_id
+        )
+        for set_id in (living[0].interior_set_id, KITCHENS_SET_ID)
+    }
+    assert sizes_by_set[living[0].interior_set_id] == [2]
+    assert sizes_by_set[KITCHENS_SET_ID] == [1, 1]
 
 
 def test_disabled_x4_family_degrades_existing_x4_group_to_x1():

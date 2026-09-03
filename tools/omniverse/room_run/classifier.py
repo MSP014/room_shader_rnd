@@ -97,14 +97,10 @@ def classify_apertures(
     # of artist family toggles; a disabled or unavailable x2-x4 family is then
     # degraded to stable x1 groups instead of repartitioning neighbouring
     # windows into a different multi-window layout.
-    usable_sizes = (
-        set(settings.enabled_room_sizes)
-        & set(settings.available_room_sizes)
-        & {1, 2, 3, 4}
-    )
     classification_sizes = {1, 2, 3, 4}
-    if 1 not in usable_sizes:
-        for aperture in valid_apertures:
+    classifiable_apertures = []
+    for aperture in valid_apertures:
+        if 1 not in settings.usable_sizes_for(aperture.interior_set_id):
             mappings.append(_fallback_mapping(aperture, "MISSING_X1_ATLAS"))
             diagnostics.append(
                 ClassifierDiagnostic(
@@ -113,6 +109,9 @@ def classify_apertures(
                     details=(("aperture", aperture.key),),
                 )
             )
+            continue
+        classifiable_apertures.append(aperture)
+    if not classifiable_apertures:
         return ClassificationResult(
             mappings=tuple(
                 sorted(mappings, key=lambda item: item.aperture_key)
@@ -123,7 +122,7 @@ def classify_apertures(
 
     # Establish rows and facade-local indices across every window before
     # roomID filtering. Equal IDs therefore cannot skip an intervening window.
-    valid_tuple = tuple(valid_apertures)
+    valid_tuple = tuple(classifiable_apertures)
     adjacency, connections, summary = _build_adjacency_graph(
         valid_tuple,
         up,
@@ -136,6 +135,8 @@ def classify_apertures(
         first = valid_tuple[component[0]]
         building_root = first.building_root
         room_id = first.room_id
+        interior_set_id = first.interior_set_id
+        usable_sizes = settings.usable_sizes_for(interior_set_id)
         ordered_indices, fallback_state = _order_linear_component(
             component,
             adjacency,
@@ -157,6 +158,7 @@ def classify_apertures(
                     prim_path=valid_tuple[component[0]].prim_path,
                     details=(
                         ("building_root", building_root),
+                        ("interior_set_id", interior_set_id),
                         ("room_id", room_id),
                         ("aperture_count", len(component)),
                     ),
@@ -183,6 +185,7 @@ def classify_apertures(
                     prim_path=run[0].prim_path,
                     details=(
                         ("building_root", building_root),
+                        ("interior_set_id", interior_set_id),
                         ("room_id", room_id),
                         ("aperture_count", len(run)),
                         ("corner_count", len(corner_turns)),
@@ -198,7 +201,10 @@ def classify_apertures(
             split_index = corner_turns[0]
             leg_sizes = (split_index, len(run) - split_index)
             corner_room_size = max(leg_sizes)
-            if max(leg_sizes) <= 4:
+            coherent_corner = settings.cross_family_is_coherent(
+                interior_set_id
+            )
+            if max(leg_sizes) <= 4 and coherent_corner:
                 group_specs.append(
                     (
                         run,
@@ -208,6 +214,18 @@ def classify_apertures(
                     )
                 )
             else:
+                if max(leg_sizes) <= 4:
+                    diagnostics.append(
+                        ClassifierDiagnostic(
+                            state="INCOHERENT_ATLAS_FAMILIES",
+                            prim_path=run[0].prim_path,
+                            details=(
+                                ("building_root", building_root),
+                                ("interior_set_id", interior_set_id),
+                                ("room_id", room_id),
+                            ),
+                        )
+                    )
                 for leg_number, (leg_start, leg_end) in enumerate(
                     ((0, split_index), (split_index, len(run)))
                 ):
@@ -278,7 +296,8 @@ def classify_apertures(
             group_depth_size,
         ) in enumerate(resolved_group_specs):
             group_key = (
-                f"{run_key}|group={group_number}|width={group_size}|"
+                f"{run_key}|set={interior_set_id}|group={group_number}|"
+                f"width={group_size}|"
                 f"depth={group_depth_size}|apertures={len(group_apertures)}"
             )
             group_id = _derived_id(group_key)
@@ -293,6 +312,7 @@ def classify_apertures(
                     ),
                     room_size=group_size,
                     room_depth_size=group_depth_size,
+                    interior_set_id=interior_set_id,
                 )
             )
             mappings.extend(
@@ -307,6 +327,18 @@ def classify_apertures(
                     settings,
                 )
             )
+
+    interior_set_by_aperture = {
+        aperture.key: aperture.interior_set_id
+        for aperture in ordered_apertures
+    }
+    mappings = [
+        replace(
+            mapping,
+            interior_set_id=interior_set_by_aperture[mapping.aperture_key],
+        )
+        for mapping in mappings
+    ]
 
     summary = replace(
         summary,

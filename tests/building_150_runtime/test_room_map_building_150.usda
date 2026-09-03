@@ -33,11 +33,42 @@ def Xform "World"
         {
             over "render"
             {
-                over "Windows_Glass" (
-                    prepend apiSchemas = ["MaterialBindingAPI"]
-                )
+                over "windows"
                 {
-                    rel material:binding = </World/Looks/RoomMapSource>
+                    over "other_rooms" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </World/Looks/RoomMapSource>
+                    }
+
+                    over "halls" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </World/Looks/RoomMapSource>
+                    }
+
+                    over "living_rooms" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </World/Looks/RoomMapSource>
+                    }
+
+                    over "cabinets" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </World/Looks/RoomMapSource>
+                    }
+
+                    over "library_windows" (
+                        prepend apiSchemas = ["MaterialBindingAPI"]
+                    )
+                    {
+                        rel material:binding = </World/Looks/RoomMapSource>
+                    }
                 }
             }
         }

@@ -73,6 +73,8 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "material_input_paths" in bridge_source
     assert "self._missing_input_paths" in bridge_source
     assert "self._reported_active_paths" in bridge_source
+    assert "def set_material_input_paths(" in bridge_source
+    assert "self._last_position = None" in bridge_source
     assert 'state="ACTIVE"' in bridge_source
     assert "not prim.IsInstanceProxy()" in bridge_source
     assert "material_input.GetPrim().IsInstanceProxy()" in bridge_source

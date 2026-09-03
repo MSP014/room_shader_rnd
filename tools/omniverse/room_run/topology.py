@@ -150,6 +150,7 @@ def _geometry_identity(
     # stable run and group identifier produced by the classifier.
     return (
         aperture.building_root,
+        aperture.interior_set_id,
         aperture.room_id,
         *(_quantise(value, quantum) for value in aperture.centre_metres),
         _quantise(_length(aperture.tangent_u_metres), quantum),
@@ -701,6 +702,7 @@ def _build_adjacency_graph(
     accepted_straight = 0
     accepted_transition = 0
     rejected_room_id = 0
+    rejected_interior_set = 0
     rejected_spacing = 0
 
     for sequence in sequences:
@@ -713,6 +715,9 @@ def _build_adjacency_graph(
             right = apertures[right_index]
             if left.room_id != right.room_id:
                 rejected_room_id += 1
+                continue
+            if left.interior_set_id != right.interior_set_id:
+                rejected_interior_set += 1
                 continue
             connection = _connection_between(left, right, up_axis)
             if not _spacing_is_local(
@@ -750,6 +755,9 @@ def _build_adjacency_graph(
             right = apertures[right_index]
             if left.room_id != right.room_id:
                 rejected_room_id += 1
+                continue
+            if left.interior_set_id != right.interior_set_id:
+                rejected_interior_set += 1
                 continue
             local_pitches = tuple(
                 pitch
@@ -793,6 +801,7 @@ def _build_adjacency_graph(
         accepted_straight_edge_count=accepted_straight,
         accepted_transition_edge_count=accepted_transition,
         rejected_room_id_edge_count=rejected_room_id,
+        rejected_interior_set_edge_count=rejected_interior_set,
         rejected_spacing_edge_count=rejected_spacing,
         local_pitch_min_metres=(min(local_pitches) if local_pitches else None),
         local_pitch_max_metres=(max(local_pitches) if local_pitches else None),

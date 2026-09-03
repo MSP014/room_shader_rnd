@@ -1,13 +1,27 @@
 """Protect packaged/debug and external/production atlas boundaries."""
 
+import json
 from pathlib import Path
 
 import pytest
+from msp.orms.runtime.interior_set_resources import (
+    resolve_interior_set_resources,
+)
 from msp.orms.runtime.resources import (
     PRODUCTION_DIRECTORY_SETTING,
     ResourceLayout,
     discover_production_atlas,
     select_runtime_atlases,
+)
+
+from tools.omniverse.interior_sets.atlas_mode import (
+    ATLAS_MODE_DEBUG,
+    ATLAS_MODE_PRODUCTION,
+)
+from tools.omniverse.interior_sets.contracts import (
+    InteriorSetCollection,
+    InteriorSetConfig,
+    semantic_variant_id,
 )
 
 from . import _support  # noqa: F401
@@ -19,6 +33,23 @@ def _touch_udim_family(asset_path: Path, variant_count: int = 8) -> None:
         asset_path.with_name(
             asset_path.name.replace("<UDIM>", str(tile))
         ).touch()
+
+
+def _write_manifest(
+    directory: Path,
+    namespace: str,
+    variant_ids: list[str],
+) -> None:
+    (directory / "orms_variants.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "namespace": namespace,
+                "variant_ids": variant_ids,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_checkout_layout_keeps_mdl_canonical_and_finds_debug_fallback(
@@ -86,6 +117,8 @@ def test_production_atlas_is_discovered_from_family_directory(tmp_path):
     family_directory = tmp_path / "licensed-pack" / "x1"
     asset_path = family_directory / "room_map.<UDIM>.png"
     _touch_udim_family(asset_path, variant_count=56)
+    variant_ids = [f"room-{index}" for index in range(56)]
+    _write_manifest(family_directory, "kitchens.v1", variant_ids)
 
     atlas = discover_production_atlas(
         room_size=1,
@@ -95,6 +128,8 @@ def test_production_atlas_is_discovered_from_family_directory(tmp_path):
     assert atlas.asset_path == asset_path
     assert atlas.variant_count == 56
     assert atlas.source == "production"
+    assert atlas.variant_manifest.namespace == "kitchens.v1"
+    assert atlas.variant_manifest.variant_ids == tuple(variant_ids)
 
 
 def test_production_atlas_rejects_missing_udim_tiles(tmp_path):
@@ -173,3 +208,117 @@ def test_configured_production_family_overrides_only_matching_debug_size(
         (2, "packaged"),
     ]
     assert selected[0].variant_count == 56
+
+
+def test_manifest_count_must_match_the_udim_family(tmp_path):
+    family_directory = tmp_path / "licensed-pack" / "x1"
+    asset_path = family_directory / "room_map.<UDIM>.png"
+    _touch_udim_family(asset_path, variant_count=2)
+    _write_manifest(family_directory, "rooms.v1", ["room-0"])
+
+    with pytest.raises(ValueError, match="does not match its UDIM family"):
+        discover_production_atlas(
+            room_size=1,
+            atlas_directory=family_directory,
+        )
+
+
+def test_per_set_fallback_and_cross_family_coherence_are_independent(
+    tmp_path,
+):
+    extension_root = tmp_path / "workspace" / "exts" / "msp.orms.runtime"
+    module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.touch()
+    (extension_root / "data" / "runtime" / "tools" / "omniverse").mkdir(
+        parents=True
+    )
+    mdl_root = extension_root / "data" / "mdl"
+    mdl_root.mkdir(parents=True)
+    (mdl_root / "room_map.mdl").touch()
+    (mdl_root / "room_map_single.mdl").touch()
+    for room_size, family_name in (
+        (1, "room_map_debug"),
+        (2, "room_map_debug_x2"),
+        (3, "room_map_debug_x3"),
+        (4, "room_map_debug_x4"),
+    ):
+        _touch_udim_family(
+            extension_root
+            / "data"
+            / "atlases"
+            / "debug"
+            / f"x{room_size}"
+            / f"{family_name}.<UDIM>.png"
+        )
+    production_x1 = tmp_path / "licensed-pack" / "x1"
+    _touch_udim_family(production_x1 / "rooms.<UDIM>.png")
+    _write_manifest(
+        production_x1,
+        "kitchens.v1",
+        [f"kitchen-{index}" for index in range(8)],
+    )
+    default = InteriorSetCollection.default_only().default
+    kitchens = InteriorSetConfig(
+        set_id="11111111-1111-1111-1111-111111111111",
+        atlas_directories=(str(production_x1), "missing", "", ""),
+    )
+    resources = ResourceLayout.discover(module_file)
+
+    snapshots = resolve_interior_set_resources(
+        resources,
+        InteriorSetCollection((default, kitchens)),
+        ATLAS_MODE_PRODUCTION,
+    )
+
+    default_snapshot, kitchen_snapshot = snapshots
+    assert default_snapshot.coherence.coherent
+    assert kitchen_snapshot.family(1).atlas.source == "production"
+    assert kitchen_snapshot.family(2).atlas.source == "packaged"
+    assert kitchen_snapshot.family(2).validation_error is not None
+    assert not kitchen_snapshot.coherence.coherent
+
+    debug_snapshots = resolve_interior_set_resources(
+        resources,
+        InteriorSetCollection((default, kitchens)),
+        ATLAS_MODE_DEBUG,
+    )
+    debug_kitchens = debug_snapshots[1]
+    assert all(
+        family.atlas is not None and family.atlas.source == "packaged"
+        for family in debug_kitchens.families
+    )
+    assert all(
+        family.fallback_reason == "global debug mode"
+        for family in debug_kitchens.families
+    )
+    assert all(
+        family.validation_error is None for family in debug_kitchens.families
+    )
+
+
+def test_coherent_x4_and_x1_resolve_the_same_corner_variant(tmp_path):
+    variant_ids = [f"kitchen-{index}" for index in range(4)]
+    families = []
+    for room_size in (1, 4):
+        directory = tmp_path / f"x{room_size}"
+        _touch_udim_family(
+            directory / "rooms.<UDIM>.png",
+            variant_count=4,
+        )
+        _write_manifest(directory, "kitchens.v1", variant_ids)
+        families.append(
+            discover_production_atlas(
+                room_size=room_size,
+                atlas_directory=directory,
+            )
+        )
+
+    x1_manifest = families[0].variant_manifest
+    x4_manifest = families[1].variant_manifest
+
+    assert x1_manifest is not None
+    assert x4_manifest is not None
+    assert semantic_variant_id(x1_manifest, 17, 3) == (
+        semantic_variant_id(x4_manifest, 17, 3)
+    )

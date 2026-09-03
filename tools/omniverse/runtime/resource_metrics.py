@@ -10,6 +10,20 @@ _RTX_CUTOUT_OPT_IN_ATTRIBUTE = "omni:rtx:enableCutoutOpacity"
 _MDL_ENABLE_OPACITY_INPUT = "inputs:enable_opacity"
 
 
+def _runtime_material_prims(looks: Any) -> tuple[Any, ...]:
+    """Find runtime materials in flat and per-Interior-Set layouts."""
+
+    materials = []
+    pending = list(looks.GetChildren())
+    while pending:
+        prim = pending.pop()
+        if prim.GetTypeName() == "Material":
+            materials.append(prim)
+            continue
+        pending.extend(prim.GetChildren())
+    return tuple(materials)
+
+
 def _renderer_snapshot(
     *,
     settings: Any | None = None,
@@ -57,13 +71,7 @@ def _renderer_snapshot(
 
         looks = stage.GetPrimAtPath("/__ORMSRuntime/Looks")
         materials = (
-            tuple(
-                child
-                for child in looks.GetChildren()
-                if child.GetTypeName() == "Material"
-            )
-            if looks and looks.IsValid()
-            else ()
+            _runtime_material_prims(looks) if looks and looks.IsValid() else ()
         )
         cutout_contract_paths = set()
         values = {}

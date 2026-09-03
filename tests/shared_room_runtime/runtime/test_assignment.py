@@ -90,6 +90,20 @@ def test_windows_glass_mesh_identity_wins_over_generic_inherited_material():
     assert decisions[0].source_material_path == str(material.GetPath())
 
 
+def test_semantic_mesh_below_windows_container_is_eligible():
+    stage, mesh, material = _stage_with_window(
+        material_name="base_lod00_mat",
+        mesh_name="windows/living_rooms",
+    )
+
+    decisions = evaluate_windows_glass(stage)
+
+    assert len(decisions) == 1
+    assert decisions[0].eligible
+    assert decisions[0].prim_path == str(mesh.GetPath())
+    assert decisions[0].source_material_path == str(material.GetPath())
+
+
 def test_explicit_exclusion_wins_over_default_assignment():
     stage, mesh, _material = _stage_with_window()
     mesh.GetPrim().CreateAttribute(
@@ -157,3 +171,18 @@ def test_unrelated_material_is_never_considered_for_auto_assignment():
     stage, _mesh, _material = _stage_with_window(material_name="Facade_Glass")
 
     assert evaluate_windows_glass(stage) == ()
+
+
+def test_explicit_opt_in_supports_a_semantically_named_mesh():
+    stage, mesh, _material = _stage_with_window(
+        material_name="Facade_Glass",
+        mesh_name="Living_Rooms",
+    )
+    mesh.GetPrim().CreateAttribute(
+        "orms:autoAssign", Sdf.ValueTypeNames.Bool
+    ).Set(True)
+
+    decision = evaluate_windows_glass(stage)
+
+    assert len(decision) == 1
+    assert decision[0].eligible

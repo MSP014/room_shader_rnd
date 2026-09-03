@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
+from tools.omniverse.interior_sets.contracts import (
+    DEFAULT_INTERIOR_SET_ID,
+    InteriorSetCollection,
+)
+from tools.omniverse.interior_sets.runtime_resources import (
+    InteriorSetRuntimeSnapshot,
+)
+from tools.omniverse.shared_room.interior_set_diagnostics import (
+    InteriorSetDiagnostics,
+)
+
+from .interior_set_controller import InteriorSetController
+from .interior_set_repository import InteriorSetSettingsRepository
+from .interior_set_transaction import InteriorSetRollbackError
 from .lifecycle import RuntimeLifecycleController, RuntimeState
 from .material_library import MaterialLibraryRegistration
 from .resources import (
@@ -13,7 +26,6 @@ from .resources import (
     MATERIAL_SOURCE_ASSET,
     PRODUCTION_DIRECTORY_SETTING,
     ResourceLayout,
-    select_runtime_atlases,
 )
 from .runtime_imports import activate_runtime_imports
 
@@ -38,8 +50,8 @@ class OrmsRuntimeService:
         self._lifecycle = RuntimeLifecycleController(
             state_changed=self._on_lifecycle_state_changed,
         )
-        self._atlas_refresh_task: Any | None = None
         self._settings_window: Any | None = None
+        self._interior_sets: InteriorSetController | None = None
 
     @classmethod
     def discover(
@@ -85,6 +97,10 @@ class OrmsRuntimeService:
                     PRODUCTION_DIRECTORY_SETTING.format(room_size=room_size),
                     "",
                 )
+            self._interior_sets = InteriorSetController(
+                self._resources,
+                InteriorSetSettingsRepository(settings),
+            )
 
             self._ensure_runtime_path()
             from .settings_window import OrmsSettingsWindow
@@ -92,8 +108,11 @@ class OrmsRuntimeService:
             self._settings_window = OrmsSettingsWindow()
             self._settings_window.start(
                 classifier_changed=self._apply_classifier_settings,
-                material_changed=self._apply_material_settings,
-                apply_atlases=self._schedule_atlas_refresh,
+                material_changed=self._apply_interior_set_material,
+                apply_interior_sets=self._apply_interior_sets,
+                rename_interior_set=self._rename_interior_set,
+                interior_sets=self._interior_sets,
+                runtime_diagnostics=(self._current_interior_set_diagnostics),
                 start_runtime=self.start_runtime,
                 restart_runtime=self.restart_runtime,
                 stop_runtime=self.stop_runtime,
@@ -172,29 +191,17 @@ class OrmsRuntimeService:
         self._ensure_runtime_path()
 
         settings = carb.settings.get_settings()
-        atlas_setting_values = {}
-        for room_size in (1, 2, 3, 4):
-            setting_path = PRODUCTION_DIRECTORY_SETTING.format(
-                room_size=room_size
-            )
-            atlas_setting_values[setting_path] = settings.get(setting_path)
-        try:
-            runtime_atlases = select_runtime_atlases(
-                self._resources,
-                atlas_setting_values,
-            )
-        except (FileNotFoundError, TypeError, ValueError) as error:
-            carb.log_warn(
-                "[ORMS] Invalid production atlas configuration; "
-                f"using packaged debug families: {error}"
-            )
-            runtime_atlases = self._resources.debug_atlases
+        if self._interior_sets is None:
+            raise RuntimeError("Interior Set configuration is unavailable")
+        collection = self._interior_sets.applied
+        runtime_snapshot = self._interior_sets.runtime_snapshot()
+        default_runtime = runtime_snapshot.by_id(DEFAULT_INTERIOR_SET_ID)
 
         if bool(settings.get(_AUTO_ASSIGN_SETTING)):
-            seed_x1 = next(
-                (atlas for atlas in runtime_atlases if atlas.room_size == 1),
-                None,
-            )
+            try:
+                seed_x1 = default_runtime.resources.atlas_family(1)
+            except KeyError:
+                seed_x1 = None
             if seed_x1 is None:
                 carb.log_warn(
                     "[ORMS] Windows Glass auto-assignment skipped: "
@@ -208,7 +215,7 @@ class OrmsRuntimeService:
                 owner = AutoAssignmentOwner(
                     stage,
                     source_asset_path=MATERIAL_SOURCE_ASSET,
-                    atlas_asset_path=seed_x1.asset_path.as_posix(),
+                    atlas_asset_path=seed_x1.asset_path,
                     atlas_variant_count=seed_x1.variant_count,
                 )
                 result = owner.apply()
@@ -248,16 +255,30 @@ class OrmsRuntimeService:
                 atlas_families=tuple(
                     (
                         atlas.room_size,
-                        atlas.asset_path.as_posix(),
+                        atlas.asset_path,
                         atlas.variant_count,
                     )
-                    for atlas in runtime_atlases
+                    for atlas in default_runtime.resources.atlas_families
                 ),
+                interior_sets=collection,
+                interior_set_resources=runtime_snapshot,
             )
         except Exception:
             stop_runtime()
             raise
         self._lifecycle.attach(classifier, camera_bridge, stop_runtime)
+        if self._settings_window is not None:
+            self._settings_window.refresh_interior_sets()
+
+    def _current_interior_set_diagnostics(
+        self,
+    ) -> InteriorSetDiagnostics | None:
+        """Return the last stable applied runtime diagnostic snapshot."""
+
+        classifier = self._lifecycle.classifier
+        if classifier is None or classifier.last_classification is None:
+            return None
+        return classifier.last_classification.interior_set_diagnostics
 
     def start_runtime(self) -> None:
         """Start an inactive stage or resume its frozen runtime session."""
@@ -308,7 +329,6 @@ class OrmsRuntimeService:
 
         import carb
 
-        self._cancel_atlas_refresh()
         try:
             self._deactivate_stage()
         except Exception as error:
@@ -353,49 +373,94 @@ class OrmsRuntimeService:
         classifier.set_settings(settings_from_kit())
 
     def _apply_material_settings(self) -> None:
-        """Fan the central material controls out to active x1-x4 families."""
+        """Restore every applied Set's live profile after runtime resume."""
 
         if self._lifecycle.state is not RuntimeState.RUNNING:
             return
         classifier = self._lifecycle.classifier
-        if classifier is None:
+        if classifier is None or self._interior_sets is None:
             return
-        from tools.omniverse.shared_room.material_controls import (
-            material_input_values_from_kit,
+        for item in self._interior_sets.applied.sets:
+            classifier.set_interior_set_material_values(
+                item.set_id,
+                item.material_mapping(),
+            )
+
+    def _apply_interior_set_material(
+        self,
+        set_id: str,
+        name: str,
+        value: object,
+    ) -> None:
+        """Persist and author one Set-scoped live material edit."""
+
+        if self._interior_sets is None:
+            return
+        classifier = self._lifecycle.classifier
+        apply_runtime = (
+            classifier.set_interior_set_material_values
+            if classifier is not None
+            and self._lifecycle.state is RuntimeState.RUNNING
+            else None
+        )
+        self._interior_sets.update_material(
+            set_id,
+            name,
+            value,
+            apply_runtime,
         )
 
-        classifier.set_material_input_values(material_input_values_from_kit())
+    def _rename_interior_set(self, set_id: str, name: str) -> None:
+        """Persist presentation and update existing material labels live."""
 
-    def _schedule_atlas_refresh(self) -> None:
-        """Apply edited atlas paths after the ORMS window button callback."""
-
-        if self._lifecycle.state is not RuntimeState.RUNNING:
+        if self._interior_sets is None:
             return
+        try:
+            self._interior_sets.applied.by_id(set_id)
+        except KeyError:
+            applied = False
+        else:
+            applied = True
+        self._interior_sets.rename(set_id, name)
+        classifier = self._lifecycle.classifier
         if (
-            self._atlas_refresh_task is not None
-            and not self._atlas_refresh_task.done()
+            applied
+            and classifier is not None
+            and self._lifecycle.state is RuntimeState.RUNNING
         ):
+            classifier.rename_interior_set(set_id, name)
+
+    def _apply_interior_sets(self) -> None:
+        """Commit the complete UI draft and rebuild the runtime once."""
+
+        if self._interior_sets is None:
             return
+        apply_runtime = (
+            self._apply_interior_sets_to_runtime
+            if self._lifecycle.state is RuntimeState.RUNNING
+            else None
+        )
+        try:
+            self._interior_sets.apply(apply_runtime)
+        except InteriorSetRollbackError as error:
+            self._handle_lifecycle_failure(
+                "Apply Interior Sets rollback",
+                error,
+            )
+            raise
 
-        async def refresh() -> None:
-            import omni.kit.app
+    def _apply_interior_sets_to_runtime(
+        self,
+        collection: InteriorSetCollection,
+        resources: InteriorSetRuntimeSnapshot,
+    ) -> None:
+        """Rebuild Set families and retarget their live camera inputs."""
 
-            await omni.kit.app.get_app().next_update_async()
-            self._atlas_refresh_task = None
-            try:
-                self._activate_current_stage()
-            except Exception as error:
-                self._handle_lifecycle_failure(
-                    "Atlas configuration refresh",
-                    error,
-                )
-
-        self._atlas_refresh_task = asyncio.ensure_future(refresh())
-
-    def _cancel_atlas_refresh(self) -> None:
-        if self._atlas_refresh_task is not None:
-            self._atlas_refresh_task.cancel()
-            self._atlas_refresh_task = None
+        classifier = self._lifecycle.classifier
+        if classifier is None:
+            raise RuntimeError("Running ORMS classifier is unavailable")
+        classifier.apply_interior_sets(collection, resources)
+        self._lifecycle.set_camera_input_paths(classifier.camera_input_paths)
 
     def _deactivate_stage(self) -> None:
         cleanup_errors: list[Exception] = []
@@ -423,7 +488,6 @@ class OrmsRuntimeService:
 
         import carb
 
-        self._cancel_atlas_refresh()
         settings_window, self._settings_window = self._settings_window, None
         if settings_window is not None:
             settings_window.stop()
@@ -437,4 +501,5 @@ class OrmsRuntimeService:
                 reset()
         self._stage_subscriptions = ()
         self._material_registration.stop()
+        self._interior_sets = None
         carb.log_info("[ORMS] Runtime extension stopped")

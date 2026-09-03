@@ -3,6 +3,16 @@
 import pytest
 from pxr import Gf, Sdf, UsdGeom, UsdShade
 
+from tools.omniverse.interior_sets.contracts import (
+    DEFAULT_INTERIOR_SET_ID,
+    InteriorSetCollection,
+    InteriorSetConfig,
+    runtime_set_token,
+)
+from tools.omniverse.interior_sets.runtime_resources import (
+    InteriorSetRuntimeResources,
+    InteriorSetRuntimeSnapshot,
+)
 from tools.omniverse.runtime.resources import (
     RuntimeAtlasFamily,
     RuntimeResources,
@@ -60,6 +70,9 @@ def test_stage_classification_authors_all_available_material_families():
     )
     assert bound_sizes == {1, 2}
     assert sum(len(subset.GetIndicesAttr().Get()) for subset in subsets) == 5
+    assert set(
+        UsdGeom.PrimvarsAPI(mesh).GetPrimvar("ormsInteriorSetId").Get()
+    ) == {DEFAULT_INTERIOR_SET_ID}
 
     runtime_material = UsdShade.Material(
         stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX2")
@@ -216,3 +229,144 @@ def test_stage_classification_consumes_installation_neutral_resources():
     assert not stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX4")
 
     owner.detach()
+
+
+def test_one_pipeline_authors_independent_set_material_families():
+    stage, _mesh = _window_stage((7, 7))
+    root_layer = stage.GetRootLayer()
+    Sdf.CopySpec(
+        root_layer,
+        Sdf.Path("/World/Building/Windows"),
+        root_layer,
+        Sdf.Path("/World/Building/Kitchens_Windows"),
+    )
+    kitchens_id = "11111111-1111-1111-1111-111111111111"
+    default = InteriorSetConfig(
+        set_id=DEFAULT_INTERIOR_SET_ID,
+        name="Living Rooms",
+        material_values=(("glass_roughness", 0.11),),
+    )
+    kitchens = InteriorSetConfig(
+        set_id=kitchens_id,
+        name="Kitchens",
+        selectors=("*/Kitchens_Windows",),
+        material_values=(("glass_roughness", 0.73),),
+    )
+    collection = InteriorSetCollection((default, kitchens))
+    resources = RuntimeResources.from_repository(REPOSITORY_ROOT)
+    runtime_snapshot = InteriorSetRuntimeSnapshot(
+        tuple(
+            InteriorSetRuntimeResources(item.set_id, resources)
+            for item in collection.sets
+        )
+    )
+    owner = RuntimeLayerOwner(stage)
+
+    classification = classify_stage(
+        stage,
+        owner.attach(),
+        RuntimeClassifierSettings(),
+        resources,
+        interior_sets=collection,
+        interior_set_resources=runtime_snapshot,
+    )
+
+    resolutions = {
+        item.prim_path: item for item in classification.selector_resolutions
+    }
+    assert (
+        resolutions["/World/Building/Kitchens_Windows"].set_id == kitchens_id
+    )
+    assert resolutions["/World/Building/Windows"].used_default
+    assert {
+        group.interior_set_id for group in classification.result.groups
+    } == {
+        DEFAULT_INTERIOR_SET_ID,
+        kitchens_id,
+    }
+    diagnostics = classification.interior_set_diagnostics
+    assert diagnostics is not None
+    assert diagnostics.active_set_count == 2
+    assert diagnostics.default_fallback_paths == ("/World/Building/Windows",)
+    assert diagnostics.variant_identities
+    assert len(diagnostics.generated_material_paths) == 8
+    assert dict(diagnostics.aperture_counts) == {
+        DEFAULT_INTERIOR_SET_ID: 2,
+        kitchens_id: 2,
+    }
+    roughness_by_set = {}
+    for item in collection.sets:
+        shader_path = (
+            f"/__ORMSRuntime/Looks/{runtime_set_token(item.set_id)}/"
+            "RoomMapX2/Shader"
+        )
+        shader = UsdShade.Shader(stage.GetPrimAtPath(shader_path))
+        roughness_by_set[item.set_id] = shader.GetInput(
+            "glass_roughness"
+        ).Get()
+    assert roughness_by_set[DEFAULT_INTERIOR_SET_ID] == pytest.approx(0.11)
+    assert roughness_by_set[kitchens_id] == pytest.approx(0.73)
+    expected_x1 = Sdf.AssetPath(resources.atlas_family(1).asset_path)
+    for item in collection.sets:
+        shader = UsdShade.Shader(
+            stage.GetPrimAtPath(
+                f"/__ORMSRuntime/Looks/{runtime_set_token(item.set_id)}/"
+                "RoomMapX1/Shader"
+            )
+        )
+        assert shader.GetInput("room_atlas").Get() == expected_x1
+
+
+def test_explicit_default_only_preserves_legacy_visual_inputs():
+    legacy_stage, _legacy_mesh = _window_stage((7, 7))
+    explicit_stage, _explicit_mesh = _window_stage((7, 7))
+    resources = RuntimeResources.from_repository(REPOSITORY_ROOT)
+    default_only = InteriorSetCollection.default_only()
+    runtime_snapshot = InteriorSetRuntimeSnapshot(
+        (
+            InteriorSetRuntimeResources(
+                DEFAULT_INTERIOR_SET_ID,
+                resources,
+            ),
+        )
+    )
+    legacy_owner = RuntimeLayerOwner(legacy_stage)
+    explicit_owner = RuntimeLayerOwner(explicit_stage)
+
+    legacy = classify_stage(
+        legacy_stage,
+        legacy_owner.attach(),
+        RuntimeClassifierSettings(),
+        resources,
+    )
+    explicit = classify_stage(
+        explicit_stage,
+        explicit_owner.attach(),
+        RuntimeClassifierSettings(),
+        resources,
+        interior_sets=default_only,
+        interior_set_resources=runtime_snapshot,
+    )
+
+    assert explicit.result == legacy.result
+    legacy_shader = UsdShade.Shader(
+        legacy_stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX2/Shader")
+    )
+    explicit_shader = UsdShade.Shader(
+        explicit_stage.GetPrimAtPath(
+            f"/__ORMSRuntime/Looks/{runtime_set_token(DEFAULT_INTERIOR_SET_ID)}/"
+            "RoomMapX2/Shader"
+        )
+    )
+    for input_name in (
+        "room_atlas",
+        "room_variant_count",
+        "room_depth",
+        "glass_roughness",
+    ):
+        assert explicit_shader.GetInput(input_name).Get() == (
+            legacy_shader.GetInput(input_name).Get()
+        )
+
+    explicit_owner.detach()
+    legacy_owner.detach()

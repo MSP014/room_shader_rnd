@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from tools.omniverse.shared_room.ui_sections import collapsable_frame
+
 from .lifecycle import RuntimeState
 
 LIFECYCLE_ACTION_LABELS = (
@@ -45,18 +47,36 @@ class LifecycleControls:
         self,
         callbacks: LifecycleCallbacks,
         state: RuntimeState = RuntimeState.INACTIVE,
+        *,
+        collapsed: bool = False,
+        collapsed_changed: Callable[[bool], None] | None = None,
     ) -> None:
         self._callbacks = callbacks
         self._state = state
         self._status_label: Any | None = None
         self._buttons: dict[str, Any] = {}
+        self._collapsed = collapsed
+        self._collapsed_changed = collapsed_changed
+
+    def _remember_collapsed(self, collapsed: bool) -> None:
+        """Retain the choice locally and in the containing panel state."""
+
+        self._collapsed = bool(collapsed)
+        if self._collapsed_changed is not None:
+            self._collapsed_changed(self._collapsed)
 
     def build(self) -> None:
         """Build the lifecycle block inside the current OmniUI parent."""
 
         import omni.ui as ui
 
-        with ui.CollapsableFrame("Runtime lifecycle", collapsed=False):
+        frame = collapsable_frame(
+            ui,
+            "Runtime lifecycle",
+            collapsed=self._collapsed,
+            collapsed_changed=self._remember_collapsed,
+        )
+        with frame:
             with ui.VStack(spacing=6):
                 self._status_label = ui.Label(
                     "",

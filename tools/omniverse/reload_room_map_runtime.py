@@ -27,7 +27,15 @@ else:
         stop_runtime_modules,
     )
 
-_CONTRACT_VERSION = "shared_room_runtime_v47"
+_CONTRACT_VERSION = "shared_room_runtime_v48"
+_INTERIOR_SET_DEPENDENCY_ORDER = (
+    "interior_set_atlas_mode",
+    "interior_set_identity",
+    "interior_set_manifest",
+    "interior_set_contracts",
+    "interior_set_selectors",
+    "interior_set_runtime_resources",
+)
 _ROOM_RUN_DEPENDENCY_ORDER = (
     "room_run_contracts",
     "room_run_topology",
@@ -36,12 +44,14 @@ _ROOM_RUN_DEPENDENCY_ORDER = (
 _SHARED_ROOM_DEPENDENCY_ORDER = (
     "shared_room_contracts",
     "shared_room_stage",
-    "shared_room_authoring",
-    "shared_room_pipeline",
     "shared_room_settings",
+    "shared_room_material_controls",
+    "shared_room_authoring",
+    "shared_room_interior_set_authoring",
+    "shared_room_interior_set_diagnostics",
+    "shared_room_pipeline",
     "shared_room_changes",
     "shared_room_material_diagnostics",
-    "shared_room_material_controls",
 )
 
 
@@ -62,6 +72,8 @@ def _load_runtime_stack(
     )
     loader.load("runtime_resource_metrics")
     resources = loader.load("runtime_resources")
+    for module_name in _INTERIOR_SET_DEPENDENCY_ORDER:
+        loader.load(module_name)
     loader.load("runtime_stage_visibility")
     loader.load("stage_load_state")
     stage_probe = loader.load("stage_load_probe")
@@ -155,6 +167,8 @@ def reload_and_start(
     *,
     mdl_source_asset: str | None = None,
     atlas_families: tuple[tuple[int, str, int], ...] | None = None,
+    interior_sets=None,
+    interior_set_resources=None,
 ):
     """Replace cached ORMS modules with exact source and start the runtime."""
 
@@ -187,6 +201,8 @@ def reload_and_start(
     classifier = shared.start(
         root,
         resources=runtime_resources,
+        interior_sets=interior_sets,
+        interior_set_resources=interior_set_resources,
     )
     corner_summaries = corner_box_summaries(classifier.last_classification)
     shared.log_room_map_warning(

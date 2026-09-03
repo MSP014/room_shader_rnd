@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from pxr import Sdf
 
+from ..interior_sets.selectors import SelectorResolution
 from ..room_run.contracts import (
     ApertureDescriptor,
     ClassificationResult,
@@ -14,9 +16,13 @@ from ..room_run.contracts import (
     ClassifierSettings,
 )
 
+if TYPE_CHECKING:
+    from .interior_set_diagnostics import InteriorSetDiagnostics
+
 DERIVED_ROOM_SIZE = "ormsRoomSize"
 DERIVED_ROOM_DEPTH_SIZE = "ormsRoomDepthSize"
 DERIVED_ROOM_GROUP_ID = "ormsRoomGroupId"
+DERIVED_INTERIOR_SET_ID = "ormsInteriorSetId"
 DERIVED_MAPPING_VALID = "ormsMappingValid"
 DERIVED_ROOM_AXIS_U = "ormsRoomAxisU"
 DERIVED_ROOM_AXIS_V = "ormsRoomAxisV"
@@ -39,6 +45,7 @@ DERIVED_PRIMVAR_NAMES = frozenset(
         DERIVED_ROOM_SIZE,
         DERIVED_ROOM_DEPTH_SIZE,
         DERIVED_ROOM_GROUP_ID,
+        DERIVED_INTERIOR_SET_ID,
         DERIVED_MAPPING_VALID,
         DERIVED_ROOM_AXIS_U,
         DERIVED_ROOM_AXIS_V,
@@ -107,6 +114,11 @@ class RuntimeClassifierSettings:
     def core_settings(
         self,
         available_room_sizes: frozenset[int],
+        *,
+        available_room_sizes_by_set: (
+            Mapping[str, frozenset[int]] | None
+        ) = None,
+        incoherent_interior_set_ids: frozenset[str] = frozenset(),
     ) -> ClassifierSettings:
         """Project runtime and resource policy into pure geometric settings."""
 
@@ -115,6 +127,10 @@ class RuntimeClassifierSettings:
         return ClassifierSettings(
             enabled_room_sizes=frozenset(enabled_sizes),
             available_room_sizes=available_room_sizes,
+            available_room_sizes_by_set=tuple(
+                sorted((available_room_sizes_by_set or {}).items())
+            ),
+            incoherent_interior_set_ids=incoherent_interior_set_ids,
             partition_seed=self.partition_seed,
             floor_tolerance_metres=self.floor_tolerance_metres,
             minimum_vertical_overlap=self.minimum_vertical_overlap,
@@ -154,6 +170,8 @@ class StageClassification:
     extraction: StageExtraction
     result: ClassificationResult
     runtime_layer_identifier: str
+    selector_resolutions: tuple[SelectorResolution, ...] = ()
+    interior_set_diagnostics: "InteriorSetDiagnostics | None" = None
 
 
 def _diagnostic(

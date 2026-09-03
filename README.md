@@ -377,28 +377,30 @@ perspective in both RTX renderer modes.*
 - Production validation on all 232 Building 150 window apertures with adaptive
   floor- and façade-local classification across x1–x4 families while retaining
   the source asset and every non-window material binding.
-- Independent one-surface glass roughness, reflectivity, tint, and artistic
-  transmission controls shared across all active room families.
-- A 56-variant real x1 atlas with canonical multi-row UDIM addressing;
-  labelled eight-variant debug atlases remain active for x2–x4.
+- Independent per-Interior-Set material profiles, including one-surface glass
+  roughness, reflectivity, tint, and artistic transmission controls.
+- Five selector-driven Interior Sets on Building 150, each with independent
+  production x1–x4 atlas locations and global packaged-debug fallbacks.
 - Luminance-selected interior emission with threshold, softness, strength, and
   independent depth-slice eligibility, validated in both RTX renderer modes.
-- Installable `msp.orms.runtime` 0.1.5 packaging, publication, installation,
+- Installable `msp.orms.runtime` 0.1.18 packaging, publication, installation,
   enablement, and AUTOLOAD through a local Kit extension registry.
 - Automatic assignment of contract-valid `Windows_Glass` meshes through a
   reversible ORMS-owned Session sublayer, with source restoration on teardown.
 - Material Library creation and manual binding without Script Editor code.
-- A dockable `Window > ORMS` panel with lifecycle controls, central material
-  parameters, classifier settings, and independent x1–x4 production-atlas
-  locations.
-- Version-safe in-process extension upgrades and duplicate-free
-  disable/re-enable behaviour.
+- A dockable `Window > ORMS` panel with lifecycle controls, per-Set material
+  parameters, staged repeatable Interior Set blocks, debug/production mode,
+  and portable `.orms` scene profiles.
+- Version-aware in-process extension upgrades, with final 0.1.18
+  disable/re-enable acceptance still pending.
 
 #### Remaining boundaries
 
 - Final KRM-92 UI polish and artist-facing assignment inspection and override
   controls.
-- Real production atlas content for x2, x3, and x4 room families.
+- Production `orms_variants.json` manifests proving ordered semantic identity
+  across each Set's x1–x4 atlas families.
+- Final installed 0.1.18 acceptance in both RTX renderer modes.
 - Optional ORMS 2.0 glass contamination and parallax art-direction controls.
 - A geometry-versus-Room-Map performance benchmark.
 
@@ -410,9 +412,11 @@ The material-side R&D is complemented by an existing Houdini content-generation
 workflow. A procedural Solaris / Karma XPU / PDG / Copernicus pipeline can
 generate Room Map libraries by varying wallpaper, lighting, curtains, props,
 and depth-slice content. This content factory is a separate upstream authoring
-system, not part of the MDL shader itself. Current Building 150 validation uses
-a 56-variant real x1 atlas together with the retained labelled x2–x4 debug
-families. Real x2–x4 production content remains an upstream asset milestone.
+system, not part of the MDL shader itself. Building 150 now exercises five
+selector-driven production libraries across x1–x4 room sizes, while packaged
+labelled debug families remain available as a global diagnostic mode and
+per-family fallback. Production libraries still require semantic variant
+manifests before cross-family identity can be formally accepted.
 
 ## Production Validation Path
 
@@ -584,11 +588,11 @@ Python package, MDL resources, public debug atlases, icons, changelog, and
 Extension Manager documentation are materialised into one non-overwriting
 release bundle and published through Kit's ordinary extension-registry flow.
 
-Installed version 0.1.5 has passed the local-registry workflow end to end:
-package verification, publication, Extension Manager installation, enablement,
-AUTOLOAD, in-process upgrade, normal application relaunch, Material Library
-creation, automatic assignment, both RTX modes, source restoration, and clean
-disable/re-enable.
+Installed versions through 0.1.16 have exercised the local-registry workflow,
+AUTOLOAD, Material Library creation, reversible automatic assignment, five
+Interior Sets, independent x1–x4 runtime material families, and source-safe
+Session Layer ownership. Version 0.1.18 is published as the current checkpoint;
+its final two-renderer and disable/re-enable acceptance remains pending.
 
 The canonical module ownership and Session Layer flow are described once in
 [Extension Architecture](#extension-architecture). This milestone section
@@ -658,10 +662,15 @@ The renderer-validated implementation supports:
 - Independent glass roughness, reflectivity, tint, and artistic transmission.
 - A real 56-variant x1 atlas and luminance-selected emission with independent
   per-depth-slice eligibility in both required renderer modes.
+- One classifier assigning five ordered Interior Sets before room grouping,
+  with independent x1–x4 resources and material profiles per stable Set ID.
+- Staged structural editing, live per-Set material controls, and portable
+  `.orms` scene-profile save/load.
 
 The remaining work no longer concerns the core PIM mathematics or the Kit
-extension boundary. It concerns KRM-92 UI polish, real x2–x4 content,
-performance evidence, and urban-scale validation.
+extension boundary. It concerns the remaining KRM-92 artist workflow,
+production semantic manifests, performance evidence, and urban-scale
+validation.
 
 ### Phase 4: Productionisation — In progress
 
@@ -671,7 +680,7 @@ publication, Extension Manager installation, AUTOLOAD, configuration,
 diagnostics, and controlled lifecycle behaviour. Its remaining scope will:
 
 - complete the KRM-92 artist-facing UI and assignment-management pass;
-- add real x2–x4 atlas content beyond the accepted real x1 family;
+- publish semantic identity manifests for the production x1–x4 libraries;
 - scale the workflow to a family of buildings assembled into several city
   blocks; and
 - complete the controlled geometry-versus-ORMS performance benchmark.
@@ -831,10 +840,12 @@ Your support funds:
   232 apertures, source-safe material bindings, a 56-variant real x1 atlas,
   independent one-surface glass controls, luminance-selected per-slice
   emission, and accepted RTX Real-Time and RTX Interactive evidence; packaged
-  the result as installable `msp.orms.runtime` 0.1.5 with local-registry
+  the result as installable `msp.orms.runtime` with local-registry
   publication, Extension Manager installation, AUTOLOAD, Material Library,
   reversible automatic assignment, central ORMS controls, lifecycle commands,
-  external production-atlas routing, and clean source restoration.
+  external production-atlas routing, clean source restoration, and the
+  checkpointed five-Set architecture with per-Set x1–x4 atlases, material
+  profiles, staged editing, and portable `.orms` scene profiles.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
+from ..interior_sets.contracts import runtime_set_token
 from ..room_run.contracts import (
     ClassificationResult,
     ClassifierDiagnostic,
@@ -28,6 +29,7 @@ from .contracts import (
     CAMERA_POSITION_PRIMVAR_NAME,
     CAMERA_POSITION_PRIMVAR_PATH,
     DERIVED_APERTURE_MASK_OFFSET_U,
+    DERIVED_INTERIOR_SET_ID,
     DERIVED_MAP_AXIS_U,
     DERIVED_MAP_AXIS_V,
     DERIVED_MAP_ORIGIN,
@@ -225,6 +227,7 @@ def _mapping_defaults(face_count: int) -> dict[str, list[object]]:
         DERIVED_ROOM_SIZE: [1] * face_count,
         DERIVED_ROOM_DEPTH_SIZE: [1] * face_count,
         DERIVED_ROOM_GROUP_ID: [0] * face_count,
+        DERIVED_INTERIOR_SET_ID: [""] * face_count,
         DERIVED_MAPPING_VALID: [0] * face_count,
         DERIVED_ROOM_AXIS_U: [(1.0, 0.0, 0.0)] * face_count,
         DERIVED_ROOM_AXIS_V: [(0.0, 1.0, 0.0)] * face_count,
@@ -251,6 +254,7 @@ def _set_mapping_values(
     values[DERIVED_ROOM_SIZE][face_index] = mapping.room_size
     values[DERIVED_ROOM_DEPTH_SIZE][face_index] = mapping.room_depth_size
     values[DERIVED_ROOM_GROUP_ID][face_index] = mapping.group_id
+    values[DERIVED_INTERIOR_SET_ID][face_index] = mapping.interior_set_id
     values[DERIVED_MAPPING_VALID][face_index] = int(mapping.mapping_valid)
     values[DERIVED_ROOM_AXIS_U][face_index] = mapping.room_axis_u
     values[DERIVED_ROOM_AXIS_V][face_index] = mapping.room_axis_v
@@ -322,6 +326,18 @@ def _author_uniform_int_primvar(
         Sdf.ValueTypeNames.IntArray,
         UsdGeom.Tokens.uniform,
     ).Set(Vt.IntArray([int(value) for value in values]))
+
+
+def _author_uniform_string_primvar(
+    primvars: UsdGeom.PrimvarsAPI,
+    name: str,
+    values: Sequence[object],
+) -> None:
+    primvars.CreatePrimvar(
+        name,
+        Sdf.ValueTypeNames.StringArray,
+        UsdGeom.Tokens.uniform,
+    ).Set(Vt.StringArray([str(value) for value in values]))
 
 
 def _author_uniform_float3_primvar(
@@ -465,6 +481,11 @@ def author_derived_primvars(
                 DERIVED_MAPPING_VALID,
             ):
                 _author_uniform_int_primvar(primvars, name, values[name])
+            _author_uniform_string_primvar(
+                primvars,
+                DERIVED_INTERIOR_SET_ID,
+                values[DERIVED_INTERIOR_SET_ID],
+            )
             _author_uniform_float_primvar(
                 primvars,
                 DERIVED_SLICE_START_DEPTH,
@@ -997,10 +1018,12 @@ def _atlas_family_source(
     resources: RuntimeResources,
     room_size: int,
     source_shader: UsdShade.Shader | None,
+    use_source_x1: bool,
 ) -> _AtlasFamilySource:
     """Use the authored x1 atlas and retained debug atlases for x2-x4."""
 
-    if room_size == 1:
+    family = resources.atlas_family(room_size)
+    if room_size == 1 and use_source_x1 and family.source != "production":
         source_x1 = _source_x1_atlas_family(source_shader)
         if source_x1 is not None:
             return source_x1
@@ -1014,8 +1037,10 @@ def author_family_materials(
     available_room_sizes: frozenset[int],
     window_prim_paths: Sequence[str],
     material_input_values: Mapping[str, object] | None = None,
+    interior_set_id: str | None = None,
+    display_name: str | None = None,
 ) -> dict[int, UsdShade.Material]:
-    """Keep one shared material alive for every available atlas family."""
+    """Keep one Set's material alive for every available atlas family."""
 
     resources = coerce_runtime_resources(resources_or_repository_root)
 
@@ -1035,10 +1060,22 @@ def author_family_materials(
     with Usd.EditContext(stage, runtime_layer):
         runtime_root = UsdGeom.Scope.Define(stage, "/__ORMSRuntime")
         hide_in_stage_window(runtime_root.GetPrim())
-        UsdGeom.Scope.Define(stage, "/__ORMSRuntime/Looks")
+        looks_root = "/__ORMSRuntime/Looks"
+        UsdGeom.Scope.Define(stage, looks_root)
+        material_root = looks_root
+        if interior_set_id is not None:
+            material_root = (
+                f"{looks_root}/{runtime_set_token(interior_set_id)}"
+            )
+            UsdGeom.Scope.Define(stage, material_root)
         for room_size in sorted(available_room_sizes & {1, 2, 3, 4}):
-            material_path = f"/__ORMSRuntime/Looks/RoomMapX{room_size}"
+            material_path = f"{material_root}/RoomMapX{room_size}"
             material = UsdShade.Material.Define(stage, material_path)
+            if display_name is not None:
+                material.GetPrim().SetMetadata(
+                    "displayName",
+                    f"{display_name} x{room_size}",
+                )
             material.GetPrim().CreateAttribute(
                 _RTX_CUTOUT_OPT_IN_ATTRIBUTE,
                 Sdf.ValueTypeNames.Bool,
@@ -1095,6 +1132,7 @@ def author_family_materials(
                 resources,
                 room_size,
                 source_shader,
+                interior_set_id is None,
             )
             shader.CreateInput("room_atlas", Sdf.ValueTypeNames.Asset).Set(
                 atlas_family.asset
@@ -1114,51 +1152,75 @@ def author_family_bindings(
     stage: Usd.Stage,
     runtime_layer: Sdf.Layer,
     result: ClassificationResult,
-    materials: Mapping[int, UsdShade.Material],
+    materials: Mapping[
+        int | tuple[str, int],
+        UsdShade.Material,
+    ],
 ) -> tuple[int, int]:
     """Bind one effective shared family material to every classified face."""
 
-    faces_by_family: dict[tuple[str, int], list[int]] = defaultdict(list)
+    uses_set_keys = any(isinstance(key, tuple) for key in materials)
+    faces_by_family: dict[tuple[str, str, int], list[int]] = defaultdict(list)
     for mapping in result.mappings:
-        if mapping.atlas_size in materials:
-            faces_by_family[(mapping.prim_path, mapping.atlas_size)].append(
-                mapping.face_index
-            )
+        set_key = (mapping.interior_set_id, mapping.atlas_size)
+        if set_key in materials or mapping.atlas_size in materials:
+            faces_by_family[
+                (
+                    mapping.prim_path,
+                    mapping.interior_set_id,
+                    mapping.atlas_size,
+                )
+            ].append(mapping.face_index)
 
     subset_count = 0
     direct_mesh_binding_count = 0
     with Usd.EditContext(stage, runtime_layer):
         prim_paths = sorted(
-            {prim_path for prim_path, _size in faces_by_family}
+            {prim_path for prim_path, _set_id, _size in faces_by_family}
         )
         for prim_path in prim_paths:
             mesh = UsdGeom.Mesh(stage.GetPrimAtPath(prim_path))
             if not mesh:
                 continue
             families = {
-                room_size: sorted(set(faces_by_family[(prim_path, room_size)]))
-                for path, room_size in faces_by_family
+                (set_id, room_size): sorted(
+                    set(faces_by_family[(prim_path, set_id, room_size)])
+                )
+                for path, set_id, room_size in faces_by_family
                 if path == prim_path
             }
             face_count = len(mesh.GetFaceVertexCountsAttr().Get() or ())
             if len(families) == 1:
-                room_size, face_indices = next(iter(families.items()))
+                family_key, face_indices = next(iter(families.items()))
                 if face_indices == list(range(face_count)):
+                    material = materials.get(
+                        family_key,
+                        materials.get(family_key[1]),
+                    )
                     UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(
-                        materials[room_size]
+                        material
                     )
                     direct_mesh_binding_count += 1
                     continue
-            for room_size, face_indices in sorted(families.items()):
+            for family_key, face_indices in sorted(families.items()):
+                set_id, room_size = family_key
                 subset = UsdGeom.Subset.CreateGeomSubset(
                     mesh,
-                    f"ormsFamilyX{room_size}",
+                    (
+                        f"orms{runtime_set_token(set_id)}X{room_size}"
+                        if uses_set_keys
+                        else f"ormsFamilyX{room_size}"
+                    ),
                     UsdGeom.Tokens.face,
                     Vt.IntArray(face_indices),
                     "materialBind",
                 )
+                material = materials.get(
+                    family_key,
+                    materials.get(room_size),
+                )
                 UsdShade.MaterialBindingAPI.Apply(subset.GetPrim()).Bind(
-                    materials[room_size]
+                    material
                 )
                 subset_count += 1
     return subset_count, direct_mesh_binding_count

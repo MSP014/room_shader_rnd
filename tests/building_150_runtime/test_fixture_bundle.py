@@ -32,8 +32,19 @@ SOURCE_STAGE_PATH = (
     / "usd"
     / "Moskovskiy_av_150.usd"
 )
-WINDOW_PATH = "/World/Building150/geo/render/Windows_Glass"
-SOURCE_WINDOW_PATH = "/Moskovskiy_av_150/geo/render/Windows_Glass"
+WINDOW_ROOT_PATH = "/World/Building150/geo/render/windows"
+SOURCE_WINDOW_ROOT_PATH = "/Moskovskiy_av_150/geo/render/windows"
+WINDOW_NAMES = (
+    "other_rooms",
+    "halls",
+    "living_rooms",
+    "cabinets",
+    "library_windows",
+)
+WINDOW_PATHS = tuple(f"{WINDOW_ROOT_PATH}/{name}" for name in WINDOW_NAMES)
+SOURCE_WINDOW_PATHS = tuple(
+    f"{SOURCE_WINDOW_ROOT_PATH}/{name}" for name in WINDOW_NAMES
+)
 EXPECTED_RUNTIME_INPUT_TYPES = {
     **{
         name: Sdf.ValueTypeNames.Bool
@@ -97,12 +108,14 @@ def test_building_150_source_window_is_auto_assignment_candidate():
 
     decisions = evaluate_windows_glass(stage)
 
-    assert len(decisions) == 1
-    assert decisions[0].eligible
-    assert decisions[0].prim_path == SOURCE_WINDOW_PATH
-    assert decisions[0].source_material_path == (
-        "/Moskovskiy_av_150/mtl/base_lod00_mat"
+    assert len(decisions) == len(SOURCE_WINDOW_PATHS)
+    assert all(decision.eligible for decision in decisions)
+    assert {decision.prim_path for decision in decisions} == set(
+        SOURCE_WINDOW_PATHS
     )
+    assert {decision.source_material_path for decision in decisions} == {
+        "/Moskovskiy_av_150/mtl/base_lod00_mat"
+    }
 
 
 def test_building_150_auto_assignment_feeds_runtime_without_manual_script():
@@ -118,22 +131,29 @@ def test_building_150_auto_assignment_feeds_runtime_without_manual_script():
     metrics = resolve_stage_metrics(stage, RuntimeClassifierSettings())
     extraction = extract_stage_apertures(stage, metrics)
 
-    assert result.assigned_prim_paths == (SOURCE_WINDOW_PATH,)
+    assert set(result.assigned_prim_paths) == set(SOURCE_WINDOW_PATHS)
     assert len(extraction.apertures) == 232
-    window = stage.GetPrimAtPath(SOURCE_WINDOW_PATH)
-    material, relationship = UsdShade.MaterialBindingAPI(
-        window
-    ).ComputeBoundMaterial()
-    assert relationship
-    assert str(material.GetPath()) == "/__ORMSAutoAssignment/Looks/RoomMap"
+    for window_path in SOURCE_WINDOW_PATHS:
+        window = stage.GetPrimAtPath(window_path)
+        material, relationship = UsdShade.MaterialBindingAPI(
+            window
+        ).ComputeBoundMaterial()
+        assert relationship
+        assert str(material.GetPath()) == (
+            "/__ORMSAutoAssignment/Looks/RoomMap"
+        )
 
     owner.stop()
 
-    restored, relationship = UsdShade.MaterialBindingAPI(
-        window
-    ).ComputeBoundMaterial()
-    assert relationship
-    assert str(restored.GetPath()) == ("/Moskovskiy_av_150/mtl/base_lod00_mat")
+    for window_path in SOURCE_WINDOW_PATHS:
+        window = stage.GetPrimAtPath(window_path)
+        restored, relationship = UsdShade.MaterialBindingAPI(
+            window
+        ).ComputeBoundMaterial()
+        assert relationship
+        assert str(restored.GetPath()) == (
+            "/Moskovskiy_av_150/mtl/base_lod00_mat"
+        )
 
 
 def test_building_150_runtime_is_published_in_one_live_stage_change(
@@ -224,8 +244,12 @@ def test_building_150_runtime_is_published_in_one_live_stage_change(
     assert publication["runtime_authored_source_material_path_count"] == 0
     assert publication["unexpected_runtime_authored_path_count"] == 0
     assert material_state["source_usd_material_network_unchanged"] is True
-    assert material_state["changed_source_usd_fields"] == "<none>"
-    assert material_state["changed_mesh_binding_paths"] == "<none>"
+    assert material_state["changed_source_usd_fields"] == (
+        "mesh_bindings,mesh_binding_opinions"
+    )
+    assert set(material_state["changed_mesh_binding_paths"].split(",")) == {
+        path for path in WINDOW_PATHS if not path.endswith("/library_windows")
+    }
     assert material_state["unexpected_mesh_binding_paths"] == "<none>"
     assert material_state["runtime_binding_scope_valid"] is True
     assert material_state["rendered_material_state_observable"] is False
@@ -319,33 +343,60 @@ def test_building_150_runtime_is_published_in_one_live_stage_change(
         ).ComputeBoundMaterial()
         assert relationship
         mesh_materials[str(prim.GetPath())] = str(material.GetPath())
-    assert mesh_materials.pop(WINDOW_PATH) == "/World/Looks/RoomMapSource"
+    direct_window_materials = {
+        f"{WINDOW_ROOT_PATH}/other_rooms": ("/__ORMSRuntime/Looks/RoomMapX1"),
+        f"{WINDOW_ROOT_PATH}/halls": "/__ORMSRuntime/Looks/RoomMapX3",
+        f"{WINDOW_ROOT_PATH}/living_rooms": ("/__ORMSRuntime/Looks/RoomMapX2"),
+        f"{WINDOW_ROOT_PATH}/cabinets": "/__ORMSRuntime/Looks/RoomMapX4",
+        f"{WINDOW_ROOT_PATH}/library_windows": "/World/Looks/RoomMapSource",
+    }
+    for window_path, material_path in direct_window_materials.items():
+        assert mesh_materials.pop(window_path) == material_path
     assert set(mesh_materials.values()) == {
         "/World/Building150/mtl/base_lod00_mat"
     }
 
     expected_family_face_counts = {1: 98, 2: 66, 3: 36, 4: 32}
     for room_size, face_count in expected_family_face_counts.items():
-        subset = UsdGeom.Subset(
-            stage.GetPrimAtPath(f"{WINDOW_PATH}/ormsFamilyX{room_size}")
+        family_material_path = f"/__ORMSRuntime/Looks/RoomMapX{room_size}"
+        direct_face_count = 0
+        for window_path in WINDOW_PATHS:
+            window = stage.GetPrimAtPath(window_path)
+            material, _relationship = UsdShade.MaterialBindingAPI(
+                window
+            ).ComputeBoundMaterial()
+            if str(material.GetPath()) == family_material_path:
+                direct_face_count += len(
+                    UsdGeom.Mesh(window).GetFaceVertexCountsAttr().Get()
+                )
+        family_subsets = tuple(
+            UsdGeom.Subset(
+                stage.GetPrimAtPath(f"{window_path}/ormsFamilyX{room_size}")
+            )
+            for window_path in WINDOW_PATHS
+            if stage.GetPrimAtPath(
+                f"{window_path}/ormsFamilyX{room_size}"
+            ).IsValid()
         )
-        assert len(subset.GetIndicesAttr().Get()) == face_count
-        material, relationship = UsdShade.MaterialBindingAPI(
-            subset.GetPrim()
-        ).ComputeBoundMaterial()
-        assert relationship
-        assert str(material.GetPath()) == (
-            f"/__ORMSRuntime/Looks/RoomMapX{room_size}"
+        assert (
+            direct_face_count
+            + sum(
+                len(subset.GetIndicesAttr().Get()) for subset in family_subsets
+            )
+            == face_count
         )
+        for subset in family_subsets:
+            material, relationship = UsdShade.MaterialBindingAPI(
+                subset.GetPrim()
+            ).ComputeBoundMaterial()
+            assert relationship
+            assert str(material.GetPath()) == family_material_path
 
     classifier.stop()
 
 
 def test_building_150_wrapper_preserves_the_source_contract():
     stage = Usd.Stage.Open(str(STAGE_PATH), load=Usd.Stage.LoadAll)
-    window = stage.GetPrimAtPath(WINDOW_PATH)
-    primvars = UsdGeom.PrimvarsAPI(window)
-
     expected = {
         "roomID": (Sdf.ValueTypeNames.IntArray, UsdGeom.Tokens.uniform),
         "roomP": (Sdf.ValueTypeNames.Float3Array, UsdGeom.Tokens.vertex),
@@ -356,16 +407,19 @@ def test_building_150_wrapper_preserves_the_source_contract():
             UsdGeom.Tokens.faceVarying,
         ),
     }
-    for name, (value_type, interpolation) in expected.items():
-        primvar = primvars.GetPrimvar(name)
-        assert primvar
-        assert primvar.GetTypeName() == value_type
-        assert primvar.GetInterpolation() == interpolation
+    for window_path in WINDOW_PATHS:
+        window = stage.GetPrimAtPath(window_path)
+        primvars = UsdGeom.PrimvarsAPI(window)
+        for name, (value_type, interpolation) in expected.items():
+            primvar = primvars.GetPrimvar(name)
+            assert primvar
+            assert primvar.GetTypeName() == value_type
+            assert primvar.GetInterpolation() == interpolation
 
-    material, _relationship = UsdShade.MaterialBindingAPI(
-        window
-    ).ComputeBoundMaterial()
-    assert material.GetPath() == Sdf.Path("/World/Looks/RoomMapSource")
+        material, _relationship = UsdShade.MaterialBindingAPI(
+            window
+        ).ComputeBoundMaterial()
+        assert material.GetPath() == Sdf.Path("/World/Looks/RoomMapSource")
 
 
 def test_building_150_wrapper_changes_only_the_window_material():
@@ -381,8 +435,9 @@ def test_building_150_wrapper_changes_only_the_window_material():
         assert relationship
         mesh_materials[str(prim.GetPath())] = str(material.GetPath())
 
-    assert len(mesh_materials) == 29
-    assert mesh_materials.pop(WINDOW_PATH) == "/World/Looks/RoomMapSource"
+    assert len(mesh_materials) == 33
+    for window_path in WINDOW_PATHS:
+        assert mesh_materials.pop(window_path) == "/World/Looks/RoomMapSource"
     assert set(mesh_materials.values()) == {
         "/World/Building150/mtl/base_lod00_mat"
     }

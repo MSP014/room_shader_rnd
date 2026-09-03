@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -81,6 +81,14 @@ class RuntimeLifecycleController:
         self._session.classifier.resume()
         self._session.camera_bridge.resume()
         self._set_state(RuntimeState.RUNNING)
+        return True
+
+    def set_camera_input_paths(self, paths: Sequence[str]) -> bool:
+        """Retarget the live camera bridge after material-family changes."""
+
+        if self._session is None or self._state is not RuntimeState.RUNNING:
+            return False
+        self._session.camera_bridge.set_material_input_paths(paths)
         return True
 
     def teardown(self) -> bool:

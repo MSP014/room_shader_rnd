@@ -23,6 +23,7 @@ class RuntimeAtlasFamily:
     room_size: int
     asset_path: str
     variant_count: int
+    source: str = "runtime"
 
     def __post_init__(self) -> None:
         if self.room_size not in {1, 2, 3, 4}:
@@ -100,15 +101,28 @@ class RuntimeResources:
 
 
 def coerce_runtime_resources(
-    value: RuntimeResources | str | Path,
+    value: RuntimeResources | str | Path | object,
 ) -> RuntimeResources:
-    """Keep legacy checkout callers outside resource-consuming modules."""
+    """Adapt paths and resource records that survived an exact-source reload."""
 
-    return (
-        value
-        if isinstance(value, RuntimeResources)
-        else RuntimeResources.from_repository(value)
-    )
+    if isinstance(value, RuntimeResources):
+        return value
+    mdl_source_asset = getattr(value, "mdl_source_asset", None)
+    atlas_families = getattr(value, "atlas_families", None)
+    if mdl_source_asset is not None and atlas_families is not None:
+        return RuntimeResources(
+            mdl_source_asset=str(mdl_source_asset),
+            atlas_families=tuple(
+                RuntimeAtlasFamily(
+                    room_size=int(family.room_size),
+                    asset_path=str(family.asset_path),
+                    variant_count=int(family.variant_count),
+                    source=str(getattr(family, "source", "runtime")),
+                )
+                for family in atlas_families
+            ),
+        )
+    return RuntimeResources.from_repository(value)  # type: ignore[arg-type]
 
 
 def mdl_source_asset_name(value: object) -> str:

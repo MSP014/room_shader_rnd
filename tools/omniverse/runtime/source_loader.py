@@ -21,6 +21,30 @@ _RUNTIME_SOURCE_MODULES = {
         "tools.omniverse.runtime.resources",
         "runtime/resources.py",
     ),
+    "interior_set_atlas_mode": (
+        "tools.omniverse.interior_sets.atlas_mode",
+        "interior_sets/atlas_mode.py",
+    ),
+    "interior_set_identity": (
+        "tools.omniverse.interior_sets.identity",
+        "interior_sets/identity.py",
+    ),
+    "interior_set_manifest": (
+        "tools.omniverse.interior_sets.manifest",
+        "interior_sets/manifest.py",
+    ),
+    "interior_set_contracts": (
+        "tools.omniverse.interior_sets.contracts",
+        "interior_sets/contracts.py",
+    ),
+    "interior_set_selectors": (
+        "tools.omniverse.interior_sets.selectors",
+        "interior_sets/selectors.py",
+    ),
+    "interior_set_runtime_resources": (
+        "tools.omniverse.interior_sets.runtime_resources",
+        "interior_sets/runtime_resources.py",
+    ),
     "runtime_stage_visibility": (
         "tools.omniverse.runtime.stage_visibility",
         "runtime/stage_visibility.py",
@@ -60,6 +84,14 @@ _RUNTIME_SOURCE_MODULES = {
     "shared_room_authoring": (
         "tools.omniverse.shared_room.authoring",
         "shared_room/authoring.py",
+    ),
+    "shared_room_interior_set_authoring": (
+        "tools.omniverse.shared_room.interior_set_authoring",
+        "shared_room/interior_set_authoring.py",
+    ),
+    "shared_room_interior_set_diagnostics": (
+        "tools.omniverse.shared_room.interior_set_diagnostics",
+        "shared_room/interior_set_diagnostics.py",
     ),
     "shared_room_pipeline": (
         "tools.omniverse.shared_room.pipeline",
@@ -214,6 +246,10 @@ class RuntimeSourceLoader:
             ("tools", self.repository_root / "tools"),
             ("tools.omniverse", self.module_root),
             ("tools.omniverse.runtime", self.module_root / "runtime"),
+            (
+                "tools.omniverse.interior_sets",
+                self.module_root / "interior_sets",
+            ),
             ("tools.omniverse.room_run", self.module_root / "room_run"),
             ("tools.omniverse.shared_room", self.module_root / "shared_room"),
         ):

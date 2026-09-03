@@ -4,6 +4,10 @@ import math
 
 import pytest
 
+from tools.omniverse.interior_sets.manifest import (
+    VariantIdentityManifest,
+    semantic_variant_id,
+)
 from tools.omniverse.room_run.classifier import (
     ClassifierSettings,
     classify_apertures,
@@ -172,6 +176,39 @@ def test_single_corner_supports_every_bounded_one_to_four_footprint(
     assert not result.diagnostics
 
 
+def test_x4_x1_corner_uses_one_semantic_variant_identity():
+    room_id = 17
+    variation_seed = 3
+    apertures = _window_run_from_angles(
+        (0.0, 0.0, 0.0, 0.0, 90.0),
+        room_id=room_id,
+    )
+    result = classify_apertures(
+        apertures,
+        ClassifierSettings(partition_seed=variation_seed),
+    )
+    x1_manifest = VariantIdentityManifest(
+        namespace="kitchens.v1",
+        variant_ids=("k-0", "k-1", "k-2", "k-3"),
+    )
+    x4_manifest = VariantIdentityManifest(
+        namespace="kitchens.v1",
+        variant_ids=("k-0", "k-1", "k-2", "k-3"),
+    )
+
+    assert len(result.groups) == 1
+    assert {mapping.atlas_size for mapping in result.mappings} == {1, 4}
+    assert semantic_variant_id(
+        x1_manifest,
+        room_id,
+        variation_seed,
+    ) == semantic_variant_id(
+        x4_manifest,
+        room_id,
+        variation_seed,
+    )
+
+
 def test_corner_mapping_keeps_a_distinct_portal_normal_for_each_facade_leg():
     apertures = _window_run_from_angles((0.0, 0.0, 90.0, 90.0), room_id=422)
 
@@ -276,6 +313,27 @@ def test_disabled_corner_family_partitions_each_straight_leg_separately():
     assert next(
         group for group in result.groups if "w0" in group.aperture_keys
     ).aperture_keys == ("w0",)
+
+
+def test_incoherent_corner_families_cannot_share_one_room():
+    apertures = _window_run_from_angles(
+        (0.0, 90.0, 90.0, 90.0, 90.0),
+        room_id=452,
+    )
+    set_id = apertures[0].interior_set_id
+
+    result = classify_apertures(
+        apertures,
+        ClassifierSettings(
+            incoherent_interior_set_ids=frozenset({set_id}),
+        ),
+    )
+
+    assert all(group.room_depth_size == 1 for group in result.groups)
+    assert sum(len(group.aperture_keys) for group in result.groups) == 5
+    assert "INCOHERENT_ATLAS_FAMILIES" in {
+        diagnostic.state for diagnostic in result.diagnostics
+    }
 
 
 def test_multiple_sharp_turns_use_explicit_x1_fallback():

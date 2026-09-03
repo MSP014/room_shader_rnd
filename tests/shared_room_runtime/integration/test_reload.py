@@ -43,7 +43,7 @@ def test_runtime_contract_versions_are_synchronised():
         classifier_module._EXPECTED_CLASSIFIER_CONTRACT_VERSION,
         reload_room_map_runtime._CONTRACT_VERSION,
     }
-    assert versions == {"shared_room_runtime_v47"}
+    assert versions == {"shared_room_runtime_v48"}
 
 
 def test_runtime_loader_targets_only_classified_window_material_inputs():

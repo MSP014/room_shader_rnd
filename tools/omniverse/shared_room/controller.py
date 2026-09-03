@@ -12,6 +12,11 @@ from typing import Any
 
 from pxr import Sdf, Tf, Usd, UsdShade
 
+from ..interior_sets.contracts import InteriorSetCollection, runtime_set_token
+from ..interior_sets.runtime_resources import (
+    InteriorSetRuntimeResources,
+    InteriorSetRuntimeSnapshot,
+)
 from ..room_run import classifier as _room_run_classifier
 from ..room_run.classifier import (
     ApertureDescriptor,
@@ -85,7 +90,10 @@ from .contracts import (
     StageClassification,
     StageExtraction,
 )
-from .material_controls import material_input_values_from_kit
+from .material_controls import (
+    material_input_values_from_kit,
+    material_input_values_from_mapping,
+)
 from .material_diagnostics import (
     MaterialStateSnapshot,
     capture_material_state,
@@ -164,7 +172,7 @@ _TRACE_DIAGNOSTIC_CODE = "ORMS-RUNTIME-TRACE"
 _TRACE_RUN_IDS = count(1)
 _TRACE_PATH_LIMIT = 16
 _FIRST_FRAME_SIGNAL = "StageRenderingEventType.NEW_FRAME"
-_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v47"
+_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v48"
 _UNAVAILABLE_TRANSITION_VALUE = "<unavailable>"
 _RUNTIME_INPUT_LOG_DEBOUNCE_SECONDS = 0.2
 
@@ -231,6 +239,21 @@ def _runtime_family_input_paths(input_name: str) -> tuple[Sdf.Path, ...]:
     return tuple(
         shader_path.AppendProperty(f"inputs:{input_name}")
         for shader_path in _RUNTIME_FAMILY_SHADER_PATHS
+    )
+
+
+def _interior_set_input_paths(
+    set_id: str,
+    input_name: str,
+) -> tuple[Sdf.Path, ...]:
+    """Return one Set's four stable generated shader input paths."""
+
+    root = f"/__ORMSRuntime/Looks/{runtime_set_token(set_id)}"
+    return tuple(
+        Sdf.Path(f"{root}/RoomMapX{room_size}/Shader").AppendProperty(
+            f"inputs:{input_name}"
+        )
+        for room_size in range(1, 5)
     )
 
 
@@ -599,6 +622,8 @@ class SharedRoomClassifier:
             [float, Callable[[], None]], object | None
         ] = _schedule_runtime_input_log,
         material_input_values: Mapping[str, object] | None = None,
+        interior_sets: InteriorSetCollection | None = None,
+        interior_set_resources: InteriorSetRuntimeSnapshot | None = None,
     ):
         self._stage = stage
         self._resources = coerce_runtime_resources(
@@ -606,6 +631,20 @@ class SharedRoomClassifier:
         )
         self._settings = settings
         self._material_input_values = dict(material_input_values or {})
+        self._uses_legacy_interior_sets = interior_sets is None
+        self._interior_sets = (
+            interior_sets or InteriorSetCollection.default_only()
+        )
+        self._interior_set_resources = interior_set_resources or (
+            InteriorSetRuntimeSnapshot(
+                (
+                    InteriorSetRuntimeResources(
+                        set_id=self._interior_sets.default.set_id,
+                        resources=self._resources,
+                    ),
+                )
+            )
+        )
         self._layer_owner = RuntimeLayerOwner(stage)
         self._notice_key: Any | None = None
         self._is_authoring = False
@@ -640,12 +679,14 @@ class SharedRoomClassifier:
         if self._last is None:
             return ()
         paths = set()
-        for attribute_path in _runtime_family_input_paths(
-            "camera_position_world"
-        ):
-            attribute = self._stage.GetAttributeAtPath(attribute_path)
-            if attribute:
-                paths.add(str(attribute.GetPath()))
+        for item in self._interior_sets.sets:
+            for attribute_path in _interior_set_input_paths(
+                item.set_id,
+                "camera_position_world",
+            ):
+                attribute = self._stage.GetAttributeAtPath(attribute_path)
+                if attribute:
+                    paths.add(str(attribute.GetPath()))
         for (
             prim_path,
             _face_count,
@@ -681,16 +722,103 @@ class SharedRoomClassifier:
         self._is_authoring = True
         try:
             with Usd.EditContext(self._stage, self._layer_owner.layer):
-                for name, value in self._material_input_values.items():
-                    for path in _runtime_family_input_paths(name):
+                for item in self._interior_sets.sets:
+                    for name, value in self._material_input_values.items():
+                        input_paths = (
+                            _runtime_family_input_paths(name)
+                            if self._uses_legacy_interior_sets
+                            else _interior_set_input_paths(
+                                item.set_id,
+                                name,
+                            )
+                        )
+                        for path in input_paths:
+                            attribute = self._stage.GetAttributeAtPath(path)
+                            if attribute and attribute.Get() != value:
+                                attribute.Set(value)
+                                updated_count += 1
+        finally:
+            self._is_authoring = False
+        self._remember_runtime_family_input_values()
+        return updated_count
+
+    def set_interior_set_material_values(
+        self,
+        set_id: str,
+        values: Mapping[str, object],
+    ) -> int:
+        """Update only one applied Set's material profile and families."""
+
+        item = self._interior_sets.by_id(set_id)
+        stored_values = item.material_mapping()
+        stored_values.update(values)
+        updated_item = replace(
+            item,
+            material_values=tuple(stored_values.items()),
+        )
+        self._interior_sets = self._interior_sets.replace(updated_item)
+        shader_values = material_input_values_from_mapping(stored_values)
+        updated_count = 0
+        self._is_authoring = True
+        try:
+            with Usd.EditContext(self._stage, self._layer_owner.layer):
+                for name in values:
+                    if name not in _SHARED_RUNTIME_INPUT_NAMES:
+                        continue
+                    for path in _interior_set_input_paths(set_id, name):
                         attribute = self._stage.GetAttributeAtPath(path)
+                        value = shader_values[name]
                         if attribute and attribute.Get() != value:
                             attribute.Set(value)
                             updated_count += 1
         finally:
             self._is_authoring = False
-        self._remember_runtime_family_input_values()
         return updated_count
+
+    def rename_interior_set(self, set_id: str, name: str) -> int:
+        """Update Set presentation metadata without replacing materials."""
+
+        item = self._interior_sets.by_id(set_id)
+        self._interior_sets = self._interior_sets.replace(item.renamed(name))
+        label = self._interior_sets.label_for(set_id)
+        updated_count = 0
+        self._is_authoring = True
+        try:
+            with Usd.EditContext(self._stage, self._layer_owner.layer):
+                root = f"/__ORMSRuntime/Looks/{runtime_set_token(set_id)}"
+                for room_size in range(1, 5):
+                    prim = self._stage.GetPrimAtPath(
+                        f"{root}/RoomMapX{room_size}"
+                    )
+                    if not prim:
+                        continue
+                    display_name = f"{label} x{room_size}"
+                    if prim.GetMetadata("displayName") == display_name:
+                        continue
+                    prim.SetMetadata("displayName", display_name)
+                    updated_count += 1
+        finally:
+            self._is_authoring = False
+        return updated_count
+
+    def apply_interior_sets(
+        self,
+        collection: InteriorSetCollection,
+        resources: InteriorSetRuntimeSnapshot,
+    ) -> StageClassification | None:
+        """Replace one complete structural snapshot with one rebuild."""
+
+        previous_collection = self._interior_sets
+        previous_resources = self._interior_set_resources
+        self._interior_sets = collection
+        self._interior_set_resources = resources
+        try:
+            self._reclassify(trigger="interior_sets_apply")
+        except Exception:
+            self._interior_sets = previous_collection
+            self._interior_set_resources = previous_resources
+            raise
+        return self._last
 
     def set_settings(
         self,
@@ -1037,6 +1165,16 @@ class SharedRoomClassifier:
                 self._resources,
                 phase_callback=trace.mark if trace is not None else None,
                 material_input_values=self._material_input_values,
+                interior_sets=(
+                    None
+                    if self._uses_legacy_interior_sets
+                    else self._interior_sets
+                ),
+                interior_set_resources=(
+                    None
+                    if self._uses_legacy_interior_sets
+                    else self._interior_set_resources
+                ),
             )
             published_layer = self._layer_owner.publish(draft_layer)
             self._last = replace(
@@ -1406,6 +1544,8 @@ _context_subscription: Any | None = None
 _runtime_resources: RuntimeResources | None = None
 _runtime_settings: RuntimeClassifierSettings | None = None
 _runtime_material_input_values: dict[str, object] = {}
+_runtime_interior_sets: InteriorSetCollection | None = None
+_runtime_interior_set_resources: InteriorSetRuntimeSnapshot | None = None
 
 
 def _replace_active_classifier(
@@ -1429,6 +1569,8 @@ def _replace_active_classifier(
         _runtime_settings,
         trace_log_warning=log_room_map_warning,
         material_input_values=_runtime_material_input_values,
+        interior_sets=_runtime_interior_sets,
+        interior_set_resources=_runtime_interior_set_resources,
     )
     _classifier.start(trigger=trigger)
 
@@ -1462,6 +1604,8 @@ def start(
     repository_root: str | Path | None = None,
     settings: RuntimeClassifierSettings | None = None,
     resources: RuntimeResources | None = None,
+    interior_sets: InteriorSetCollection | None = None,
+    interior_set_resources: InteriorSetRuntimeSnapshot | None = None,
 ) -> SharedRoomClassifier:
     """Start on the already-open stage, then subscribe to later stage changes."""
 
@@ -1470,6 +1614,7 @@ def start(
 
     global _context_subscription, _runtime_material_input_values
     global _runtime_resources, _runtime_settings
+    global _runtime_interior_sets, _runtime_interior_set_resources
     # A fresh start restores every singleton-owned resource from a previous run,
     # making repeated Script Editor execution deterministic and leak-free.
     stop()
@@ -1526,7 +1671,13 @@ def start(
             )
         _runtime_resources = RuntimeResources.from_repository(repository_root)
     _runtime_settings = settings or settings_from_kit()
-    _runtime_material_input_values = material_input_values_from_kit()
+    _runtime_interior_sets = (
+        interior_sets or InteriorSetCollection.default_only()
+    )
+    _runtime_interior_set_resources = interior_set_resources
+    _runtime_material_input_values = (
+        material_input_values_from_kit() if interior_sets is None else {}
+    )
     try:
         source_material_state = capture_material_state(stage)
         log_room_map_warning(
@@ -1578,6 +1729,7 @@ def stop() -> None:
     """Stop subscriptions and remove only the ORMS-owned runtime sublayer."""
 
     global _classifier, _context_subscription, _runtime_material_input_values
+    global _runtime_interior_sets, _runtime_interior_set_resources
     global _runtime_resources, _runtime_settings
     if _classifier:
         _classifier.stop()
@@ -1595,4 +1747,6 @@ def stop() -> None:
     _runtime_resources = None
     _runtime_settings = None
     _runtime_material_input_values = {}
+    _runtime_interior_sets = None
+    _runtime_interior_set_resources = None
     _restore_rtx_cutout_opacity()

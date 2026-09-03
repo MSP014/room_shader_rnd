@@ -24,10 +24,10 @@ def test_building_snapshot_records_source_material_network_and_bindings():
     snapshot = capture_material_state(stage)
     details = material_state_log_details(snapshot, snapshot)
 
-    assert len(snapshot["mesh_bindings"]) == 29
+    assert len(snapshot["mesh_bindings"]) == 33
     assert snapshot["mesh_binding_counts"] == (
         ("/World/Building150/mtl/base_lod00_mat", 28),
-        ("/World/Looks/RoomMapSource", 1),
+        ("/World/Looks/RoomMapSource", 5),
     )
     assert "outputs:mtlx:surface" in details["source_material_outputs"]
     assert "ND_tiledimage_color3" in details["source_texture_inputs"]

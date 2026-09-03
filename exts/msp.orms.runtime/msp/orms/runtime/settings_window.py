@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from typing import Any
 
+from tools.omniverse.shared_room.interior_set_diagnostics import (
+    InteriorSetDiagnostics,
+)
 from tools.omniverse.shared_room.material_controls import (
     ensure_material_setting_defaults,
 )
@@ -14,16 +16,24 @@ from tools.omniverse.shared_room.settings import (
 )
 from tools.omniverse.shared_room.settings_panel import build_settings_panel
 
+from .interior_set_atlas_panel import build_interior_set_atlas_panel
+from .interior_set_controller import InteriorSetController
+from .interior_set_directory_picker import InteriorSetDirectoryPicker
+from .interior_set_material_panel import build_interior_set_material_panel
+from .interior_set_panel_state import InteriorSetPanelState
+from .interior_set_profile_workflow import InteriorSetProfileWorkflow
 from .lifecycle import RuntimeState
 from .lifecycle_controls import LifecycleCallbacks, LifecycleControls
 from .resources import (
     DEBUG_ASSET_SETTING,
     PRODUCTION_DIRECTORY_SETTING,
 )
+from .ui_update_scheduler import UiUpdateScheduler
 
 WINDOW_NAME = "ORMS"
 MENU_GROUP = "Window"
 _CLASSIFIER_DELAY_SECONDS = 0.15
+_LIFECYCLE_SECTION_ID = "classifier:runtime_lifecycle"
 
 
 class OrmsSettingsWindow:
@@ -33,20 +43,42 @@ class OrmsSettingsWindow:
         self._window: Any | None = None
         self._menu_items: list[Any] = []
         self._models: tuple[object, ...] = ()
-        self._tasks: dict[str, Any] = {}
+        self._updates = UiUpdateScheduler()
         self._building = False
         self._classifier_changed: Callable[[], None] | None = None
-        self._material_changed: Callable[[], None] | None = None
-        self._apply_atlases: Callable[[], None] | None = None
+        self._material_changed: Callable[[str, str, object], None] | None = (
+            None
+        )
+        self._apply_interior_sets: Callable[[], None] | None = None
+        self._rename_interior_set: Callable[[str, str], None] | None = None
+        self._interior_sets: InteriorSetController | None = None
+        self._runtime_diagnostics: (
+            Callable[[], InteriorSetDiagnostics | None] | None
+        ) = None
         self._lifecycle_controls: LifecycleControls | None = None
         self._lifecycle_state = RuntimeState.INACTIVE
+        self._structural_error: str | None = None
+        self._directory_picker = InteriorSetDirectoryPicker()
+        self._active_tab_index = 0
+        self._panel_state = InteriorSetPanelState()
+        self._profile_workflow = InteriorSetProfileWorkflow(
+            self._panel_state,
+            lambda: self._interior_sets,
+            self._rebuild_window,
+        )
 
     def start(
         self,
         *,
         classifier_changed: Callable[[], None],
-        material_changed: Callable[[], None],
-        apply_atlases: Callable[[], None],
+        material_changed: Callable[[str, str, object], None],
+        apply_interior_sets: Callable[[], None],
+        rename_interior_set: Callable[[str, str], None],
+        interior_sets: InteriorSetController,
+        runtime_diagnostics: Callable[
+            [],
+            InteriorSetDiagnostics | None,
+        ],
         start_runtime: Callable[[], None],
         restart_runtime: Callable[[], None],
         stop_runtime: Callable[[], None],
@@ -64,7 +96,10 @@ class OrmsSettingsWindow:
         ensure_material_setting_defaults()
         self._classifier_changed = classifier_changed
         self._material_changed = material_changed
-        self._apply_atlases = apply_atlases
+        self._apply_interior_sets = apply_interior_sets
+        self._rename_interior_set = rename_interior_set
+        self._interior_sets = interior_sets
+        self._runtime_diagnostics = runtime_diagnostics
         self._lifecycle_controls = LifecycleControls(
             LifecycleCallbacks(
                 start=start_runtime,
@@ -73,6 +108,15 @@ class OrmsSettingsWindow:
                 restore=restore_asset,
             ),
             self._lifecycle_state,
+            collapsed=self._panel_state.is_section_collapsed(
+                _LIFECYCLE_SECTION_ID
+            ),
+            collapsed_changed=lambda collapsed: (
+                self._panel_state.remember_section_collapsed(
+                    _LIFECYCLE_SECTION_ID,
+                    collapsed,
+                )
+            ),
         )
         self._menu_items = [
             MenuItemDescription(
@@ -105,29 +149,101 @@ class OrmsSettingsWindow:
     def _create_window(self) -> None:
         import omni.ui as ui
 
-        self._window = ui.Window(WINDOW_NAME, width=820, height=680)
+        self._window = ui.Window(WINDOW_NAME, width=920, height=760)
         self._window.set_visibility_changed_fn(self._visibility_changed)
+        self._window.frame.set_build_fn(self._build_window_contents)
+        self._window.frame.rebuild()
+
+    def _build_window_contents(self) -> None:
+        """Build controls when the owning frame requests its next draw."""
+
+        import omni.ui as ui
+
         self._building = True
         try:
-            with self._window.frame:
-                with ui.ScrollingFrame():
-                    self._models = build_settings_panel(
-                        atlas_paths={
-                            "debug_asset": DEBUG_ASSET_SETTING,
-                            "production_directory": (
-                                PRODUCTION_DIRECTORY_SETTING
-                            ),
-                        },
-                        classifier_changed=(self._schedule_classifier_change),
-                        material_changed=self._schedule_material_change,
-                        apply_atlases=self._apply_atlases,
-                        build_lifecycle_controls=(
-                            self._lifecycle_controls.build
-                        ),
-                        watch_model=self._watch_model,
+            with ui.ScrollingFrame():
+                if self._interior_sets is None:
+                    raise RuntimeError(
+                        "Interior Set UI controller is unavailable"
                     )
+                self._models = build_settings_panel(
+                    atlas_paths={
+                        "debug_asset": DEBUG_ASSET_SETTING,
+                        "production_directory": (PRODUCTION_DIRECTORY_SETTING),
+                    },
+                    classifier_changed=self._schedule_classifier_change,
+                    material_changed=lambda: None,
+                    apply_atlases=self._apply_structural_changes,
+                    build_lifecycle_controls=self._lifecycle_controls.build,
+                    watch_model=self._watch_model,
+                    build_material_panel=lambda: (
+                        build_interior_set_material_panel(
+                            self._interior_sets,
+                            self._schedule_material_change,
+                            self._panel_state.is_section_collapsed,
+                            self._panel_state.remember_section_collapsed,
+                        )
+                    ),
+                    build_atlas_panel=self._build_atlas_panel,
+                    active_tab_index=self._active_tab_index,
+                    tab_changed=self._remember_active_tab,
+                    debug_atlases_collapsed=(
+                        self._panel_state.debug_atlases_collapsed
+                    ),
+                    debug_atlases_collapsed_changed=(
+                        self._remember_debug_atlases_collapsed
+                    ),
+                    section_collapsed=(self._panel_state.is_section_collapsed),
+                    section_collapsed_changed=(
+                        self._panel_state.remember_section_collapsed
+                    ),
+                )
         finally:
             self._building = False
+
+    def _remember_active_tab(self, index: int) -> None:
+        self._active_tab_index = index
+
+    def _remember_debug_atlases_collapsed(self, collapsed: bool) -> None:
+        """Preserve the packaged-debug section across frame rebuilds."""
+
+        self._panel_state.debug_atlases_collapsed = bool(collapsed)
+
+    def _remember_atlas_mode_collapsed(self, collapsed: bool) -> None:
+        """Preserve the global atlas-mode section across frame rebuilds."""
+
+        self._panel_state.atlas_mode_collapsed = bool(collapsed)
+
+    def _build_atlas_panel(self) -> tuple[object, ...]:
+        """Build portable profile controls before staged Set controls."""
+
+        if self._interior_sets is None:
+            return ()
+        models = list(self._profile_workflow.build_panel())
+        models.extend(
+            build_interior_set_atlas_panel(
+                self._interior_sets,
+                self._rebuild_window,
+                self._apply_structural_changes,
+                self._rename_interior_set,
+                self._directory_picker.choose,
+                (
+                    self._runtime_diagnostics()
+                    if self._runtime_diagnostics is not None
+                    else None
+                ),
+                error_message=self._structural_error,
+                atlas_mode_collapsed=(self._panel_state.atlas_mode_collapsed),
+                atlas_mode_collapsed_changed=(
+                    self._remember_atlas_mode_collapsed
+                ),
+                set_collapsed=self._panel_state.is_set_collapsed,
+                set_collapsed_changed=(
+                    self._panel_state.remember_set_collapsed
+                ),
+            )
+        )
+        return tuple(models)
 
     @staticmethod
     def _subscribe_model(
@@ -152,59 +268,71 @@ class OrmsSettingsWindow:
         self._subscribe_model(model, changed)
 
     def _schedule_classifier_change(self) -> None:
-        self._schedule_change(
+        if self._building or self._classifier_changed is None:
+            return
+        self._updates.schedule(
             "classifier",
             self._classifier_changed,
             delay_seconds=_CLASSIFIER_DELAY_SECONDS,
         )
 
-    def _schedule_material_change(self) -> None:
-        self._schedule_change(
-            "material",
-            self._material_changed,
+    def _schedule_material_change(
+        self,
+        set_id: str,
+        name: str,
+        value: object,
+    ) -> None:
+        if self._building or self._material_changed is None:
+            return
+        self._updates.schedule(
+            f"material:{set_id}:{name}",
+            lambda: self._material_changed(set_id, name, value),
             delay_seconds=0.0,
         )
 
-    def _schedule_change(
-        self,
-        key: str,
-        callback: Callable[[], None] | None,
-        *,
-        delay_seconds: float,
-    ) -> None:
-        if self._building or callback is None:
+    def _apply_structural_changes(self) -> None:
+        if self._apply_interior_sets is None:
             return
-        pending = self._tasks.pop(key, None)
-        if pending is not None:
-            pending.cancel()
-
-        async def invoke() -> None:
+        try:
+            self._apply_interior_sets()
+            self._structural_error = None
+        except Exception as error:
             import carb
-            import omni.kit.app
 
-            try:
-                if delay_seconds:
-                    await asyncio.sleep(delay_seconds)
-                else:
-                    await omni.kit.app.get_app().next_update_async()
-                callback()
-            except asyncio.CancelledError:
-                return
-            except Exception as error:
-                carb.log_error(
-                    f"[ORMS] {key} setting update failed: {error!r}"
-                )
-            finally:
-                current = self._tasks.get(key)
-                if current is asyncio.current_task():
-                    self._tasks.pop(key, None)
+            self._structural_error = str(error)
+            carb.log_error(f"[ORMS] Apply Interior Sets failed: {error!r}")
+        self._rebuild_window()
 
-        self._tasks[key] = asyncio.ensure_future(invoke())
+    def _rebuild_window(self) -> None:
+        """Request a safe content rebuild without replacing the window."""
 
-    @staticmethod
-    def _visibility_changed(_visible: bool) -> None:
+        if self._interior_sets is not None:
+            self._panel_state.retain_sets(
+                item.set_id for item in self._interior_sets.draft.sets
+            )
+        if self._window is not None:
+            # Frame.rebuild defers replacement to the next drawing cycle.
+            # Replacing a Window inside a button callback is invalid OmniUI.
+            self._window.frame.rebuild()
+
+    def _visibility_changed(self, visible: bool) -> None:
         import omni.kit.menu.utils
 
+        if (
+            not visible
+            and not self._building
+            and self._interior_sets is not None
+            and self._interior_sets.dirty
+            and self._window is not None
+        ):
+            import carb
+
+            carb.log_warn(
+                "[ORMS] Apply or revert Interior Set changes before "
+                "closing the window"
+            )
+            self._window.visible = True
+            return
         omni.kit.menu.utils.refresh_menu_items(MENU_GROUP)
 
     def set_lifecycle_state(self, state: RuntimeState) -> None:
@@ -214,15 +342,19 @@ class OrmsSettingsWindow:
         if self._lifecycle_controls is not None:
             self._lifecycle_controls.set_state(state)
 
+    def refresh_interior_sets(self) -> None:
+        """Refresh visible Interior Set state after a runtime rebuild."""
+
+        if self._window is not None:
+            self._rebuild_window()
+
     def stop(self) -> None:
         """Remove the menu, callbacks, models, tasks, and window owned here."""
 
         import omni.kit.menu.utils
         import omni.ui as ui
 
-        for task in self._tasks.values():
-            task.cancel()
-        self._tasks = {}
+        self._updates.stop()
         if self._menu_items:
             omni.kit.menu.utils.remove_menu_items(
                 self._menu_items,
@@ -230,11 +362,23 @@ class OrmsSettingsWindow:
             )
         self._menu_items = []
         ui.Workspace.set_show_window_fn(WINDOW_NAME, None)
-        if self._window is not None:
-            self._window.destroy()
+        self._building = True
+        try:
+            if self._window is not None:
+                self._window.destroy()
+        finally:
+            self._building = False
         self._window = None
         self._models = ()
         self._classifier_changed = None
         self._material_changed = None
-        self._apply_atlases = None
+        self._apply_interior_sets = None
+        self._rename_interior_set = None
+        self._interior_sets = None
+        self._runtime_diagnostics = None
+        self._structural_error = None
+        self._active_tab_index = 0
+        self._panel_state.reset()
+        self._directory_picker.stop()
+        self._profile_workflow.stop()
         self._lifecycle_controls = None

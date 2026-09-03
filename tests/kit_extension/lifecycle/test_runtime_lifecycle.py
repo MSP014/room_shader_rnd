@@ -11,12 +11,16 @@ class _RuntimePart:
     def __init__(self) -> None:
         self.pause_count = 0
         self.resume_count = 0
+        self.material_input_paths = None
 
     def pause(self) -> None:
         self.pause_count += 1
 
     def resume(self) -> None:
         self.resume_count += 1
+
+    def set_material_input_paths(self, paths) -> None:
+        self.material_input_paths = tuple(paths)
 
 
 def test_stop_and_start_freeze_and_resume_one_owned_session():
@@ -65,6 +69,17 @@ def test_restore_tears_down_once_and_returns_to_inactive():
     assert lifecycle.state is RuntimeState.INACTIVE
     assert lifecycle.classifier is None
     assert teardown_calls == ["teardown"]
+
+
+def test_running_session_retargets_camera_inputs_without_restart():
+    lifecycle = RuntimeLifecycleController()
+    camera_bridge = _RuntimePart()
+    lifecycle.attach(_RuntimePart(), camera_bridge, lambda: None)
+
+    changed = lifecycle.set_camera_input_paths(("/Looks/New.inputs:camera",))
+
+    assert changed is True
+    assert camera_bridge.material_input_paths == ("/Looks/New.inputs:camera",)
 
 
 def test_failure_removes_partial_session_and_remains_recoverable():

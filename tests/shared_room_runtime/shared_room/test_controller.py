@@ -3,6 +3,17 @@
 import pytest
 from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 
+from tools.omniverse.interior_sets.contracts import (
+    DEFAULT_INTERIOR_SET_ID,
+    InteriorSetCollection,
+    InteriorSetConfig,
+    runtime_set_token,
+)
+from tools.omniverse.interior_sets.runtime_resources import (
+    InteriorSetRuntimeResources,
+    InteriorSetRuntimeSnapshot,
+)
+from tools.omniverse.runtime.resources import RuntimeResources
 from tools.omniverse.shared_room import controller as classifier_module
 from tools.omniverse.shared_room.controller import (
     DERIVED_PHYSICAL_NORMAL,
@@ -14,6 +25,156 @@ from tools.omniverse.shared_room.controller import (
 )
 
 from ._support import REPOSITORY_ROOT, _window_stage
+
+
+def test_live_material_change_updates_only_its_interior_set(monkeypatch):
+    stage, _mesh = _window_stage((7, 7))
+    root_layer = stage.GetRootLayer()
+    Sdf.CopySpec(
+        root_layer,
+        Sdf.Path("/World/Building/Windows"),
+        root_layer,
+        Sdf.Path("/World/Building/Kitchens_Windows"),
+    )
+    kitchens_id = "11111111-1111-1111-1111-111111111111"
+    default = InteriorSetConfig(
+        set_id=DEFAULT_INTERIOR_SET_ID,
+        material_values=(("glass_roughness", 0.11),),
+    )
+    kitchens = InteriorSetConfig(
+        set_id=kitchens_id,
+        selectors=("*/Kitchens_Windows",),
+        material_values=(("glass_roughness", 0.73),),
+    )
+    collection = InteriorSetCollection((default, kitchens))
+    resources = RuntimeResources.from_repository(REPOSITORY_ROOT)
+    snapshot = InteriorSetRuntimeSnapshot(
+        tuple(
+            InteriorSetRuntimeResources(item.set_id, resources)
+            for item in collection.sets
+        )
+    )
+    monkeypatch.setattr(
+        classifier_module,
+        "_subscribe_to_next_rendered_frame",
+        lambda _callback: object(),
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        resources,
+        RuntimeClassifierSettings(),
+        interior_sets=collection,
+        interior_set_resources=snapshot,
+    )
+    classification = classifier.start()
+
+    updated_count = classifier.set_interior_set_material_values(
+        kitchens_id,
+        {"glass_roughness": 0.44},
+    )
+
+    def roughness(set_id):
+        path = (
+            f"/__ORMSRuntime/Looks/{runtime_set_token(set_id)}/"
+            "RoomMapX1/Shader"
+        )
+        return (
+            UsdShade.Shader(stage.GetPrimAtPath(path))
+            .GetInput("glass_roughness")
+            .Get()
+        )
+
+    assert updated_count == 4
+    assert classifier.last_classification is classification
+    assert roughness(DEFAULT_INTERIOR_SET_ID) == pytest.approx(0.11)
+    assert roughness(kitchens_id) == pytest.approx(0.44)
+    kitchen_material_path = (
+        f"/__ORMSRuntime/Looks/{runtime_set_token(kitchens_id)}/RoomMapX1"
+    )
+    kitchen_material = stage.GetPrimAtPath(kitchen_material_path)
+
+    renamed_count = classifier.rename_interior_set(
+        kitchens_id,
+        "Restaurant Kitchens",
+    )
+
+    assert renamed_count == 4
+    assert classifier.last_classification is classification
+    assert stage.GetPrimAtPath(kitchen_material_path) == kitchen_material
+    assert kitchen_material.GetMetadata("displayName") == (
+        "Restaurant Kitchens x1"
+    )
+    classifier.stop()
+
+
+def test_structural_apply_reassigns_once_and_preserves_source_usd(
+    monkeypatch,
+):
+    stage, _mesh = _window_stage((7, 7))
+    root_layer = stage.GetRootLayer()
+    Sdf.CopySpec(
+        root_layer,
+        Sdf.Path("/World/Building/Windows"),
+        root_layer,
+        Sdf.Path("/World/Building/Kitchens_Windows"),
+    )
+    source_before = root_layer.ExportToString()
+    kitchens_id = "11111111-1111-1111-1111-111111111111"
+    default_only = InteriorSetCollection.default_only()
+    resources = RuntimeResources.from_repository(REPOSITORY_ROOT)
+
+    def resource_snapshot(collection):
+        return InteriorSetRuntimeSnapshot(
+            tuple(
+                InteriorSetRuntimeResources(item.set_id, resources)
+                for item in collection.sets
+            )
+        )
+
+    monkeypatch.setattr(
+        classifier_module,
+        "_subscribe_to_next_rendered_frame",
+        lambda _callback: object(),
+    )
+    classifier = SharedRoomClassifier(
+        stage,
+        resources,
+        RuntimeClassifierSettings(),
+        interior_sets=default_only,
+        interior_set_resources=resource_snapshot(default_only),
+    )
+    initial = classifier.start()
+    kitchens = InteriorSetConfig(
+        set_id=kitchens_id,
+        selectors=("*/Kitchens_Windows",),
+    )
+    configured = InteriorSetCollection((default_only.default, kitchens))
+
+    applied = classifier.apply_interior_sets(
+        configured,
+        resource_snapshot(configured),
+    )
+
+    assert applied is classifier.last_classification
+    assert applied is not initial
+    assert {
+        resolution.prim_path: resolution.set_id
+        for resolution in applied.selector_resolutions
+    }["/World/Building/Kitchens_Windows"] == kitchens_id
+    assert root_layer.ExportToString() == source_before
+
+    removed = classifier.apply_interior_sets(
+        default_only,
+        resource_snapshot(default_only),
+    )
+
+    assert all(
+        resolution.set_id == DEFAULT_INTERIOR_SET_ID
+        for resolution in removed.selector_resolutions
+    )
+    assert root_layer.ExportToString() == source_before
+    classifier.stop()
+    assert root_layer.ExportToString() == source_before
 
 
 def test_manual_room_map_binding_reclassifies_without_runtime_reload(

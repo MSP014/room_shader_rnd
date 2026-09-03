@@ -21,6 +21,7 @@ _REQUIRED_SOURCE_PRIMVARS = (
     "roomUV",
 )
 _WINDOWS_GLASS_NAME = "windowsglass"
+_WINDOWS_CONTAINER_NAME = "windows"
 
 
 @dataclass(frozen=True)
@@ -57,14 +58,23 @@ def _bound_material(prim: Usd.Prim) -> UsdShade.Material | None:
     return material if relationship and material else None
 
 
-def _is_windows_glass_candidate(
+def _is_auto_assignment_candidate(
     prim: Usd.Prim,
     material: UsdShade.Material | None,
 ) -> bool:
-    """Recognise the mesh identity first and legacy material identity second."""
+    """Recognise legacy meshes and semantic meshes below a window container."""
 
     if _normalised_name(prim.GetName()) == _WINDOWS_GLASS_NAME:
         return True
+    ancestor = prim.GetParent()
+    while ancestor:
+        if _normalised_name(ancestor.GetName()) == _WINDOWS_CONTAINER_NAME:
+            return True
+        ancestor = ancestor.GetParent()
+    auto_assign = prim.GetAttribute(_AUTO_ASSIGN_ATTRIBUTE)
+    if auto_assign and auto_assign.HasAuthoredValueOpinion():
+        if auto_assign.Get() is True:
+            return True
     if material is None:
         return False
     return (
@@ -102,7 +112,7 @@ def evaluate_windows_glass(stage: Usd.Stage) -> tuple[AssignmentDecision, ...]:
         if not prim.IsA(UsdGeom.Mesh):
             continue
         material = _bound_material(prim)
-        if not _is_windows_glass_candidate(prim, material):
+        if not _is_auto_assignment_candidate(prim, material):
             continue
         if material is not None and _uses_room_map_source_asset(material):
             continue

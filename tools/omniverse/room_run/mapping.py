@@ -547,7 +547,8 @@ def _fallback_mapping(
     if _length(tangent_v) <= _EPSILON:
         tangent_v = (0.0, 1.0, 0.0)
     group_key = (
-        f"fallback|{aperture.building_root}|{aperture.room_id}|{aperture.key}"
+        f"fallback|{aperture.building_root}|{aperture.interior_set_id}|"
+        f"{aperture.room_id}|{aperture.key}"
     )
     return DerivedApertureMapping(
         aperture_key=aperture.key,
@@ -567,4 +568,5 @@ def _fallback_mapping(
         mapping_valid=False,
         physical_normal=_normalise(_cross(tangent_u, tangent_v)),
         fallback_state=state,
+        interior_set_id=aperture.interior_set_id,
     )

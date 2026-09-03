@@ -79,6 +79,31 @@ class CameraPositionBridge:
             )
         )
 
+    def set_material_input_paths(
+        self,
+        material_input_paths: str | Sequence[str],
+    ) -> None:
+        """Replace explicit targets after a structural runtime rebuild.
+
+        Resetting the cached position guarantees that the next Kit update
+        writes the current camera into newly authored material families.
+        """
+
+        if isinstance(material_input_paths, str):
+            material_input_paths = (material_input_paths,)
+        paths = tuple(
+            dict.fromkeys(Sdf.Path(path) for path in material_input_paths)
+        )
+        if not self._auto_discover and paths == self._material_input_paths:
+            return
+        self._auto_discover = False
+        self._material_input_paths = paths
+        self._stage_identifier = None
+        self._missing_input_paths.clear()
+        self._reported_active_paths.intersection_update(paths)
+        self._warned_no_inputs = False
+        self._last_position = None
+
     def _discover_material_input_paths(
         self, stage: Usd.Stage
     ) -> tuple[Sdf.Path, ...]:
