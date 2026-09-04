@@ -1,6 +1,6 @@
 [package]
 title = "Omniverse Room Map Shader"
-version = "0.1.25"
+version = "0.1.26"
 description = "Register and run ORMS materials on compatible OpenUSD assets."
 category = "Rendering"
 support_level = "Sample"

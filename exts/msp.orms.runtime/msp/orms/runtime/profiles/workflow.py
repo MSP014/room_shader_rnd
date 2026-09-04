@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from ..scene.status_log import log_room_map_error
-from .interior_set_controller import InteriorSetController
-from .interior_set_panel_state import InteriorSetPanelState
-from .interior_set_profile_panel import build_interior_set_profile_panel
-from .interior_set_profile_picker import InteriorSetProfilePicker
-from .interior_set_scene_profile import (
+from ...scene.status_log import log_room_map_error
+from ..interior_sets.controller import InteriorSetController
+from ..ui.panel_state import InteriorSetPanelState
+from .panel import build_interior_set_profile_panel
+from .picker import InteriorSetProfilePicker
+from .scene_profile import (
     InteriorSetSceneProfile,
     load_scene_profile,
     save_scene_profile,

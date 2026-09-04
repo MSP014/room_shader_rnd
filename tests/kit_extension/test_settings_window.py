@@ -3,12 +3,12 @@
 from pathlib import Path
 
 import pytest
-from msp.orms.runtime.interior_set_panel_state import InteriorSetPanelState
 from msp.orms.runtime.resources import (
     DEBUG_ASSET_SETTING,
     PRODUCTION_DIRECTORY_SETTING,
 )
-from msp.orms.runtime.settings_window import MENU_GROUP, WINDOW_NAME
+from msp.orms.runtime.ui.panel_state import InteriorSetPanelState
+from msp.orms.runtime.ui.settings_window import MENU_GROUP, WINDOW_NAME
 from msp.orms.shared_room.settings_panel import SETTINGS_TAB_LABELS
 
 
@@ -30,7 +30,7 @@ def test_debug_and_production_atlases_have_separate_setting_zones():
 
 
 def test_scalar_and_item_models_both_notify_the_runtime():
-    from msp.orms.runtime.settings_window import OrmsSettingsWindow
+    from msp.orms.runtime.ui.settings_window import OrmsSettingsWindow
 
     events = []
 
@@ -120,7 +120,7 @@ def test_structural_apply_retargets_camera_bridge_after_rebuild():
 
 
 def test_stopped_runtime_keeps_assignment_inspection_read_only():
-    from msp.orms.runtime.assignment_session import AssignmentSnapshot
+    from msp.orms.runtime.assignments.session import AssignmentSnapshot
     from msp.orms.runtime.lifecycle import RuntimeState
     from msp.orms.runtime.service import OrmsRuntimeService
 
@@ -151,21 +151,21 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
         / "orms"
         / "runtime"
     )
-    window_source = (runtime_root / "settings_window.py").read_text(
+    window_source = (runtime_root / "ui" / "settings_window.py").read_text(
         encoding="utf-8"
     )
-    atlas_source = (runtime_root / "interior_set_atlas_panel.py").read_text(
+    atlas_source = (runtime_root / "ui" / "atlas_panel.py").read_text(
         encoding="utf-8"
     )
-    material_source = (
-        runtime_root / "interior_set_material_panel.py"
+    material_source = (runtime_root / "ui" / "material_panel.py").read_text(
+        encoding="utf-8"
+    )
+    assignment_source = (runtime_root / "assignments" / "panel.py").read_text(
+        encoding="utf-8"
+    )
+    debug_atlas_source = (
+        runtime_root / "ui" / "debug_atlas_panel.py"
     ).read_text(encoding="utf-8")
-    assignment_source = (runtime_root / "assignment_panel.py").read_text(
-        encoding="utf-8"
-    )
-    debug_atlas_source = (runtime_root / "debug_atlas_panel.py").read_text(
-        encoding="utf-8"
-    )
 
     assert "build_interior_set_atlas_panel" in window_source
     assert "build_interior_set_material_panel" in window_source
@@ -189,7 +189,7 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
 
 
 def test_content_rebuild_preserves_window_and_selected_tab():
-    from msp.orms.runtime.settings_window import OrmsSettingsWindow
+    from msp.orms.runtime.ui.settings_window import OrmsSettingsWindow
 
     class Frame:
         def __init__(self):
@@ -275,7 +275,7 @@ def test_extension_declares_standard_directory_picker_dependency():
 
 
 def test_material_apply_feedback_is_visible_inline_for_success_and_failure():
-    from msp.orms.runtime.material_update_feedback import (
+    from msp.orms.runtime.materials.update_feedback import (
         MaterialUpdateFeedback,
     )
 
@@ -302,7 +302,7 @@ def test_material_apply_feedback_is_visible_inline_for_success_and_failure():
 
 
 def test_material_reset_feedback_rebuilds_fields_after_success():
-    from msp.orms.runtime.material_update_feedback import (
+    from msp.orms.runtime.materials.update_feedback import (
         MaterialUpdateFeedback,
     )
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from msp.orms.runtime import mdl_registration
+from msp.orms.runtime.materials import mdl_registration
 
 from . import _support  # noqa: F401
 

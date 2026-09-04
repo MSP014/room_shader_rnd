@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from msp.orms.runtime.interior_set_profile_picker import (
+from msp.orms.runtime.profiles.picker import (
     InteriorSetProfilePicker,
     export_filename_url,
     exported_profile_path,

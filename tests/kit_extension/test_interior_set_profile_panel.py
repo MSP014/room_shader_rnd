@@ -3,7 +3,7 @@
 import sys
 from types import ModuleType
 
-from msp.orms.runtime.interior_set_profile_panel import (
+from msp.orms.runtime.profiles.panel import (
     build_interior_set_profile_panel,
 )
 

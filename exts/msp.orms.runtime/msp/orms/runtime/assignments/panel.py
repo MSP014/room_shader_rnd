@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from msp.orms.shared_room.ui_buttons import selection_button
 
-from .assignment_session import AssignmentItem, AssignmentSnapshot
+from .session import AssignmentItem, AssignmentSnapshot
 
 AssignmentChanged = Callable[[str, bool | None], None]
 

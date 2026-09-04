@@ -9,7 +9,7 @@ from typing import Any
 from msp.orms.shared_room.ui_sections import collapsable_frame
 from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
-from .lifecycle import RuntimeState
+from ..lifecycle import RuntimeState
 
 LIFECYCLE_ACTION_LABELS = (
     ("start", "Start"),

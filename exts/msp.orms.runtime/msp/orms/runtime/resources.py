@@ -9,7 +9,10 @@ from pathlib import Path
 
 from msp.orms.interior_sets.contracts import VariantIdentityManifest
 
-from .atlas_manifest import debug_variant_manifest, load_variant_manifest
+from .materials.atlas_manifest import (
+    debug_variant_manifest,
+    load_variant_manifest,
+)
 
 MATERIAL_SOURCE_ASSET = "room_map.mdl"
 MATERIAL_SUBIDENTIFIER = "room_map"

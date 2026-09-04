@@ -1,7 +1,7 @@
 """Protect the visible lifecycle command and status contract."""
 
 from msp.orms.runtime.lifecycle import RuntimeState
-from msp.orms.runtime.lifecycle_controls import (
+from msp.orms.runtime.ui.lifecycle_controls import (
     LIFECYCLE_ACTION_HELP,
     LIFECYCLE_ACTION_LABELS,
     enabled_lifecycle_actions,

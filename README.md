@@ -81,12 +81,13 @@ separate implementation zones:
 Extension Manager / AUTOLOAD
     -> extension.py                 minimal Kit entry point
        -> service.py                lifecycle and stage coordination
-          -> MDL + Material Library registration
-          -> reversible Windows_Glass assignment
+          -> materials/             MDL + Material Library registration
+          -> assignments/           reversible Windows_Glass assignment
+          -> interior_sets/         staged configuration and resolution
           -> lifecycle state machine
              -> shared-room classifier and Session Layer authoring
              -> active-camera material bridge
-          -> Window > ORMS          lifecycle controls and three settings tabs
+          -> ui/                     Window > ORMS and its three settings tabs
 ```
 
 | Component | Responsibility |
@@ -94,14 +95,14 @@ Extension Manager / AUTOLOAD
 | `extension.py` | Starts and stops the extension without owning runtime logic. |
 | `service.py` | Coordinates stage events, assignment, lifecycle, settings, startup, and teardown. |
 | `lifecycle.py` | Owns the `Inactive`, `Running`, `Stopped`, and `Failed` state transitions. |
-| `lifecycle_controls.py` | Presents lifecycle commands and delegates them to the service. |
-| `settings_window.py` | Owns the dockable `Window > ORMS` shell and its Kit model subscriptions. |
+| `runtime/assignments/` | Owns automatic mesh-assignment inspection, overrides, and presentation. |
+| `runtime/interior_sets/` | Owns staged set configuration, persistence, transactions, and atlas resolution. |
+| `runtime/profiles/` | Owns portable `.orms` profiles and their save/load workflow. |
+| `runtime/materials/` | Owns MDL registration, atlas manifests, Material Library integration, and update feedback. |
+| `runtime/ui/` | Owns the dockable `Window > ORMS` shell and artist-facing controls. |
 | `msp/orms/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
 | `msp/orms/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
-| `resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
-| `mdl_registration.py` | Owns portable MDL search-path registration and symmetric cleanup. |
-| `material_visibility.py` | Adds only the required ORMS entry to restrictive host Material Library filters. |
-| `material_library.py` | Composes MDL registration, visibility, and the ORMS source-asset entry. |
+| `runtime/resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
 | `msp/orms/scene/source_loader.py` | Reloads the exact extension-owned runtime graph and cleans up live callback owners. |
 | `msp/orms/scene/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
 | `msp/orms/classification/` | Performs deterministic, Kit-independent x1–x4 room classification. |
@@ -750,7 +751,12 @@ exts/msp.orms.runtime/              # Canonical source and installable package
     ├── interior_sets/              # Set identity, selectors, and resources
     ├── scene/                      # Reusable stage and Kit infrastructure
     ├── shared_room/                # OpenUSD runtime authoring
-    └── runtime/                    # Extension service, UI, and reload entry
+    └── runtime/                    # Extension service and reload entry
+        ├── assignments/            # Mesh-assignment overrides and UI
+        ├── interior_sets/          # Transactional atlas configuration
+        ├── materials/              # MDL and Material Library integration
+        ├── profiles/               # Portable scene profiles
+        └── ui/                     # Window shell and artist controls
 tests/
 ├── kit_extension/                  # Extension and lifecycle seams
 ├── shared_room_runtime/            # Classifier and OpenUSD fixtures

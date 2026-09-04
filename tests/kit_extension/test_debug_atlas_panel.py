@@ -2,12 +2,12 @@
 
 import inspect
 
-from msp.orms.runtime.debug_atlas_panel import (
+from msp.orms.runtime.resources import AtlasResource, DebugAtlasDecision
+from msp.orms.runtime.ui.debug_atlas_panel import (
     _DEBUG_HELP,
     _status,
     build_debug_atlas_panel,
 )
-from msp.orms.runtime.resources import AtlasResource, DebugAtlasDecision
 
 
 def test_debug_atlas_panel_exposes_browse_clear_and_apply_guidance():

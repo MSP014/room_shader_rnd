@@ -13,7 +13,7 @@ from msp.orms.interior_sets.contracts import (
     InteriorSetConfig,
     semantic_variant_id,
 )
-from msp.orms.runtime.interior_set_resources import (
+from msp.orms.runtime.interior_sets.resources import (
     resolve_interior_set_resources,
 )
 from msp.orms.runtime.resources import (

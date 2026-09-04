@@ -1,6 +1,6 @@
 """Protect stage-scoped assignment inspection and override lifecycle."""
 
-from msp.orms.runtime.assignment_session import AssignmentSession
+from msp.orms.runtime.assignments.session import AssignmentSession
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
 

@@ -2,7 +2,7 @@
 
 import inspect
 
-from msp.orms.runtime.interior_set_atlas_panel import (
+from msp.orms.runtime.ui.atlas_panel import (
     _build_structural_actions,
     _collapsable_frame,
     build_interior_set_atlas_panel,

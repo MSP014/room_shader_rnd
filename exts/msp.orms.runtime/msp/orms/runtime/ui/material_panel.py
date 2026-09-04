@@ -9,8 +9,8 @@ from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
 from msp.orms.shared_room.ui_sections import collapsable_frame
 from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
-from .interior_set_controller import InteriorSetController
-from .interior_set_fields import material_field
+from ..interior_sets.controller import InteriorSetController
+from .fields import material_field
 
 MaterialChanged = Callable[[str, str, object], None]
 MaterialReset = Callable[[str, str | None], None]

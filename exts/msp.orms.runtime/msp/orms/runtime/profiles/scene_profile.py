@@ -16,8 +16,8 @@ from msp.orms.interior_sets.contracts import (
     InteriorSetConfig,
 )
 
-from .interior_set_material_values import normalise_material_profile
-from .interior_set_storage import normalise_collection
+from ..interior_sets.material_values import normalise_material_profile
+from ..interior_sets.storage import normalise_collection
 
 PROFILE_FORMAT = "msp.orms.scene-profile"
 PROFILE_SCHEMA_VERSION = 1

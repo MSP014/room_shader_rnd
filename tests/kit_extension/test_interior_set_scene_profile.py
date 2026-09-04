@@ -6,8 +6,8 @@ from dataclasses import replace
 import pytest
 from msp.orms.interior_sets.atlas_mode import ATLAS_MODE_PRODUCTION
 from msp.orms.interior_sets.contracts import InteriorSetCollection
-from msp.orms.runtime import interior_set_scene_profile as profile_module
-from msp.orms.runtime.interior_set_scene_profile import (
+from msp.orms.runtime.profiles import scene_profile as profile_module
+from msp.orms.runtime.profiles.scene_profile import (
     PROFILE_FORMAT,
     InteriorSetSceneProfile,
     load_scene_profile,

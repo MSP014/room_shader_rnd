@@ -22,8 +22,11 @@ from msp.orms.scene.resources import (
     RuntimeResources,
 )
 
-from .atlas_manifest import ManifestCoherence, validate_manifest_coherence
-from .resources import (
+from ..materials.atlas_manifest import (
+    ManifestCoherence,
+    validate_manifest_coherence,
+)
+from ..resources import (
     AtlasResource,
     DebugAtlasDecision,
     ResourceLayout,

@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import pytest
-from msp.orms.runtime.material_library import MaterialLibraryRegistration
-from msp.orms.runtime.material_visibility import MaterialVisibilityOwner
+from msp.orms.runtime.materials.library import MaterialLibraryRegistration
+from msp.orms.runtime.materials.visibility import MaterialVisibilityOwner
 from msp.orms.runtime.resources import ResourceLayout
 
 from . import _support  # noqa: F401

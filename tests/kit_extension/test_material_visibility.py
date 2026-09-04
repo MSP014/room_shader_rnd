@@ -1,6 +1,6 @@
 """Protect reversible ORMS visibility in restricted material menus."""
 
-from msp.orms.runtime.material_visibility import MaterialVisibilityOwner
+from msp.orms.runtime.materials.visibility import MaterialVisibilityOwner
 
 from . import _support  # noqa: F401
 

@@ -1,7 +1,7 @@
 """Protect concise selector-conflict warnings outside diagnostics UI."""
 
-from msp.orms.runtime.interior_set_alerts import selector_conflict_alerts
-from msp.orms.runtime.interior_set_controller import InteriorSetController
+from msp.orms.runtime.interior_sets.alerts import selector_conflict_alerts
+from msp.orms.runtime.interior_sets.controller import InteriorSetController
 from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
     SelectorConflict,

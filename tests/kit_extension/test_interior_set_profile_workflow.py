@@ -1,9 +1,9 @@
 """Protect direct profile actions from prerequisite path state."""
 
-from msp.orms.runtime.interior_set_panel_state import InteriorSetPanelState
-from msp.orms.runtime.interior_set_profile_workflow import (
+from msp.orms.runtime.profiles.workflow import (
     InteriorSetProfileWorkflow,
 )
+from msp.orms.runtime.ui.panel_state import InteriorSetPanelState
 
 
 def test_save_and_load_open_their_dialogs_without_a_preselected_path():

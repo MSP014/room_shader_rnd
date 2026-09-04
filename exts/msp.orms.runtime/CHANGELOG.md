@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.26
+
+- Organise the runtime package by ownership boundaries for assignments,
+  Interior Sets, profiles, materials, and artist-facing UI without changing
+  extension behaviour.
+
 ## 0.1.25
 
 - Give wrapped hover help an explicit dark text colour so the light tooltip

@@ -20,23 +20,23 @@ from msp.orms.shared_room.settings import (
 )
 from msp.orms.shared_room.settings_panel import build_settings_panel
 
-from .assignment_panel import build_assignment_panel
-from .assignment_session import AssignmentSnapshot
-from .debug_atlas_panel import build_debug_atlas_panel
-from .interior_set_atlas_panel import build_interior_set_atlas_panel
-from .interior_set_controller import InteriorSetController
-from .interior_set_directory_picker import InteriorSetDirectoryPicker
-from .interior_set_material_panel import build_interior_set_material_panel
-from .interior_set_panel_state import InteriorSetPanelState
-from .interior_set_profile_workflow import InteriorSetProfileWorkflow
-from .lifecycle import RuntimeState
-from .lifecycle_controls import LifecycleCallbacks, LifecycleControls
-from .material_update_feedback import MaterialUpdateFeedback
-from .resources import (
+from ..assignments.panel import build_assignment_panel
+from ..assignments.session import AssignmentSnapshot
+from ..interior_sets.controller import InteriorSetController
+from ..lifecycle import RuntimeState
+from ..materials.update_feedback import MaterialUpdateFeedback
+from ..profiles.workflow import InteriorSetProfileWorkflow
+from ..resources import (
     DEBUG_ASSET_SETTING,
     PRODUCTION_DIRECTORY_SETTING,
 )
-from .ui_update_scheduler import UiUpdateScheduler
+from .atlas_panel import build_interior_set_atlas_panel
+from .debug_atlas_panel import build_debug_atlas_panel
+from .directory_picker import InteriorSetDirectoryPicker
+from .lifecycle_controls import LifecycleCallbacks, LifecycleControls
+from .material_panel import build_interior_set_material_panel
+from .panel_state import InteriorSetPanelState
+from .update_scheduler import UiUpdateScheduler
 
 WINDOW_NAME = "ORMS"
 MENU_GROUP = "Window"

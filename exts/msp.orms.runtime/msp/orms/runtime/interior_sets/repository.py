@@ -18,7 +18,8 @@ from msp.orms.interior_sets.contracts import (
     InteriorSetConfig,
 )
 
-from .interior_set_storage import (
+from ..resources import PRODUCTION_DIRECTORY_SETTING
+from .storage import (
     ACTIVE_SLOT_PATH,
     INTERIOR_SET_SETTINGS_ROOT,
     SCHEMA_PATH,
@@ -27,7 +28,6 @@ from .interior_set_storage import (
     material_defaults,
     normalise_collection,
 )
-from .resources import PRODUCTION_DIRECTORY_SETTING
 
 __all__ = (
     "INTERIOR_SET_SETTINGS_ROOT",

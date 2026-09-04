@@ -15,9 +15,9 @@ from msp.orms.shared_room.ui_buttons import selection_button
 from msp.orms.shared_room.ui_sections import collapsable_frame
 from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
-from .interior_set_alerts import selector_conflict_alerts
-from .interior_set_controller import InteriorSetController
-from .interior_set_fields import string_field
+from ..interior_sets.alerts import selector_conflict_alerts
+from ..interior_sets.controller import InteriorSetController
+from .fields import string_field
 
 _ATLAS_MODE_HELP = (
     "Debug forces the global x1-x4 debug atlases for every Interior Set. "

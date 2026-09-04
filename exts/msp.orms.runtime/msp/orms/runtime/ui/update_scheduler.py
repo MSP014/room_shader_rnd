@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable
 from typing import Any
 
-from ..scene.status_log import log_room_map_error
+from ...scene.status_log import log_room_map_error
 
 
 class UiUpdateScheduler:

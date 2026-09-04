@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Sequence
 
-from .interior_set_scene_profile import PROFILE_SUFFIX
+from .scene_profile import PROFILE_SUFFIX
 
 _PROFILE_TYPES = [(PROFILE_SUFFIX, "ORMS scene profile")]
 

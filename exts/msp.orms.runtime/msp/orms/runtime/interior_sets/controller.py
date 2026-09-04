@@ -20,28 +20,28 @@ from msp.orms.interior_sets.selectors import (
     validate_collection_selectors,
 )
 
-from .interior_set_material_values import (
+from ..resources import (
+    DebugAtlasDecision,
+    ResourceLayout,
+    resolve_debug_atlases,
+)
+from .material_values import (
     material_defaults_for_group,
     normalise_material_changes,
 )
-from .interior_set_repository import (
+from .repository import (
     InteriorSetSettingsRepository,
     MigrationResult,
 )
-from .interior_set_resources import (
+from .resources import (
     InteriorSetResourceSnapshot,
     build_runtime_resource_snapshot,
     resolve_interior_set_resources,
 )
-from .interior_set_storage import normalise_collection
-from .interior_set_transaction import (
+from .storage import normalise_collection
+from .transaction import (
     InteriorSetApplyResult,
     InteriorSetRollbackError,
-)
-from .resources import (
-    DebugAtlasDecision,
-    ResourceLayout,
-    resolve_debug_atlases,
 )
 
 RuntimeApply = Callable[

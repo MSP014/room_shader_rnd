@@ -6,7 +6,7 @@ from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
 
-from .interior_set_controller import InteriorSetController
+from .controller import InteriorSetController
 
 
 def selector_conflict_alerts(

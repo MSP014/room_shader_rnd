@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .material_visibility import MaterialVisibilityOwner
-from .mdl_registration import deregister_mdl_content, register_mdl_content
-from .resources import (
+from ..resources import (
     MATERIAL_SOURCE_ASSET,
     MATERIAL_SUBIDENTIFIER,
     ResourceLayout,
 )
+from .mdl_registration import deregister_mdl_content, register_mdl_content
+from .visibility import MaterialVisibilityOwner
 
 _MATERIAL_GROUP = "ORMS"
 _MATERIAL_DISPLAY_NAME = "Omniverse Room Map Shader"

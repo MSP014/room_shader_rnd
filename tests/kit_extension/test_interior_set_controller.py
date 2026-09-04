@@ -8,11 +8,11 @@ from msp.orms.interior_sets.atlas_mode import (
     ATLAS_MODE_PRODUCTION,
 )
 from msp.orms.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
-from msp.orms.runtime.interior_set_controller import InteriorSetController
-from msp.orms.runtime.interior_set_repository import (
+from msp.orms.runtime.interior_sets.controller import InteriorSetController
+from msp.orms.runtime.interior_sets.repository import (
     InteriorSetSettingsRepository,
 )
-from msp.orms.runtime.interior_set_transaction import (
+from msp.orms.runtime.interior_sets.transaction import (
     InteriorSetRollbackError,
 )
 from msp.orms.runtime.resources import ResourceLayout

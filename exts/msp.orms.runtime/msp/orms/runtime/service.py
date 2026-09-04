@@ -20,12 +20,12 @@ from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
 
-from .assignment_session import AssignmentSession, AssignmentSnapshot
-from .interior_set_controller import InteriorSetController
-from .interior_set_repository import InteriorSetSettingsRepository
-from .interior_set_transaction import InteriorSetRollbackError
+from .assignments.session import AssignmentSession, AssignmentSnapshot
+from .interior_sets.controller import InteriorSetController
+from .interior_sets.repository import InteriorSetSettingsRepository
+from .interior_sets.transaction import InteriorSetRollbackError
 from .lifecycle import RuntimeLifecycleController, RuntimeState
-from .material_library import MaterialLibraryRegistration
+from .materials.library import MaterialLibraryRegistration
 from .resources import (
     DEBUG_ASSET_SETTING,
     MATERIAL_SOURCE_ASSET,
@@ -106,7 +106,7 @@ class OrmsRuntimeService:
                 InteriorSetSettingsRepository(settings),
             )
 
-            from .settings_window import OrmsSettingsWindow
+            from .ui.settings_window import OrmsSettingsWindow
 
             self._settings_window = OrmsSettingsWindow()
             self._settings_window.start(

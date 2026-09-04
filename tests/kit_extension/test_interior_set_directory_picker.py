@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from msp.orms.runtime.interior_set_directory_picker import (
+from msp.orms.runtime.ui.directory_picker import (
     InteriorSetDirectoryPicker,
     directory_url,
     selected_directory,

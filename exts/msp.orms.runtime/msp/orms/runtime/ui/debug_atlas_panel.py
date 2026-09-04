@@ -7,9 +7,9 @@ from collections.abc import Callable
 from msp.orms.shared_room.ui_sections import collapsable_frame
 from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
-from .interior_set_controller import InteriorSetController
-from .interior_set_fields import string_field
-from .resources import DebugAtlasDecision
+from ..interior_sets.controller import InteriorSetController
+from ..resources import DebugAtlasDecision
+from .fields import string_field
 
 _DEBUG_HELP = (
     "Packaged x1-x4 families are the defaults. A custom folder replaces one "
