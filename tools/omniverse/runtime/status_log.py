@@ -77,6 +77,35 @@ def format_room_map_diagnostic_block(
     )
 
 
+def log_room_map_status(
+    *,
+    owner: str,
+    process: str,
+    state: str,
+    details: Mapping[str, object],
+    log_status: Callable[[str], None] | None = None,
+    append_local_timestamp: Callable[[str], str] = (
+        with_room_map_local_timestamp
+    ),
+) -> None:
+    """Write one formatted routine status through Kit or an injected sink."""
+
+    if log_status is None:
+        import carb
+
+        log_status = carb.log_info
+
+    log_status(
+        format_room_map_diagnostic_block(
+            owner=owner,
+            process=process,
+            state=state,
+            details=details,
+            append_local_timestamp=append_local_timestamp,
+        )
+    )
+
+
 def log_room_map_warning(
     *,
     owner: str,

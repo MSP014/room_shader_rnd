@@ -199,6 +199,101 @@ def test_every_structural_gesture_stays_out_of_persistent_settings():
     assert settings.values == applied_settings
 
 
+def test_atlas_family_and_complete_reset_remain_staged_until_apply():
+    controller, settings = _controller_with_settings()
+    controller.stage_atlas_directories(
+        DEFAULT_INTERIOR_SET_ID,
+        ("x1", "x2", "x3", "x4"),
+    )
+    controller.apply()
+    applied_settings = dict(settings.values)
+
+    controller.clear_atlas_family(DEFAULT_INTERIOR_SET_ID, 3)
+
+    assert controller.draft.default.atlas_directories == (
+        "x1",
+        "x2",
+        "",
+        "x4",
+    )
+    assert controller.applied.default.atlas_directories == (
+        "x1",
+        "x2",
+        "x3",
+        "x4",
+    )
+    assert settings.values == applied_settings
+
+    controller.clear_atlas_directories(DEFAULT_INTERIOR_SET_ID)
+
+    assert controller.draft.default.atlas_directories == ("", "", "", "")
+    assert settings.values == applied_settings
+
+    controller.stage_atlas_mode(ATLAS_MODE_PRODUCTION)
+    controller.stage_atlas_directories(
+        DEFAULT_INTERIOR_SET_ID,
+        ("new-x1", "new-x2", "new-x3", "new-x4"),
+    )
+    revision = controller.draft_revision
+
+    controller.reset_atlas_configuration()
+
+    assert controller.draft_atlas_mode == ATLAS_MODE_DEBUG
+    assert controller.draft.default.atlas_directories == ("", "", "", "")
+    assert controller.draft_revision == revision + 1
+    assert settings.values == applied_settings
+
+
+def test_material_group_and_complete_reset_use_factory_defaults():
+    controller = _controller()
+    runtime_updates = []
+    controller.update_material(
+        DEFAULT_INTERIOR_SET_ID,
+        "glass_roughness",
+        0.83,
+    )
+    controller.update_material(
+        DEFAULT_INTERIOR_SET_ID,
+        "room_depth",
+        9.0,
+    )
+
+    count = controller.reset_materials(
+        DEFAULT_INTERIOR_SET_ID,
+        "Glass",
+        lambda set_id, values: runtime_updates.append((set_id, values)) or 4,
+    )
+
+    material = controller.applied.default.material_mapping()
+    assert count == 4
+    assert material["glass_roughness"] == 0.1
+    assert material["room_depth"] == 9.0
+    assert set(runtime_updates[0][1]) == {
+        "glass_roughness",
+        "glass_reflectivity",
+        "glass_tint",
+        "glass_transmission",
+    }
+
+    controller.reset_materials(DEFAULT_INTERIOR_SET_ID)
+
+    assert controller.applied.default.material_mapping()["room_depth"] == 1.0
+
+
+def test_invalid_material_value_is_rejected_before_persistence():
+    controller, settings = _controller_with_settings()
+    persisted = dict(settings.values)
+
+    with pytest.raises(ValueError, match="above 1.0"):
+        controller.update_material(
+            DEFAULT_INTERIOR_SET_ID,
+            "glass_roughness",
+            4.0,
+        )
+
+    assert settings.values == persisted
+
+
 def test_remove_reorder_and_restart_load_one_coherent_snapshot():
     controller, settings = _controller_with_settings()
     controller.add(set_id=KITCHENS_ID)

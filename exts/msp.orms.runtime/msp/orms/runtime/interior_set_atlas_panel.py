@@ -89,6 +89,13 @@ def _build_structural_actions(
             enabled=controller.dirty,
             clicked_fn=lambda: (controller.revert(), rebuild()),
         )
+    ui.Button(
+        "Reset complete atlas configuration",
+        clicked_fn=lambda: (
+            controller.reset_atlas_configuration(),
+            rebuild(),
+        ),
+    )
 
 
 def build_interior_set_atlas_panel(
@@ -260,7 +267,7 @@ def build_interior_set_atlas_panel(
                         )
                         ui.Button(
                             "Browse...",
-                            width=90,
+                            width=82,
                             clicked_fn=(
                                 lambda current=directories[
                                     room_size - 1
@@ -270,6 +277,28 @@ def build_interior_set_atlas_panel(
                                 )
                             ),
                         )
+                        ui.Button(
+                            "Clear",
+                            width=54,
+                            enabled=bool(directories[room_size - 1]),
+                            clicked_fn=(
+                                lambda set_id=item.set_id, size=room_size: (
+                                    controller.clear_atlas_family(
+                                        set_id,
+                                        size,
+                                    ),
+                                    rebuild(),
+                                )
+                            ),
+                        )
+                ui.Button(
+                    "Clear all production folders",
+                    enabled=any(directories),
+                    clicked_fn=lambda set_id=item.set_id: (
+                        controller.clear_atlas_directories(set_id),
+                        rebuild(),
+                    ),
+                )
                 ui.Label(
                     _resource_status(controller, item.set_id),
                     word_wrap=True,

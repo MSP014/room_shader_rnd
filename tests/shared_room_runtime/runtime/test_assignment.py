@@ -7,6 +7,9 @@ from tools.omniverse.runtime.assignment import (
     AutoAssignmentOwner,
     evaluate_windows_glass,
 )
+from tools.omniverse.runtime.assignment_overrides import (
+    AssignmentOverrideOwner,
+)
 from tools.omniverse.shared_room.contracts import ResolvedStageMetrics
 from tools.omniverse.shared_room.stage import extract_stage_apertures
 
@@ -186,3 +189,49 @@ def test_explicit_opt_in_supports_a_semantically_named_mesh():
 
     assert len(decision) == 1
     assert decision[0].eligible
+
+
+def test_source_exclusion_remains_visible_and_can_be_overridden_safely():
+    stage, mesh, _material = _stage_with_window(
+        material_name="Facade_Glass",
+        mesh_name="Facade_Panels",
+    )
+    source_attribute = mesh.GetPrim().CreateAttribute(
+        "orms:autoAssign",
+        Sdf.ValueTypeNames.Bool,
+    )
+    source_attribute.Set(False)
+    source_before = stage.GetRootLayer().ExportToString()
+    owner = AssignmentOverrideOwner(stage)
+
+    excluded = evaluate_windows_glass(stage)
+    owner.set_override(str(mesh.GetPath()), True)
+    allowed = evaluate_windows_glass(stage)
+
+    assert excluded[0].reason == "explicitly_excluded"
+    assert allowed[0].eligible
+    assert owner.value_for(str(mesh.GetPath())) is True
+    assert stage.GetRootLayer().ExportToString() == source_before
+
+    owner.set_override(str(mesh.GetPath()), None)
+
+    assert evaluate_windows_glass(stage)[0].reason == "explicitly_excluded"
+    assert stage.GetRootLayer().ExportToString() == source_before
+
+
+def test_assignment_override_stop_removes_only_its_session_layer():
+    stage, mesh, _material = _stage_with_window()
+    source_before = stage.GetRootLayer().ExportToString()
+    original_sublayers = tuple(stage.GetSessionLayer().subLayerPaths)
+    owner = AssignmentOverrideOwner(stage)
+
+    owner.set_override(str(mesh.GetPath()), False)
+
+    assert evaluate_windows_glass(stage)[0].reason == "explicitly_excluded"
+    assert tuple(stage.GetSessionLayer().subLayerPaths) != original_sublayers
+
+    owner.stop()
+
+    assert tuple(stage.GetSessionLayer().subLayerPaths) == original_sublayers
+    assert evaluate_windows_glass(stage)[0].eligible
+    assert stage.GetRootLayer().ExportToString() == source_before

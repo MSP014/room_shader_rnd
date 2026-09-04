@@ -1,7 +1,8 @@
 # Shared-room runtime validation bundle
 
-This directory contains the focused automated tests and the four retained
-validation stages for the shared-room classifier.
+This directory contains the focused automated tests and retained validation
+stages for the single scene classifier, Interior Set assignment, shared-room
+grouping, and source-safe runtime authoring.
 
 ## Start the default visual fixture
 
@@ -10,8 +11,8 @@ Run `launch_shared_rooms_omniverse.bat`. The launcher starts
 waits for both `app ready` and the first delivered viewport frame, and only
 then opens `test_room_map_shared_rooms_omniverse.usda` automatically. This
 keeps USD/MDL fixture loading out of Kit's own RTX startup path. It does not
-start the classifier or camera bridge. After the stage opens, run this from
-Kit's Script Editor:
+start ORMS. After the stage opens, use the installed `msp.orms.runtime` 0.1.20
+extension through **Window > ORMS** and press **Start** if it is inactive.
 
 Run `launch_shared_rooms_instances_omniverse.bat` instead to use the same bootstrap
 and startup extension with `test_room_map_shared_rooms_instances.usda`.
@@ -38,6 +39,10 @@ material may not discover the late scene-data channel until it is rebuilt.
 The source x1 fallback also reads each aperture's `roomID` and selects one of
 the eight `room_map_debug` UDIM variants; equal IDs remain visually stable
 while different logical rooms do not all collapse to tile `1001`.
+
+For exact-source development only, the manual loader can replace the installed
+extension modules and start the same canonical runtime from Kit's Script
+Editor:
 
 ```python
 from pathlib import Path
@@ -74,7 +79,8 @@ passed in RT and PT.
 
 The launcher keeps the Kit application repository read-only. Its small local
 extension exists only to schedule the stage-open request after Kit startup;
-it does not package ORMS or change the KRM-91 production-extension scope.
+it neither packages nor replaces the accepted `msp.orms.runtime` 0.1.20
+product boundary.
 Its warning-level markers distinguish `APP_READY`,
 `VIEWPORT_FIRST_FRAME_READY`, and `STAGE_OPEN_REQUEST_BEGIN`; they do not claim
 that MDL material loading has completed.
@@ -82,13 +88,14 @@ The startup scene-load probe emits one 15-second heartbeat with the current
 loading path/counts, time without progress, average Kit-update FPS/frame time,
 process and host memory, and the public Hydra GPU-memory fields available in
 this Kit build. Faster state transitions are logged immediately.
-Pending work reports `loading_status_stalled_for_ms`; once the native loading
-status is empty, that field becomes `not_applicable` and the separate
+While native loading remains active, the probe reports
+`loading_status_stalled_for_ms`; once the native loading status is empty, that
+field becomes `not_applicable` and the separate
 `loading_status_idle_for_ms` counter is used instead.
 
 The retained stages include `/World/RoomMapEnvironment`, a DomeLight using the
-project Kloofendal 4K HDRI at validation intensity. When the manual runtime is
-started, it enables RTX single-sided face culling, aligns each complete Room
+project Kloofendal 4K HDRI at validation intensity. When ORMS is started, it
+enables RTX single-sided face culling, aligns each complete Room
 Map mesh's USD orientation with its `tangentu x tangentv` contract in the ORMS
 Session Layer, and restores the prior renderer setting on stop or reload. A
 mesh with incomplete, degenerate, or mixed-winding apertures is left unchanged
@@ -100,6 +107,9 @@ and edits below the building root remain classification-invalidating.
 
 ## Retained visual fixtures
 
+- `test_room_map_interior_sets_omniverse.usda` — compact multi-building fixture
+  for deterministic selector priority, Default fallback, per-Set material and
+  resource isolation, and no cross-Set room grouping.
 - `test_room_map_shared_rooms_omniverse.usda` — isolated
   Omniverse-authored flat, bay, arc, and corner cases.
 - `test_room_map_shared_rooms_houdini.usda` — shared-room capture layer over the

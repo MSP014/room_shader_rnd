@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from msp.orms.runtime.interior_set_panel_state import InteriorSetPanelState
 from msp.orms.runtime.resources import (
     DEBUG_ASSET_SETTING,
@@ -119,6 +120,29 @@ def test_structural_apply_retargets_camera_bridge_after_rebuild():
     ]
 
 
+def test_stopped_runtime_keeps_assignment_inspection_read_only():
+    from msp.orms.runtime.assignment_session import AssignmentSnapshot
+    from msp.orms.runtime.lifecycle import RuntimeState
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    class Session:
+        @staticmethod
+        def inspect():
+            return AssignmentSnapshot(items=("mesh",), editable=True)
+
+    class Lifecycle:
+        state = RuntimeState.STOPPED
+
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._assignment_session = Session()
+    service._lifecycle = Lifecycle()
+
+    snapshot = service._current_assignment_snapshot()
+
+    assert snapshot.items == ("mesh",)
+    assert not snapshot.editable
+
+
 def test_interior_set_ui_is_split_into_staged_and_live_modules():
     runtime_root = (
         Path(__file__).resolve().parents[2]
@@ -137,6 +161,9 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     material_source = (
         runtime_root / "interior_set_material_panel.py"
     ).read_text(encoding="utf-8")
+    assignment_source = (runtime_root / "assignment_panel.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "build_interior_set_atlas_panel" in window_source
     assert "build_interior_set_material_panel" in window_source
@@ -151,6 +178,9 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     assert "InteriorSetProfileWorkflow" in window_source
     assert "MATERIAL_CONTROLS" in material_source
     assert "material_changed(" in material_source
+    assert '"Use source rule"' in assignment_source
+    assert '"Allow ORMS"' in assignment_source
+    assert '"Exclude / restore source"' in assignment_source
 
 
 def test_content_rebuild_preserves_window_and_selected_tab():
@@ -237,3 +267,47 @@ def test_extension_declares_standard_directory_picker_dependency():
     assert '"omni.kit.window.file_exporter" = {}' in (
         config_path.read_text(encoding="utf-8")
     )
+
+
+def test_material_apply_feedback_is_visible_inline_for_success_and_failure():
+    from msp.orms.runtime.material_update_feedback import (
+        MaterialUpdateFeedback,
+    )
+
+    class Label:
+        text = ""
+
+    feedback = MaterialUpdateFeedback(lambda: None)
+    label = Label()
+    feedback.start(lambda *_args: 4, lambda *_args: 4)
+    feedback.remember_label("set-id", label)
+
+    feedback.apply("set-id", "glass_roughness", 0.2)
+
+    assert label.text == "Applied to 4 runtime materials."
+
+    def fail(*_args):
+        raise ValueError("not finite")
+
+    feedback.start(fail, lambda *_args: 4)
+    with pytest.raises(ValueError, match="not finite"):
+        feedback.apply("set-id", "glass_roughness", 0.2)
+
+    assert label.text == "Apply failed: not finite"
+
+
+def test_material_reset_feedback_rebuilds_fields_after_success():
+    from msp.orms.runtime.material_update_feedback import (
+        MaterialUpdateFeedback,
+    )
+
+    rebuilds = []
+    feedback = MaterialUpdateFeedback(lambda: rebuilds.append("rebuilt"))
+    feedback.start(lambda *_args: 0, lambda *_args: 4)
+
+    feedback.reset("set-id", "Glass")
+
+    assert feedback.status("set-id") == (
+        "Glass reset. Applied to 4 runtime materials."
+    )
+    assert rebuilds == ["rebuilt"]

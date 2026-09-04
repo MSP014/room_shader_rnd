@@ -38,9 +38,15 @@ def test_diagnostic_block_separates_owner_state_details_and_timestamp():
 
 
 def test_console_helpers_route_the_same_block_to_the_requested_severity():
+    statuses = []
     warnings = []
     errors = []
 
+    status_log.log_room_map_status(
+        **_diagnostic_fields(),
+        log_status=statuses.append,
+        append_local_timestamp=_fixed_timestamp,
+    )
     status_log.log_room_map_warning(
         **_diagnostic_fields(),
         log_warning=warnings.append,
@@ -52,7 +58,7 @@ def test_console_helpers_route_the_same_block_to_the_requested_severity():
         append_local_timestamp=_fixed_timestamp,
     )
 
-    assert warnings == errors
+    assert statuses == warnings == errors
     assert warnings[0].endswith(
         "input_path=/World/Looks/RoomMap/Shader | Local time: fixed\n"
         "===================="

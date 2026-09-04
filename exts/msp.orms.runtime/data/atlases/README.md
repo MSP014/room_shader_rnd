@@ -40,10 +40,12 @@ Each production directory also provides `orms_variants.json`:
 ```
 
 The x1-x4 families used by one Interior Set must expose the same namespace and
-ordered variant IDs. ORMS rejects a newly applied incoherent configuration. A
-legacy configuration whose identity cannot be proven remains loadable, but a
-cross-family corner is decomposed into safe independent groups and reported in
-diagnostics instead of showing mismatched room sides.
+ordered variant IDs. ORMS reports an incoherent production library instead of
+rejecting unrelated structural edits. An invalid family uses its matching
+packaged debug fallback; a cross-family corner whose identity cannot be proven
+is decomposed into safe independent groups instead of showing mismatched room
+sides. Legacy folders without manifests therefore remain usable for
+single-family rooms while being reported as unverified.
 
 Production atlases and Houdini authoring files remain outside this public
 distribution boundary.

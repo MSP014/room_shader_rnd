@@ -16,6 +16,8 @@ from tools.omniverse.shared_room.settings import (
 )
 from tools.omniverse.shared_room.settings_panel import build_settings_panel
 
+from .assignment_panel import build_assignment_panel
+from .assignment_session import AssignmentSnapshot
 from .interior_set_atlas_panel import build_interior_set_atlas_panel
 from .interior_set_controller import InteriorSetController
 from .interior_set_directory_picker import InteriorSetDirectoryPicker
@@ -24,6 +26,7 @@ from .interior_set_panel_state import InteriorSetPanelState
 from .interior_set_profile_workflow import InteriorSetProfileWorkflow
 from .lifecycle import RuntimeState
 from .lifecycle_controls import LifecycleCallbacks, LifecycleControls
+from .material_update_feedback import MaterialUpdateFeedback
 from .resources import (
     DEBUG_ASSET_SETTING,
     PRODUCTION_DIRECTORY_SETTING,
@@ -46,9 +49,13 @@ class OrmsSettingsWindow:
         self._updates = UiUpdateScheduler()
         self._building = False
         self._classifier_changed: Callable[[], None] | None = None
-        self._material_changed: Callable[[str, str, object], None] | None = (
+        self._assignment_changed: Callable[[str, bool | None], None] | None = (
             None
         )
+        self._assignment_snapshot: Callable[[], AssignmentSnapshot] | None = (
+            None
+        )
+        self._material_feedback = MaterialUpdateFeedback(self._rebuild_window)
         self._apply_interior_sets: Callable[[], None] | None = None
         self._rename_interior_set: Callable[[str, str], None] | None = None
         self._interior_sets: InteriorSetController | None = None
@@ -71,7 +78,10 @@ class OrmsSettingsWindow:
         self,
         *,
         classifier_changed: Callable[[], None],
-        material_changed: Callable[[str, str, object], None],
+        assignment_changed: Callable[[str, bool | None], None],
+        assignment_snapshot: Callable[[], AssignmentSnapshot],
+        material_changed: Callable[[str, str, object], int],
+        material_reset: Callable[[str, str | None], int],
         apply_interior_sets: Callable[[], None],
         rename_interior_set: Callable[[str, str], None],
         interior_sets: InteriorSetController,
@@ -95,7 +105,9 @@ class OrmsSettingsWindow:
         ensure_classifier_setting_defaults()
         ensure_material_setting_defaults()
         self._classifier_changed = classifier_changed
-        self._material_changed = material_changed
+        self._assignment_changed = assignment_changed
+        self._assignment_snapshot = assignment_snapshot
+        self._material_feedback.start(material_changed, material_reset)
         self._apply_interior_sets = apply_interior_sets
         self._rename_interior_set = rename_interior_set
         self._interior_sets = interior_sets
@@ -160,6 +172,7 @@ class OrmsSettingsWindow:
         import omni.ui as ui
 
         self._building = True
+        self._material_feedback.begin_build()
         try:
             with ui.ScrollingFrame():
                 if self._interior_sets is None:
@@ -176,10 +189,14 @@ class OrmsSettingsWindow:
                     apply_atlases=self._apply_structural_changes,
                     build_lifecycle_controls=self._lifecycle_controls.build,
                     watch_model=self._watch_model,
+                    build_assignment_panel=self._build_assignment_panel,
                     build_material_panel=lambda: (
                         build_interior_set_material_panel(
                             self._interior_sets,
                             self._schedule_material_change,
+                            self._schedule_material_reset,
+                            self._material_feedback.status,
+                            self._material_feedback.remember_label,
                             self._panel_state.is_section_collapsed,
                             self._panel_state.remember_section_collapsed,
                         )
@@ -203,6 +220,19 @@ class OrmsSettingsWindow:
 
     def _remember_active_tab(self, index: int) -> None:
         self._active_tab_index = index
+
+    def _build_assignment_panel(self) -> tuple[object, ...]:
+        """Build the current stage's source-safe assignment controls."""
+
+        snapshot = (
+            self._assignment_snapshot()
+            if self._assignment_snapshot is not None
+            else AssignmentSnapshot()
+        )
+        return build_assignment_panel(
+            snapshot,
+            self._schedule_assignment_change,
+        )
 
     def _remember_debug_atlases_collapsed(self, collapsed: bool) -> None:
         """Preserve the packaged-debug section across frame rebuilds."""
@@ -276,17 +306,48 @@ class OrmsSettingsWindow:
             delay_seconds=_CLASSIFIER_DELAY_SECONDS,
         )
 
+    def _schedule_assignment_change(
+        self,
+        prim_path: str,
+        allowed: bool | None,
+    ) -> None:
+        """Defer one assignment rebuild beyond the current button event."""
+
+        if self._building or self._assignment_changed is None:
+            return
+        self._updates.schedule(
+            "assignment",
+            lambda: self._assignment_changed(prim_path, allowed),
+            delay_seconds=0.0,
+        )
+
     def _schedule_material_change(
         self,
         set_id: str,
         name: str,
         value: object,
     ) -> None:
-        if self._building or self._material_changed is None:
+        if self._building:
             return
         self._updates.schedule(
             f"material:{set_id}:{name}",
-            lambda: self._material_changed(set_id, name, value),
+            lambda: self._material_feedback.apply(set_id, name, value),
+            delay_seconds=0.0,
+        )
+
+    def _schedule_material_reset(
+        self,
+        set_id: str,
+        group: str | None,
+    ) -> None:
+        """Defer a reset and rebuild fields only after it succeeds."""
+
+        if self._building:
+            return
+        key = group or "complete"
+        self._updates.schedule(
+            f"material-reset:{set_id}:{key}",
+            lambda: self._material_feedback.reset(set_id, group),
             delay_seconds=0.0,
         )
 
@@ -371,7 +432,9 @@ class OrmsSettingsWindow:
         self._window = None
         self._models = ()
         self._classifier_changed = None
-        self._material_changed = None
+        self._assignment_changed = None
+        self._assignment_snapshot = None
+        self._material_feedback.stop()
         self._apply_interior_sets = None
         self._rename_interior_set = None
         self._interior_sets = None

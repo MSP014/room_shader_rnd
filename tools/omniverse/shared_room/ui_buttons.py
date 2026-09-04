@@ -18,12 +18,14 @@ def selection_button(
     *,
     selected: bool,
     clicked: Callable[[], None],
+    enabled: bool = True,
 ) -> object:
     """Create one mutually exclusive choice with visible selected state."""
 
     return ui.Button(
         text,
         selected=selected,
+        enabled=enabled,
         clicked_fn=clicked,
         style=SELECTION_BUTTON_STYLE,
     )

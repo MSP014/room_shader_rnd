@@ -2,6 +2,7 @@
 
 from msp.orms.runtime.lifecycle import RuntimeState
 from msp.orms.runtime.lifecycle_controls import (
+    LIFECYCLE_ACTION_HELP,
     LIFECYCLE_ACTION_LABELS,
     enabled_lifecycle_actions,
 )
@@ -14,6 +15,10 @@ def test_classifier_tab_exposes_the_complete_lifecycle_command_set():
         ("stop", "Stop"),
         ("restore", "Restore Original Asset"),
     )
+    assert "Start activates ORMS" in LIFECYCLE_ACTION_HELP
+    assert "Stop freezes" in LIFECYCLE_ACTION_HELP
+    assert "Restart removes and rebuilds" in LIFECYCLE_ACTION_HELP
+    assert "Restore Original Asset removes" in LIFECYCLE_ACTION_HELP
 
 
 def test_lifecycle_actions_follow_the_visible_state():

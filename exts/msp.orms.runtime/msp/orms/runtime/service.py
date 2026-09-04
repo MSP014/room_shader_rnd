@@ -16,6 +16,7 @@ from tools.omniverse.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
 
+from .assignment_session import AssignmentSession, AssignmentSnapshot
 from .interior_set_controller import InteriorSetController
 from .interior_set_repository import InteriorSetSettingsRepository
 from .interior_set_transaction import InteriorSetRollbackError
@@ -46,7 +47,7 @@ class OrmsRuntimeService:
         self._resources = resources
         self._material_registration = MaterialLibraryRegistration()
         self._stage_subscriptions: tuple[Any, ...] = ()
-        self._assignment_owner: Any | None = None
+        self._assignment_session: AssignmentSession | None = None
         self._lifecycle = RuntimeLifecycleController(
             state_changed=self._on_lifecycle_state_changed,
         )
@@ -108,7 +109,10 @@ class OrmsRuntimeService:
             self._settings_window = OrmsSettingsWindow()
             self._settings_window.start(
                 classifier_changed=self._apply_classifier_settings,
+                assignment_changed=self._set_auto_assignment_override,
+                assignment_snapshot=self._current_assignment_snapshot,
                 material_changed=self._apply_interior_set_material,
+                material_reset=self._reset_interior_set_materials,
                 apply_interior_sets=self._apply_interior_sets,
                 rename_interior_set=self._rename_interior_set,
                 interior_sets=self._interior_sets,
@@ -178,15 +182,23 @@ class OrmsRuntimeService:
             self._lifecycle.fail()
             carb.log_error(f"[ORMS] Stage lifecycle failed: {error!r}")
 
-    def _activate_current_stage(self) -> None:
+    def _activate_current_stage(
+        self,
+        *,
+        preserve_assignment_overrides: bool = False,
+    ) -> None:
         import carb
         import carb.settings
         import omni.usd
 
-        self._deactivate_stage()
         stage = omni.usd.get_context().get_stage()
         if stage is None:
+            self._deactivate_stage()
             return
+        assignment_session = self._prepare_assignment_session(
+            stage,
+            preserve_assignment_overrides,
+        )
         runtime_root = self._resources.runtime_root
         self._ensure_runtime_path()
 
@@ -208,19 +220,11 @@ class OrmsRuntimeService:
                     "no valid x1 atlas is available"
                 )
             else:
-                from tools.omniverse.runtime.assignment import (
-                    AutoAssignmentOwner,
-                )
-
-                owner = AutoAssignmentOwner(
-                    stage,
+                result = assignment_session.apply(
                     source_asset_path=MATERIAL_SOURCE_ASSET,
                     atlas_asset_path=seed_x1.asset_path,
                     atlas_variant_count=seed_x1.variant_count,
                 )
-                result = owner.apply()
-                if result.assigned_prim_paths:
-                    self._assignment_owner = owner
                 decision_summary = "; ".join(
                     f"{decision.prim_path}:{decision.reason}"
                     for decision in result.decisions
@@ -241,6 +245,7 @@ class OrmsRuntimeService:
                 "[ORMS] Stage activation skipped: no mesh is bound to an "
                 "ORMS source material"
             )
+            self._refresh_settings_window()
             return
 
         from tools.omniverse.reload_room_map_runtime import (
@@ -267,8 +272,56 @@ class OrmsRuntimeService:
             stop_runtime()
             raise
         self._lifecycle.attach(classifier, camera_bridge, stop_runtime)
+        self._refresh_settings_window()
+
+    def _prepare_assignment_session(
+        self,
+        stage: object,
+        preserve_overrides: bool,
+    ) -> AssignmentSession:
+        """Reuse only current-stage overrides across a controlled rebuild."""
+
+        session = self._assignment_session
+        if (
+            preserve_overrides
+            and session is not None
+            and session.owns_stage(stage)
+        ):
+            self._lifecycle.teardown()
+            session.stop_assignments()
+            return session
+        self._deactivate_stage()
+        session = AssignmentSession(stage)
+        self._assignment_session = session
+        return session
+
+    def _refresh_settings_window(self) -> None:
         if self._settings_window is not None:
             self._settings_window.refresh_interior_sets()
+
+    def _current_assignment_snapshot(self) -> AssignmentSnapshot:
+        """Return recognised meshes without exposing assignment ownership."""
+
+        if self._assignment_session is None:
+            return AssignmentSnapshot()
+        snapshot = self._assignment_session.inspect()
+        editable = self._lifecycle.state not in {
+            RuntimeState.STOPPED,
+            RuntimeState.FAILED,
+        }
+        return AssignmentSnapshot(snapshot.items, editable=editable)
+
+    def _set_auto_assignment_override(
+        self,
+        prim_path: str,
+        allowed: bool | None,
+    ) -> None:
+        """Apply one source-safe mesh override and rebuild the active stage."""
+
+        if self._assignment_session is None:
+            raise RuntimeError("No active ORMS assignment session")
+        self._assignment_session.set_override(prim_path, allowed)
+        self._activate_current_stage(preserve_assignment_overrides=True)
 
     def _current_interior_set_diagnostics(
         self,
@@ -293,7 +346,7 @@ class OrmsRuntimeService:
                 return
             if self._lifecycle.state is RuntimeState.RUNNING:
                 return
-            self._activate_current_stage()
+            self._activate_current_stage(preserve_assignment_overrides=True)
             if self._lifecycle.state is RuntimeState.RUNNING:
                 carb.log_info("[ORMS] Runtime started by user")
         except Exception as error:
@@ -305,7 +358,7 @@ class OrmsRuntimeService:
         import carb
 
         try:
-            self._activate_current_stage()
+            self._activate_current_stage(preserve_assignment_overrides=True)
             if self._lifecycle.state is RuntimeState.RUNNING:
                 carb.log_info("[ORMS] Runtime restarted by user")
         except Exception as error:
@@ -334,6 +387,7 @@ class OrmsRuntimeService:
         except Exception as error:
             self._handle_lifecycle_failure("Restore Original Asset", error)
             return
+        self._refresh_settings_window()
         carb.log_info("[ORMS] Original asset state restored")
 
     def _handle_lifecycle_failure(
@@ -391,11 +445,11 @@ class OrmsRuntimeService:
         set_id: str,
         name: str,
         value: object,
-    ) -> None:
+    ) -> int:
         """Persist and author one Set-scoped live material edit."""
 
         if self._interior_sets is None:
-            return
+            return 0
         classifier = self._lifecycle.classifier
         apply_runtime = (
             classifier.set_interior_set_material_values
@@ -403,10 +457,32 @@ class OrmsRuntimeService:
             and self._lifecycle.state is RuntimeState.RUNNING
             else None
         )
-        self._interior_sets.update_material(
+        return self._interior_sets.update_material(
             set_id,
             name,
             value,
+            apply_runtime,
+        )
+
+    def _reset_interior_set_materials(
+        self,
+        set_id: str,
+        group: str | None,
+    ) -> int:
+        """Restore factory values for one Set and update its live family."""
+
+        if self._interior_sets is None:
+            return 0
+        classifier = self._lifecycle.classifier
+        apply_runtime = (
+            classifier.set_interior_set_material_values
+            if classifier is not None
+            and self._lifecycle.state is RuntimeState.RUNNING
+            else None
+        )
+        return self._interior_sets.reset_materials(
+            set_id,
+            group,
             apply_runtime,
         )
 
@@ -468,13 +544,13 @@ class OrmsRuntimeService:
             self._lifecycle.teardown()
         except Exception as error:
             cleanup_errors.append(error)
-        assignment_owner, self._assignment_owner = (
-            self._assignment_owner,
+        assignment_session, self._assignment_session = (
+            self._assignment_session,
             None,
         )
-        if assignment_owner is not None:
+        if assignment_session is not None:
             try:
-                assignment_owner.stop()
+                assignment_session.stop()
             except Exception as error:
                 cleanup_errors.append(error)
         if cleanup_errors:

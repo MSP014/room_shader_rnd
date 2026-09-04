@@ -19,10 +19,11 @@ proof.
 | [006 — Depth Slices](006_depth_slices.md) | KRM-89 | Four analytic alpha depth slices | Renderer-validated |
 | [007 — Room Variants](007_room_variants.md) | KRM-90 | Deterministic roomID-to-UDIM selection | Renderer-validated |
 | [008 — Window Apertures](008_window_apertures.md) | KRM-94 | Physical aperture scale and offset | Renderer-validated |
-| [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Renderer-validated; final repository quality gate reserved for pre-commit |
-| [010 — Building 150 Integration](010_building_150_integration.md) | KRM-98 | Production-asset fixture, adaptive façade classification, glass integration, real x1 content, and luminance-selected emission | Accepted in RTX Real-Time and RTX Interactive Path Tracing; real x2–x4 content remains external follow-up work |
-| [011 — ORMS Kit Extension Integration](011_orms_kit_extension.md) | KRM-91 | Installable Kit boundary, portable MDL registration, Material Library entry, and reversible Windows Glass assignment | Installed `0.1.5` accepted in both required RTX modes |
-| [012 — ORMS UI and Artist Workflow](012_orms_ui_and_artist_workflow.md) | KRM-92 | Artist-facing panel structure, assignment controls, atlas configuration, and Extension Manager guidance | Planned next implementation task |
+| [009 — Shared Multi-Window Rooms](009_shared_multi_window_rooms.md) | KRM-93 | Runtime x1–x4 atlas grouping, bays, and bounded rectangular corners | Renderer-validated in RTX Real-Time and RTX Interactive Path Tracing |
+| [010 — Building 150 Integration](010_building_150_integration.md) | KRM-98 | Production-asset fixture, adaptive façade classification, glass integration, real x1 content, and luminance-selected emission | Accepted in both RTX modes; KRM-92 later added per-Set production x1–x4 libraries |
+| [011 — ORMS Kit Extension Integration](011_orms_kit_extension.md) | KRM-91 | Installable Kit boundary, portable MDL registration, Material Library entry, and reversible Windows Glass assignment | Installed `0.1.5` foundation accepted in both RTX modes and superseded by the `0.1.20` workflow in 012 |
+| [012 — ORMS UI and Artist Workflow](012_orms_ui_and_artist_workflow.md) | KRM-92 | One classifier with Interior Set assignment, per-Set x1–x4 resources and materials, staged structural editing, and artist-facing controls | Installed `0.1.20` accepted in both RTX modes; KRM-92 complete |
+| [013 — Geometry Rooms versus ORMS VRAM Benchmark](013_geometry_vs_orms_vram_benchmark.md) | Follow-up to KRM-92 | Like-for-like analytical VRAM comparison and reproducible geometry-versus-ORMS benchmark plan | Unverified calculated hypothesis; empirical measurements pending |
 
 ## Record contract
 

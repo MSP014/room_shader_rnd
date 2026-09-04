@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.20
+
+- Keep mesh-assignment controls read-only while the runtime is stopped or
+  failed, avoiding an implicit rebuild from a frozen state.
+- Hide an empty material-feedback label until the first live result so it does
+  not reserve unnecessary panel space.
+- Keep genuine stage-load failures at Warning while routine trace traffic
+  remains at Info.
+
+## 0.1.19
+
+- Add source-safe automatic mesh-assignment inspection and per-mesh
+  Use-source, Allow, and Exclude controls on the Classifier tab.
+- Explain lifecycle actions and the x1 fallback directly beside their controls.
+- Add per-group and complete per-Set material resets with inline success and
+  failure feedback.
+- Add staged per-family, per-Set, and complete atlas reset actions.
+- Replace the developer-oriented Extension Manager README with an artist-first
+  setup, workflow, and troubleshooting guide.
+- Author the mesh-scoped Interior Set diagnostic as a Fabric-safe constant
+  scalar string primvar instead of a uniform string array.
+- Route routine stage-load trace blocks to Info while retaining Warning for
+  actionable anomalies.
+
 ## 0.1.18
 
 - Count runtime materials in the per-Interior-Set hierarchy so renderer

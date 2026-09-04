@@ -23,17 +23,20 @@ implementation for this research.
 - **Visual fidelity**: View-dependent apparent depth improves flat or repetitive
   glazing without asserting that every visible room is physical geometry.
 - **Procedural variation**: Deterministic UDIM selection reduces repetitive
-  "copy-paste" treatment while retaining one material binding.
+  "copy-paste" treatment without creating per-window materials.
 
 ---
 
 ## How It Works (High Level)
 
-The technique has three components:
+The delivered ORMS system has four components:
 
 1. **Geometry Setup** — A geometry preprocessing tool analyzes window geometry and computes per-primitive tangent space
 2. **Texture Baking** — Interior scenes are rendered into a special cross-shaped layout (back wall, left/right walls, ceiling, floor + depth slices)
 3. **Shader Math** — The shader uses view-dependent parallax to sample the correct part of the texture, creating 3D illusion
+4. **Runtime and Artist Workflow** — One scene classifier assigns compatible
+   mesh prim paths to Interior Sets before room grouping, then authors per-Set
+   x1-x4 materials and bindings as reversible Session Layer state
 
 The SideFX workflow below is a useful reference for one production-oriented
 implementation of these components.
@@ -54,17 +57,18 @@ system. The Houdini bridge also authors a dedicated `roomUV` channel without
 repacking the model's ordinary texture coordinates. A compatible OpenUSD
 preprocessing step can author the same data independently of Houdini.
 
-**Implementation Strategy**: Pre-compute the data in a DCC or USD preprocessing
-step and store it as **USD primvars**. The MDL shader uses named primvar lookups
-for the production contract and retains standard texture coordinates only as
-a compatibility fallback for earlier hand-authored tests.
+**Implementation Strategy**: The accepted pipeline pre-computes the data in a
+DCC or USD preprocessing step and stores it as **USD primvars**. The MDL shader
+uses named primvar lookups for the production contract and retains standard
+texture coordinates only as a compatibility fallback for earlier
+hand-authored tests.
 
 ### 2. **Cross-Shaped UV Layout is Algorithm-Agnostic**
 
 The texture layout (center = back wall, left/right = side walls, etc.) is just a convention. The math for mapping view direction → UV coordinates is portable to any shading language.
 
-**Implementation Strategy**: Implement the UV indexing logic natively in MDL.
-No Houdini-specific code is required.
+**Implementation Strategy**: The UV indexing logic is implemented natively in
+MDL. No Houdini-specific code is required at runtime.
 
 ### 3. **Parallax Projection is a Standard Technique**
 
@@ -74,20 +78,22 @@ underlying technique; their workflow is a useful implementation reference.
 The current ORMS depth-slice baseline uses analytic plane intersection and
 alpha compositing, not ray marching.
 
-**Implementation Strategy**: Apply parallax-interior mathematics in MDL. The
-key engineering challenge is the **data plumbing**: primvars, texture lookups,
-and runtime camera data.
+**Implementation Strategy**: ORMS applies the parallax-interior mathematics in
+MDL. The key engineering boundary is the **data plumbing**: primvars, texture
+lookups, runtime camera data, and reversible USD authoring.
 
 ### 4. **UDIM Variation Uses Explicit Room Identity**
 
 The SideFX reference workflow uses UDIM tiles for texture variation. MDL's
 `tex::lookup_*()` functions support UDIM resources.
 
-**Implementation Strategy**: The current R&D material maps an integer `roomID`
-primvar and a material-level seed to one tile of an MDL tiled texture while
-retaining one material binding. The isolated stage and the Houdini-authored
-component have both been accepted in RTX Real-Time and RTX Interactive, with a
-dedicated `roomUV` channel preserving the model's ordinary texture layout.
+**Implementation Strategy**: The current material maps an integer `roomID`
+primvar and a material-level seed to one tile of an MDL tiled texture. ORMS
+creates runtime materials per `(interior_set_id, room_size)`, not per window;
+every room in that family shares the binding and deterministic variant logic.
+The isolated stage and the Houdini-authored component have both been accepted
+in RTX Real-Time and RTX Interactive, with a dedicated `roomUV` channel
+preserving the model's ordinary texture layout.
 
 ---
 
@@ -123,9 +129,14 @@ dedicated `roomUV` channel preserving the model's ordinary texture layout.
 
 The [MDL research-record index](mdl/README.md) documents the validated primvar
 access, camera-position bridge, five-face parallax baseline, depth slices,
-deterministic room variants, aperture controls, and the pending-renderer
-[shared multi-window contract](mdl/009_shared_multi_window_rooms.md). The
-native implementation is not presented as a VEX translation.
+deterministic room variants, aperture controls, shared multi-window rooms, and
+the completed Interior Set artist workflow. The accepted runtime uses one
+scene classifier, resolves `interior_set_id` before grouping, and creates
+x1-x4 material families per stable Set ID. Structural Set edits are staged
+through `Apply Interior Sets`; material controls remain live and Set-scoped.
+Generated identifiers, materials, subsets, and bindings remain ORMS-owned
+Session Layer state. The native implementation is not presented as a VEX
+translation.
 
 ---
 

@@ -31,6 +31,7 @@ class _SettingsPanelBuilder:
         apply_atlases: Callable[[], None],
         build_lifecycle_controls: Callable[[], None],
         watch_model: ModelCallback,
+        build_assignment_panel: Callable[[], tuple[object, ...]] | None = None,
         build_material_panel: Callable[[], tuple[object, ...]] | None = None,
         build_atlas_panel: Callable[[], tuple[object, ...]] | None = None,
         active_tab_index: int = 0,
@@ -46,6 +47,7 @@ class _SettingsPanelBuilder:
         self._apply_atlases = apply_atlases
         self._build_lifecycle_controls = build_lifecycle_controls
         self._watch_model = watch_model
+        self._build_assignment_panel = build_assignment_panel
         self._build_material_panel = build_material_panel
         self._build_atlas_panel = build_atlas_panel
         self._active_tab_index = max(
@@ -167,6 +169,15 @@ class _SettingsPanelBuilder:
 
         self._build_lifecycle_controls()
 
+        if self._build_assignment_panel is not None:
+            with self._section_frame(
+                ui,
+                "Automatic mesh assignments",
+                "classifier:auto_assignments",
+            ):
+                with ui.VStack(spacing=6):
+                    self._models.extend(self._build_assignment_panel())
+
         with self._section_frame(
             ui,
             "Room families",
@@ -180,6 +191,13 @@ class _SettingsPanelBuilder:
                         SettingType.BOOL,
                         changed=self._classifier_changed,
                     )
+                ui.Label(
+                    "x1 is always available. Disabling x2, x3, or x4 "
+                    "reclassifies those rooms through the x1 fallback; "
+                    "window geometry is not removed.",
+                    word_wrap=True,
+                    height=0,
+                )
                 self._setting_row(
                     "Partition seed",
                     classifier_setting_path("partition_seed"),
@@ -395,6 +413,7 @@ def build_settings_panel(
     apply_atlases: Callable[[], None],
     build_lifecycle_controls: Callable[[], None],
     watch_model: ModelCallback,
+    build_assignment_panel: Callable[[], tuple[object, ...]] | None = None,
     build_material_panel: Callable[[], tuple[object, ...]] | None = None,
     build_atlas_panel: Callable[[], tuple[object, ...]] | None = None,
     active_tab_index: int = 0,
@@ -413,6 +432,7 @@ def build_settings_panel(
         apply_atlases=apply_atlases,
         build_lifecycle_controls=build_lifecycle_controls,
         watch_model=watch_model,
+        build_assignment_panel=build_assignment_panel,
         build_material_panel=build_material_panel,
         build_atlas_panel=build_atlas_panel,
         active_tab_index=active_tab_index,

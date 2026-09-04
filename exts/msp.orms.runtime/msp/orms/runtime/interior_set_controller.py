@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 
-from tools.omniverse.interior_sets.atlas_mode import normalise_atlas_mode
+from tools.omniverse.interior_sets.atlas_mode import (
+    ATLAS_MODE_DEBUG,
+    normalise_atlas_mode,
+)
 from tools.omniverse.interior_sets.contracts import (
     InteriorSetCollection,
     InteriorSetTransaction,
@@ -17,6 +20,10 @@ from tools.omniverse.interior_sets.selectors import (
     validate_collection_selectors,
 )
 
+from .interior_set_material_values import (
+    material_defaults_for_group,
+    normalise_material_changes,
+)
 from .interior_set_repository import (
     InteriorSetSettingsRepository,
     MigrationResult,
@@ -225,6 +232,38 @@ class InteriorSetController:
         )
         return self.draft
 
+    def clear_atlas_family(
+        self,
+        set_id: str,
+        room_size: int,
+    ) -> InteriorSetCollection:
+        """Stage removal of one production family so debug fallback applies."""
+
+        if room_size not in range(1, 5):
+            raise ValueError(f"Unsupported ORMS room size: x{room_size}")
+        directories = list(self.draft.by_id(set_id).atlas_directories)
+        directories[room_size - 1] = ""
+        return self.stage_atlas_directories(set_id, tuple(directories))
+
+    def clear_atlas_directories(
+        self,
+        set_id: str,
+    ) -> InteriorSetCollection:
+        """Stage removal of every production family for one Set."""
+
+        return self.stage_atlas_directories(set_id, ("", "", "", ""))
+
+    def reset_atlas_configuration(self) -> InteriorSetCollection:
+        """Stage factory atlas policy for every Set as one transaction edit."""
+
+        collection = self.draft
+        for item in collection.sets:
+            collection = collection.replace(
+                replace(item, atlas_directories=("", "", "", ""))
+            )
+        self._transaction.stage_snapshot(collection, ATLAS_MODE_DEBUG)
+        return self.draft
+
     def rename(
         self,
         set_id: str,
@@ -271,6 +310,7 @@ class InteriorSetController:
     ) -> int:
         """Apply one live editing gesture to one existing Set."""
 
+        changed_values = normalise_material_changes(changed_values)
         try:
             self.applied.by_id(set_id)
         except KeyError:
@@ -300,6 +340,20 @@ class InteriorSetController:
         )
         self._last_material_update_counts[set_id] = updated_count
         return updated_count
+
+    def reset_materials(
+        self,
+        set_id: str,
+        group: str | None = None,
+        apply_runtime: MaterialApply | None = None,
+    ) -> int:
+        """Reset one group or the complete Set profile to factory defaults."""
+
+        return self.update_materials(
+            set_id,
+            material_defaults_for_group(group),
+            apply_runtime,
+        )
 
     def apply(
         self,

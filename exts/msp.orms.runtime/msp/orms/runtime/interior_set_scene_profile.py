@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -16,8 +15,8 @@ from tools.omniverse.interior_sets.contracts import (
     InteriorSetCollection,
     InteriorSetConfig,
 )
-from tools.omniverse.shared_room.material_controls import MATERIAL_CONTROLS
 
+from .interior_set_material_values import normalise_material_profile
 from .interior_set_storage import normalise_collection
 
 PROFILE_FORMAT = "msp.orms.scene-profile"
@@ -45,64 +44,9 @@ def _as_sequence(value: object, label: str) -> Sequence[object]:
     return value
 
 
-def _number(value: object, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be numeric")
-    converted = float(value)
-    if not math.isfinite(converted):
-        raise ValueError(f"{label} must be finite")
-    return converted
-
-
-def _material_value(control: object, value: object) -> object:
-    label = f"Material value {control.name!r}"
-    if control.kind == "bool":
-        if not isinstance(value, bool):
-            raise ValueError(f"{label} must be boolean")
-        return value
-    if control.kind == "int":
-        number = _number(value, label)
-        if not number.is_integer():
-            raise ValueError(f"{label} must be an integer")
-        converted: object = int(number)
-    elif control.kind == "float":
-        converted = _number(value, label)
-    elif control.kind in {"float2", "colour3"}:
-        components = _as_sequence(value, label)
-        expected = 2 if control.kind == "float2" else 3
-        if len(components) != expected:
-            raise ValueError(f"{label} must contain {expected} numbers")
-        converted = tuple(
-            _number(component, f"{label}[{index}]")
-            for index, component in enumerate(components)
-        )
-    else:
-        raise ValueError(f"Unsupported material kind: {control.kind!r}")
-    values = converted if isinstance(converted, tuple) else (converted,)
-    if control.minimum is not None and any(
-        item < control.minimum for item in values
-    ):
-        raise ValueError(f"{label} is below {control.minimum}")
-    if control.maximum is not None and any(
-        item > control.maximum for item in values
-    ):
-        raise ValueError(f"{label} is above {control.maximum}")
-    return converted
-
-
 def _material_profile(value: object) -> tuple[tuple[str, object], ...]:
     raw = _as_mapping(value, "Interior Set material")
-    controls = {control.name: control for control in MATERIAL_CONTROLS}
-    unknown = tuple(sorted(set(raw) - set(controls)))
-    if unknown:
-        raise ValueError(f"Unknown material controls: {unknown}")
-    return tuple(
-        (
-            control.name,
-            _material_value(control, raw.get(control.name, control.default)),
-        )
-        for control in MATERIAL_CONTROLS
-    )
+    return normalise_material_profile(raw)
 
 
 def _interior_set(value: object) -> InteriorSetConfig:

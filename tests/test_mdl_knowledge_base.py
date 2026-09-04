@@ -34,6 +34,15 @@ ACTIVE_PLAN_HEADINGS = (
     "## Risks and explicit boundaries",
 )
 
+COMPLETED_PLAN_HEADINGS = (
+    "## Record",
+    "## Purpose",
+    "## Architectural decisions",
+    "## Implemented phased delivery record",
+    "## Acceptance boundary",
+    "## Risks and explicit boundaries",
+)
+
 
 def _records():
     return tuple(sorted(KNOWLEDGE_BASE.glob("[0-9][0-9][0-9]_*.md")))
@@ -44,7 +53,7 @@ def test_mdl_records_use_the_indexed_heading_contract():
     index = INDEX_PATH.read_text(encoding="utf-8")
 
     assert [path.name[:3] for path in records] == [
-        f"{number:03d}" for number in range(1, 13)
+        f"{number:03d}" for number in range(1, 14)
     ]
     for path in records:
         source = path.read_text(encoding="utf-8")
@@ -53,6 +62,8 @@ def test_mdl_records_use_the_indexed_heading_contract():
             headings = PLANNED_HEADINGS
         elif "| State | In progress" in record:
             headings = ACTIVE_PLAN_HEADINGS
+        elif "| State | Complete" in record:
+            headings = COMPLETED_PLAN_HEADINGS
         else:
             headings = REQUIRED_HEADINGS
         positions = [source.index(heading) for heading in headings]

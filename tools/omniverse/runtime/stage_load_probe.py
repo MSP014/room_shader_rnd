@@ -1,4 +1,4 @@
-"""Trace the observable Kit stage-loading pipeline in warning-visible logs."""
+"""Trace the observable Kit stage-loading pipeline at routine info severity."""
 
 from __future__ import annotations
 
@@ -9,11 +9,19 @@ from typing import Any
 
 from .resource_metrics import _resource_snapshot
 from .stage_load_state import AssetBatchTracker
-from .status_log import log_room_map_warning
+from .status_log import log_room_map_status, log_room_map_warning
 
 _RUN_IDS = count(1)
 _HEARTBEAT_SECONDS = 15.0
 _PROGRESS_BUCKET_PERCENT = 5
+_WARNING_STATES = frozenset(
+    {
+        "ASSET_BATCH_LOADING_ABORTED",
+        "ASSET_BATCH_LOADING_ABORTED_UNTIMED",
+        "STAGE_LOADING_STATUS_UNAVAILABLE",
+        "STAGE_OPEN_FAILED",
+    }
+)
 
 
 class StageLoadProbe:
@@ -25,6 +33,7 @@ class StageLoadProbe:
         app: Any,
         stage_event_types: Mapping[str, object],
         *,
+        log_status: Callable[..., None] = log_room_map_status,
         log_warning: Callable[..., None] = log_room_map_warning,
         clock: Callable[[], float] = perf_counter,
         resource_sampler: Callable[[], Mapping[str, object]] = (
@@ -36,6 +45,7 @@ class StageLoadProbe:
         self._context = context
         self._app = app
         self._stage_event_types = dict(stage_event_types)
+        self._log_status = log_status
         self._log_warning = log_warning
         self._clock = clock
         self._resource_sampler = resource_sampler
@@ -125,7 +135,10 @@ class StageLoadProbe:
             "stage_identifier": self._stage_identifier(),
         }
         payload.update(details)
-        self._log_warning(
+        sink = (
+            self._log_warning if state in _WARNING_STATES else self._log_status
+        )
+        sink(
             owner="SCENE LOAD PROBE",
             process="KIT STAGE LOAD TRACE",
             state=state,

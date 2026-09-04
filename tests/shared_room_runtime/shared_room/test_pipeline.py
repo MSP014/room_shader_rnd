@@ -70,9 +70,12 @@ def test_stage_classification_authors_all_available_material_families():
     )
     assert bound_sizes == {1, 2}
     assert sum(len(subset.GetIndicesAttr().Get()) for subset in subsets) == 5
-    assert set(
-        UsdGeom.PrimvarsAPI(mesh).GetPrimvar("ormsInteriorSetId").Get()
-    ) == {DEFAULT_INTERIOR_SET_ID}
+    interior_set_primvar = UsdGeom.PrimvarsAPI(mesh).GetPrimvar(
+        "ormsInteriorSetId"
+    )
+    assert interior_set_primvar.Get() == DEFAULT_INTERIOR_SET_ID
+    assert interior_set_primvar.GetTypeName() == Sdf.ValueTypeNames.String
+    assert interior_set_primvar.GetInterpolation() == UsdGeom.Tokens.constant
 
     runtime_material = UsdShade.Material(
         stage.GetPrimAtPath("/__ORMSRuntime/Looks/RoomMapX2")

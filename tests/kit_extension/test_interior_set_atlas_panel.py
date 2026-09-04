@@ -75,8 +75,11 @@ def test_structural_actions_precede_the_repeatable_set_list():
         "+ Add Interior Set",
         "Apply Interior Sets",
         "Revert unapplied changes",
+        "Reset complete atlas configuration",
     ]
     source = inspect.getsource(build_interior_set_atlas_panel)
     assert source.index("_build_structural_actions(") < source.index(
         "for item in controller.draft.sets:"
     )
+    assert '"Clear"' in source
+    assert '"Clear all production folders"' in source

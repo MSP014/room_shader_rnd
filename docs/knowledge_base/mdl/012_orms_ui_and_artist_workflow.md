@@ -7,7 +7,7 @@
 | Jira | KRM-92 |
 | Preceding delivery | KRM-91 |
 | Implementation target | Existing ORMS classifier, runtime service, resources, settings, Session Layer authoring, and `Window > ORMS` panel |
-| State | In progress — Interior Sets core delivered; remaining KRM-92 UI scope reassessed; 0.1.18 renderer acceptance pending |
+| State | Complete — 0.1.20 accepted in RTX Real-Time and RTX Interactive with production variant manifests |
 | Last reviewed | 4 September 2026 |
 
 ## Purpose
@@ -327,7 +327,11 @@ portable scene-profile file with the `.orms` extension.
   formerly selected windows through the remaining specific Sets or Default.
 - The Default Set cannot be removed through UI or service commands.
 
-## Phased implementation plan
+## Implemented phased delivery record
+
+The following checklist records the completed implementation sequence.
+Imperative wording is retained from the working plan to preserve traceability;
+it describes delivered requirements, not outstanding work.
 
 ### Phase 1 — Freeze the current baseline and define plain-data contracts
 
@@ -589,21 +593,39 @@ Add automated coverage for at least:
 34. The active main tab and selected Debug/Production atlas mode use a dark
     selected background; inactive sibling choices use a lighter grey
     background and update immediately when selection changes.
+35. Recognised automatic-assignment meshes can be inspected and switched among
+    source policy, Session-layer opt-in, and Session-layer exclusion without
+    modifying source USD. Restart retains the overrides for the current stage;
+    Restore, stage replacement, disable, and shutdown remove them.
+36. Lifecycle actions and x1 fallback behaviour are explained beside the
+    controls without requiring the Extension Manager page or log.
+37. Each Material Parameters Set exposes per-group and complete-profile resets.
+    A successful or failed live update reports its result inline beside that
+    Set and never mutates another Set's runtime family.
+38. One production family, all families in one Set, or the complete scene atlas
+    configuration can be reset as staged edits. The complete reset clears all
+    production directories and selects Debug mode in one draft revision.
+39. `primvars:ormsInteriorSetId` is a constant scalar string for each mesh and
+    produces no unsupported Fabric string-array warning.
+40. Routine stage-load trace records use Info severity; Warning is reserved for
+    actionable anomalies.
+41. The installed Extension Manager README leads with the artist workflow and
+    contains no packaging commands or internal module-ownership tour.
 
 Retain `tests/shared_room_runtime/test_room_map_interior_sets_omniverse.usda`
 as the compact fixture containing Default living rooms, kitchens selected
 through one mask, shops selected through an overlapping pair of masks, and a
 Set using multiple explicit masks. Validate assignment, grouping, per-Set
 material edits, independent atlas fallback, camera response, restart, and
-source restoration. Final visual acceptance remains required in RTX Real-Time
-and RTX Interactive (Path Tracing) after the automated contract passes.
+source restoration. Final visual acceptance was completed in RTX Real-Time
+and RTX Interactive (Path Tracing) after the automated contract passed.
 
 ## Installed-runtime defect and correction record — 3–4 September 2026
 
 This record is part of the KRM-92 delivery evidence. It separates confirmed
 implementation defects from invalid production content and records the exact
-correction boundary. Automated acceptance does not replace the pending live
-renderer retest of the latest package.
+correction boundary. Automated acceptance was followed by the completed live
+renderer pass of the final 0.1.20 package.
 
 ### 1. Packaged extension could not import the shared runtime — 0.1.6
 
@@ -733,7 +755,7 @@ renderer retest of the latest package.
   owner keyed by immutable `set_id`; Add, Duplicate, Remove, reorder, Apply,
   revert, and diagnostics refresh retain each surviving block independently.
   Atlas mode state is retained through the same boundary. Automated UI tests
-  pass; installed live retest remains pending.
+  passed, and the final 0.1.20 installed acceptance confirmed the behaviour.
 
 ### 12. A higher-priority duplicated selector silently stole Cabinets — 0.1.11
 
@@ -769,8 +791,8 @@ renderer retest of the latest package.
   existing `Apply Interior Sets` transaction.
 - **Implementation:** 0.1.13 separates schema/I/O, Kit picker integration,
   presentation, and workflow coordination into dedicated modules. Automated
-  round-trip, validation, picker-contract, and no-auto-Apply tests pass;
-  installed live acceptance remains pending.
+  round-trip, validation, picker-contract, and no-auto-Apply tests passed; the
+  workflow was subsequently accepted in the final 0.1.20 installed pass.
 
 ### 13. Profile saving exposed an internal two-step workflow — 0.1.13
 
@@ -843,8 +865,8 @@ renderer retest of the latest package.
   immutable Set UUID. Removing a Set drops its presentation state, while Add,
   Duplicate, reorder, Apply, revert, and diagnostics refresh preserve every
   surviving choice. A source-inventory regression test rejects future direct
-  frame construction outside the helper. Installed live layout acceptance
-  remains pending.
+  frame construction outside the helper. The final 0.1.20 installed pass
+  accepted the live layout in both RTX renderer modes.
 
 ### 18. Active tab and atlas mode were visually ambiguous — 0.1.15
 
@@ -888,43 +910,95 @@ renderer retest of the latest package.
   both the legacy flat layout and per-Set material families. This is a
   telemetry correction; runtime authoring and rendering were already valid.
 
-### Open installed-runtime findings after 0.1.16 acceptance
+### 21. Automatic assignments had no artist-facing override — 0.1.18
 
-- **Fabric string-array warning:** `primvars:ormsInteriorSetId` is authored as
-  a uniform `StringArray`, while Fabric does not support string-array primvars.
-  USD and Hydra continued rendering correctly in the accepted session. The
-  cause is the diagnostic semantic ID following the same per-face array shape
-  as numeric derived data even though one mesh resolves to one Interior Set.
-  This has not yet been corrected; replace it with a Fabric-safe constant
-  representation without weakening Session Layer ownership or diagnostics.
-- **Status trace severity/noise:** the stage-load probe emitted 112 structured
-  trace blocks at Warning level during the captured session. The cause is the
-  shared status sink routing routine progress and heartbeats through
-  `carb.log_warn`. This has not yet been corrected; normal phase evidence must
-  use Info/Debug severity and reserve Warning for actionable anomalies.
-- **Hot-version shutdown reference:** disabling installed 0.1.15 before
-  enabling 0.1.16 reported that the extension object remained referenced by
-  two Python frames. Startup of 0.1.16 still succeeded. This has not been
-  reproduced as a normal shutdown failure; verify 0.1.18 disable/re-enable and
-  fix lifecycle ownership if the reference warning persists outside a hot
-  version replacement.
-- **Production variant manifests are absent:** the five configured production
-  packs have equal x1-x4 tile counts within each Set, but none currently ships
-  `orms_variants.json`. The resource validator therefore cannot prove ordered
-  semantic identity across families and reports missing identity metadata.
-  This is an external-content acceptance gap, not a classifier defect. Publish
-  truthful namespace and ordered variant IDs for every production family
-  before accepting cross-family corner identity in production mode.
-- **Saved Library x3 path points at x2:** the captured runtime and the saved
-  `test_150.orms` profile both resolve Library x3 to the `library_x2` directory.
-  The picker and loader are preserving the applied value as designed; the
-  profile data itself is wrong. Correct Library x3 to `library_x3`, Apply, and
-  save the profile again.
+- **Observed:** the runtime honoured source-authored `orms:autoAssign=false`,
+  but artists could not inspect recognised meshes, opt a mesh in, exclude it,
+  or return it to the source rule from the ORMS panel.
+- **Cause:** automatic assignment exposed only its evaluation and anonymous
+  binding layer to the service. It had no independent owner for editable
+  per-mesh policy and no UI snapshot that survived the subsequent binding.
+- **Correction:** 0.1.19 adds a dedicated assignment session and a separate
+  ORMS-owned anonymous override layer. The Classifier tab lists recognised
+  meshes and offers Use source rule, Allow ORMS, and Exclude / restore source.
+  Restart retains current-stage overrides; Restore Original Asset, stage
+  replacement, extension disable, and shutdown remove them. Source USD remains
+  unchanged.
 
-### Phase 9 — Reassess the original KRM-92 UI scope
+### 22. Lifecycle and x1 fallback behaviour required prior knowledge — 0.1.18
 
-After Interior Sets are accepted, review every item in the deferred original
-scope below and classify it as:
+- **Observed:** action labels and room-family toggles were visible, but the UI
+  did not explain the difference between Stop and Restore, or that disabling
+  x2-x4 reclassifies rooms through x1.
+- **Cause:** the first functional panel exposed commands without the concise
+  operational guidance required by the artist workflow.
+- **Correction:** 0.1.19 adds inline lifecycle explanations and an explicit x1
+  fallback note beside the room-family controls.
+
+### 23. Material and atlas reset workflows were incomplete — 0.1.18
+
+- **Observed:** material values and production paths could be edited, but
+  restoring defaults required manual value entry. Material update failures
+  appeared only in the log.
+- **Cause:** the per-Set conversion retained live editing and structural Apply
+  but did not add explicit reset commands or a UI-owned result channel.
+- **Correction:** 0.1.19 adds per-group and complete per-Set material resets,
+  inline material success/failure feedback, per-family and per-Set production
+  path clears, and one complete staged atlas reset that clears every Set and
+  selects Debug mode. Atlas resets remain unapplied until
+  `Apply Interior Sets`.
+
+### 24. Fabric rejected the diagnostic Interior Set array — 0.1.18
+
+- **Observed:** Fabric warned that it did not support the authored
+  `StringArray primvars:ormsInteriorSetId` even though USD/Hydra continued to
+  render.
+- **Cause:** the semantic Set ID followed the uniform per-face shape used by
+  numeric mappings, despite the selector contract guaranteeing one Set per
+  mesh path.
+- **Correction:** 0.1.19 authors one constant scalar `string` primvar per mesh.
+  The value remains ORMS-owned Session Layer state and the authoring path
+  rejects any future attempt to resolve one mesh to multiple Sets.
+
+### 25. Routine stage-load evidence polluted Warning severity — 0.1.18
+
+- **Observed:** one accepted session emitted 112 structured stage-load trace
+  blocks as warnings.
+- **Cause:** the probe deliberately reused the warning helper for visibility
+  while the loading investigation was active.
+- **Correction:** 0.1.19 adds an Info status sink and routes routine phase,
+  progress, streaming, and heartbeat records through it. Warning and Error
+  remain reserved for actionable anomalies.
+
+### 26. Extension Manager overview addressed developers — 0.1.18
+
+- **Observed:** the packaged README led with module ownership, packaging
+  commands, and repository layout rather than first use.
+- **Cause:** the extension boundary documentation was reused as the installed
+  product overview.
+- **Correction:** 0.1.19 rewrites the page around installation, the three
+  artist tabs, assignment policy, lifecycle meaning, debug/production atlas
+  workflow, resets, `.orms` profiles, source safety, and troubleshooting.
+  Developer architecture remains in repository documentation.
+
+### Resolution of installed-runtime findings
+
+- **Hot-version shutdown reference resolved:** the warning observed while
+  replacing 0.1.15 with 0.1.16 did not recur in the final 0.1.20 acceptance
+  log. Installed disable/re-enable ownership is accepted.
+- **Production variant manifests added:** every x1-x4 directory in the
+  five local production libraries now contains `orms_variants.json`. Each
+  library declares one stable namespace and one ordered ID sequence matching
+  its existing aligned UDIM order, allowing the resource validator to prove
+  cross-family identity.
+- **Stale Library profile finding retired:** the Library Interior Set was
+  removed from the accepted scene configuration. Its former x3-to-x2 profile
+  path is therefore neither applied runtime state nor a KRM-92 blocker.
+
+### Phase 9 — Completed reassessment of the original KRM-92 UI scope
+
+After Interior Sets were accepted, every item in the deferred original scope
+was classified as:
 
 - retained without change;
 - retained but rewritten for per-Set behaviour;
@@ -932,32 +1006,38 @@ scope below and classify it as:
 - obsolete because it assumes one global atlas or material profile; or
 - deferred to a separate task.
 
-Only then finalise the remaining KRM-92 artist-workflow pass. Do not implement
-the old plan mechanically against an architecture it no longer describes.
+This reassessment prevented the old plan from being implemented mechanically
+against an architecture it no longer described. The completed disposition is:
 
-The reassessment after installed 0.1.16 acceptance is:
-
-| Original KRM-92 area | Classification | Evidence and remaining action |
+| Original KRM-92 area | Classification | Evidence and disposition |
 | --- | --- | --- |
 | Panel hierarchy, retained collapse state, active-tab contrast | Already delivered | All three tabs use shared content-sized collapsible sections; tab and atlas-mode selection have explicit contrast. |
-| Runtime state and action availability | Partially delivered | State and enabled actions are visible. Concise artist-facing explanations of Start, Stop, Restart, and Restore Original Asset are still missing. |
-| Classifier labels and x1 fallback explanation | Retained, incomplete | Existing groups remain usable, but the UI does not explain that disabling x2-x4 reclassifies through x1. |
-| Automatic-assignment inspection and `orms:autoAssign` override | Retained, not delivered | The runtime contract exists, but artists still cannot inspect, exclude, or restore mesh assignments from the ORMS UI. |
+| Runtime state and action availability | Delivered in 0.1.19 | State, enabled actions, and concise Start/Stop/Restart/Restore explanations are visible together. |
+| Classifier labels and x1 fallback explanation | Delivered in 0.1.19 | The room-family section explicitly states that disabled x2-x4 families reclassify through x1. |
+| Automatic-assignment inspection and `orms:autoAssign` override | Delivered in 0.1.19 | Recognised meshes expose source-safe Use source, Allow, and Exclude controls through a separate ORMS-owned Session layer. |
 | Material organisation | Retained but rewritten per Set | Complete material profiles are grouped per Interior Set and update only that Set's x1-x4 family. |
-| Material reset and inline validation feedback | Retained, not delivered | No per-group/per-Set reset affordance or dedicated inline failure feedback exists. |
+| Material reset and inline validation feedback | Delivered in 0.1.19 | Every Set exposes group and complete-profile resets; live updates report success or failure beside that Set. |
 | Atlas pickers, validation, fallback status, and controlled Apply | Retained but rewritten per Set; delivered | Direct editing and directory selection, per-family production/debug resolution, inline validation, staged edits, and explicit Apply are implemented. |
-| Per-family and full atlas reset | Retained, not delivered | Reverting an unapplied draft is not the same as intentionally clearing one family or resetting the complete applied atlas configuration. |
-| Extension Manager overview | Retained, not delivered | The packaged README still leads with module ownership, packaging, and developer commands instead of first-use artist guidance. |
-| Installed renderer acceptance | Partially delivered | 0.1.16 was accepted on the retained five-Set scene in RTX Interactive; the final 0.1.18 package still needs the documented two-renderer acceptance pass. |
+| Per-family and full atlas reset | Delivered in 0.1.19 | Per-family, per-Set, and complete staged reset actions use the existing Apply transaction. |
+| Extension Manager overview | Delivered in 0.1.19 | The packaged README is an artist-first first-use and troubleshooting guide. |
+| Installed renderer acceptance | Accepted | The final 0.1.20 log contains no extension-object lifetime warning, and the retained scene was accepted in RTX Real-Time and RTX Interactive. |
 
-**Phase 9 verdict:** the Interior Sets architecture and workflow additions are
-functionally delivered, but KRM-92 as a whole is not ready for Done. The
-remaining artist-facing items above must either be implemented in KRM-92 or
-explicitly split into follow-up issues before the Jira task is closed.
+**Phase 9 verdict:** the retained engineering scope and installed acceptance
+scope are complete in 0.1.20. KRM-92 was closed in Jira after final acceptance.
+
+Engineering verification on 4 September 2026 ran the 76 targeted contracts
+covering assignment ownership, Interior Set controls, portable profiles,
+material and atlas resets, collapsible/selection UI helpers, lifecycle copy,
+bundle metadata, status routing, stage-load probes, scalar Interior Set
+authoring, pipeline behaviour, and the retained fixture. All 76 passed. Kit's
+extension verifier accepted and published both the 0.1.19 implementation and
+the final 0.1.20 hardening package to the configured local registry. The final
+installed log and visual checks subsequently accepted disable/re-enable
+ownership and both RTX renderer modes.
 
 ## Acceptance boundary
 
-KRM-92 is ready for final UI-scope reassessment when:
+KRM-92 was accepted against the following boundary:
 
 - one installed ORMS runtime manages N Interior Sets through one classifier;
 - selector precedence and Default fallback are deterministic and observable;
@@ -1004,11 +1084,12 @@ KRM-92 is ready for final UI-scope reassessment when:
 
 ---
 
-## Deferred original KRM-92 scope
+## Historical original KRM-92 scope
 
-The following plan records the pre-Interior-Set KRM-92 scope. It is retained for
-the Phase 9 reassessment and must not be treated as current implementation
-instructions until that reassessment is complete.
+The following plan records the superseded pre-Interior-Set KRM-92 scope. It is
+retained only as historical input to the completed Phase 9 reassessment and is
+not current implementation guidance. Its original planned state and imperative
+wording deliberately describe what was known before the Interior Set redesign.
 
 ### Original record
 

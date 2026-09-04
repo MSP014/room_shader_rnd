@@ -6,10 +6,10 @@ from dataclasses import dataclass
 
 from pxr import Sdf, Usd, UsdGeom, UsdShade
 
+from .assignment_overrides import AUTO_ASSIGN_ATTRIBUTE
 from .resources import is_room_map_source_asset
 from .stage_visibility import hide_in_stage_window
 
-_AUTO_ASSIGN_ATTRIBUTE = "orms:autoAssign"
 _AUTO_ASSIGN_LAYER_NAME = "orms_auto_assignment.usda"
 _AUTO_ASSIGN_ROOT = Sdf.Path("/__ORMSAutoAssignment")
 _AUTO_ASSIGN_MATERIAL_PATH = _AUTO_ASSIGN_ROOT.AppendPath("Looks/RoomMap")
@@ -71,10 +71,9 @@ def _is_auto_assignment_candidate(
         if _normalised_name(ancestor.GetName()) == _WINDOWS_CONTAINER_NAME:
             return True
         ancestor = ancestor.GetParent()
-    auto_assign = prim.GetAttribute(_AUTO_ASSIGN_ATTRIBUTE)
+    auto_assign = prim.GetAttribute(AUTO_ASSIGN_ATTRIBUTE)
     if auto_assign and auto_assign.HasAuthoredValueOpinion():
-        if auto_assign.Get() is True:
-            return True
+        return True
     if material is None:
         return False
     return (
@@ -120,7 +119,7 @@ def evaluate_windows_glass(stage: Usd.Stage) -> tuple[AssignmentDecision, ...]:
             str(material.GetPath()) if material is not None else "<unbound>"
         )
 
-        auto_assign = prim.GetAttribute(_AUTO_ASSIGN_ATTRIBUTE)
+        auto_assign = prim.GetAttribute(AUTO_ASSIGN_ATTRIBUTE)
         if auto_assign and auto_assign.HasAuthoredValueOpinion():
             if auto_assign.Get() is False:
                 decisions.append(

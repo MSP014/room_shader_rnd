@@ -97,7 +97,7 @@ def test_probe_records_progress_and_transition_to_idle():
         context,
         app,
         {"ASSETS_LOADED": 8},
-        log_warning=lambda **record: records.append(record),
+        log_status=lambda **record: records.append(record),
         clock=lambda: now[0],
     )
 
@@ -146,7 +146,7 @@ def test_probe_emits_performance_heartbeat_after_fifteen_seconds():
         context,
         app,
         {},
-        log_warning=lambda **record: records.append(record),
+        log_status=lambda **record: records.append(record),
         clock=lambda: now[0],
         resource_sampler=lambda: {
             "process_working_set_gib": 7.5,
@@ -179,7 +179,7 @@ def test_probe_summarises_asset_batch_without_claiming_renderer_completion():
         context,
         app,
         {"OPENING": 1, "ASSETS_LOADING": 7, "ASSETS_LOADED": 8},
-        log_warning=lambda **record: records.append(record),
+        log_status=lambda **record: records.append(record),
         clock=lambda: now[0],
     )
     probe.start()
@@ -228,7 +228,7 @@ def test_probe_releases_events_2_guards_on_stop():
         context,
         _App(),
         {"OPENED": 2},
-        log_warning=lambda **_record: None,
+        log_status=lambda **_record: None,
     )
 
     probe.start()
@@ -244,9 +244,28 @@ def test_probe_passes_stage_event_enum_to_events_2_name_adapter():
         _StrictContext(),
         _App(),
         {"OPENED": _StageEventType.OPENED},
-        log_warning=lambda **_record: None,
+        log_status=lambda **_record: None,
     )
 
     probe.start()
 
     assert "stage:2" in dispatcher.callbacks
+
+
+def test_probe_reserves_warning_severity_for_actionable_failures():
+    context = _Context()
+    statuses = []
+    warnings = []
+    probe, dispatcher = _probe(
+        context,
+        _App(),
+        {"OPEN_FAILED": 3},
+        log_status=lambda **record: statuses.append(record),
+        log_warning=lambda **record: warnings.append(record),
+    )
+    probe.start()
+
+    dispatcher.emit(context.stage_event_name(3))
+
+    assert warnings[-1]["state"] == "STAGE_OPEN_FAILED"
+    assert all(record["state"] != "STAGE_OPEN_FAILED" for record in statuses)

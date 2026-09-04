@@ -17,6 +17,13 @@ LIFECYCLE_ACTION_LABELS = (
     ("restore", "Restore Original Asset"),
 )
 
+LIFECYCLE_ACTION_HELP = (
+    "Start activates ORMS or resumes a stopped result.\n"
+    "Stop freezes the current result and releases live updates.\n"
+    "Restart removes and rebuilds ORMS state from the current settings.\n"
+    "Restore Original Asset removes every ORMS-owned Session Layer opinion."
+)
+
 
 def enabled_lifecycle_actions(state: RuntimeState) -> frozenset[str]:
     """Return commands that are valid for the visible runtime state."""
@@ -89,6 +96,11 @@ class LifecycleControls:
                             label,
                             clicked_fn=getattr(self._callbacks, key),
                         )
+                ui.Label(
+                    LIFECYCLE_ACTION_HELP,
+                    word_wrap=True,
+                    height=0,
+                )
         self.set_state(self._state)
 
     def set_state(self, state: RuntimeState) -> None:

@@ -9,7 +9,10 @@ from pathlib import Path
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
-from ..interior_sets.contracts import runtime_set_token
+from ..interior_sets.contracts import (
+    DEFAULT_INTERIOR_SET_ID,
+    runtime_set_token,
+)
 from ..room_run.contracts import (
     ClassificationResult,
     ClassifierDiagnostic,
@@ -227,7 +230,6 @@ def _mapping_defaults(face_count: int) -> dict[str, list[object]]:
         DERIVED_ROOM_SIZE: [1] * face_count,
         DERIVED_ROOM_DEPTH_SIZE: [1] * face_count,
         DERIVED_ROOM_GROUP_ID: [0] * face_count,
-        DERIVED_INTERIOR_SET_ID: [""] * face_count,
         DERIVED_MAPPING_VALID: [0] * face_count,
         DERIVED_ROOM_AXIS_U: [(1.0, 0.0, 0.0)] * face_count,
         DERIVED_ROOM_AXIS_V: [(0.0, 1.0, 0.0)] * face_count,
@@ -254,7 +256,6 @@ def _set_mapping_values(
     values[DERIVED_ROOM_SIZE][face_index] = mapping.room_size
     values[DERIVED_ROOM_DEPTH_SIZE][face_index] = mapping.room_depth_size
     values[DERIVED_ROOM_GROUP_ID][face_index] = mapping.group_id
-    values[DERIVED_INTERIOR_SET_ID][face_index] = mapping.interior_set_id
     values[DERIVED_MAPPING_VALID][face_index] = int(mapping.mapping_valid)
     values[DERIVED_ROOM_AXIS_U][face_index] = mapping.room_axis_u
     values[DERIVED_ROOM_AXIS_V][face_index] = mapping.room_axis_v
@@ -328,16 +329,34 @@ def _author_uniform_int_primvar(
     ).Set(Vt.IntArray([int(value) for value in values]))
 
 
-def _author_uniform_string_primvar(
+def _author_constant_string_primvar(
     primvars: UsdGeom.PrimvarsAPI,
     name: str,
-    values: Sequence[object],
+    value: str,
 ) -> None:
     primvars.CreatePrimvar(
         name,
-        Sdf.ValueTypeNames.StringArray,
-        UsdGeom.Tokens.uniform,
-    ).Set(Vt.StringArray([str(value) for value in values]))
+        Sdf.ValueTypeNames.String,
+        UsdGeom.Tokens.constant,
+    ).Set(str(value))
+
+
+def _interior_set_id_for_prim(
+    extraction: StageExtraction,
+    prim_path: str,
+) -> str:
+    """Return the single mesh-scoped Set identity guaranteed by selectors."""
+
+    set_ids = {
+        aperture.interior_set_id
+        for aperture in extraction.apertures
+        if aperture.prim_path == prim_path
+    }
+    if len(set_ids) > 1:
+        raise ValueError(
+            f"One mesh resolved to multiple Interior Sets: {prim_path}"
+        )
+    return next(iter(set_ids), DEFAULT_INTERIOR_SET_ID)
 
 
 def _author_uniform_float3_primvar(
@@ -481,10 +500,10 @@ def author_derived_primvars(
                 DERIVED_MAPPING_VALID,
             ):
                 _author_uniform_int_primvar(primvars, name, values[name])
-            _author_uniform_string_primvar(
+            _author_constant_string_primvar(
                 primvars,
                 DERIVED_INTERIOR_SET_ID,
-                values[DERIVED_INTERIOR_SET_ID],
+                _interior_set_id_for_prim(extraction, prim_path),
             )
             _author_uniform_float_primvar(
                 primvars,

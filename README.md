@@ -2,11 +2,12 @@
 
 > An installable NVIDIA Omniverse Kit extension for scalable parallax interiors
 
-**Status**: `msp.orms.runtime` 0.1.5 is installed and accepted through a local
-Kit extension registry with Extension Manager, AUTOLOAD, Material Library,
-automatic window assignment, central ORMS controls, and both required RTX
-renderer modes. Final KRM-92 UI polish, real x2–x4 content, and urban-scale
-performance evidence remain planned.
+**Status**: KRM-92 is complete in the published `msp.orms.runtime` 0.1.20.
+Automated contracts cover the artist workflow, Interior Sets, source-safe
+mesh-assignment overrides, reset controls, and quieter stage-load telemetry.
+The installed package is accepted in RTX Real-Time and RTX Interactive, and
+the local production libraries publish coherent x1-x4 variant manifests.
+Performance evidence remains a separate empirical-validation task.
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
@@ -352,6 +353,39 @@ depth slices, and deterministic variation in one overview. Flat windows,
 faceted bays, and right-angle facade turns retain one continuous room
 perspective in both RTX renderer modes.*
 
+### Five Interior Sets: Diagnostic Assignment to Production Interiors
+
+KRM-92 extends the same global classifier from one atlas and material profile
+to five selector-driven Interior Sets. The forced-debug view makes the Set and
+room-family assignments readable across the complete building; the production
+view replaces those diagnostic atlases with the independently configured room
+libraries without changing the source USD asset.
+
+| Forced packaged-debug assignment | Production Interior Sets |
+| --- | --- |
+| <img src="docs/img/krm92/krm-92_01.png" alt="Building 150 with five selector-driven Interior Sets displayed through labelled packaged debug atlases in RTX Interactive" height="320"> | <img src="docs/img/krm92/krm-92_02.png" alt="Building 150 with five production Interior Set atlas libraries in RTX Interactive Path Tracing" height="320"> |
+
+*The two overview states use the same classified windows and shared-room
+layout. Debug mode exposes routing and x1-x4 family selection; production mode
+shows the artist-facing result.*
+
+| Production facade overview | Production oblique facade view |
+| --- | --- |
+| <img src="docs/img/krm92/krm-92_03.png" alt="Production ORMS interiors distributed across the front facade of Building 150" height="320"> | <img src="docs/img/krm92/krm-92_04.png" alt="Production ORMS interiors viewed obliquely across adjacent facades of Building 150" height="320"> |
+
+*Distinct room libraries remain visually legible across repeated windows while
+one runtime preserves the shared classifier, stable Set identities, and
+source-safe Session Layer ownership.*
+
+| Near-field production rooms | Shared rooms around a curved facade |
+| --- | --- |
+| <img src="docs/img/krm92/krm-92_05.png" alt="Near-field RTX Interactive view of two detailed production ORMS interiors" height="320"> | <img src="docs/img/krm92/krm-92_06.png" alt="Production ORMS rooms maintaining view-dependent depth around the curved facade of Building 150" height="320"> |
+
+*The retained close views expose the parallax depth, depth-slice furnishing,
+curtains, lighting, and cross-window room continuity that replace physical
+interior geometry. The visible performance HUD records this validation session
+only; it is not a substitute for the planned controlled benchmark.*
+
 ### Current Validated Boundary
 
 #### Validated now
@@ -383,7 +417,7 @@ perspective in both RTX renderer modes.*
   production x1–x4 atlas locations and global packaged-debug fallbacks.
 - Luminance-selected interior emission with threshold, softness, strength, and
   independent depth-slice eligibility, validated in both RTX renderer modes.
-- Installable `msp.orms.runtime` 0.1.18 packaging, publication, installation,
+- Installable `msp.orms.runtime` 0.1.20 packaging, publication, installation,
   enablement, and AUTOLOAD through a local Kit extension registry.
 - Automatic assignment of contract-valid `Windows_Glass` meshes through a
   reversible ORMS-owned Session sublayer, with source restoration on teardown.
@@ -391,16 +425,14 @@ perspective in both RTX renderer modes.*
 - A dockable `Window > ORMS` panel with lifecycle controls, per-Set material
   parameters, staged repeatable Interior Set blocks, debug/production mode,
   and portable `.orms` scene profiles.
-- Version-aware in-process extension upgrades, with final 0.1.18
-  disable/re-enable acceptance still pending.
+- 0.1.19 source-safe automatic-assignment inspection, lifecycle and x1
+  fallback guidance, material and atlas resets, inline material feedback, and
+  an artist-facing Extension Manager overview, protected by automated tests.
+- Version-aware in-process extension upgrades, with final 0.1.20
+  disable/re-enable ownership accepted from the clean installed log.
 
 #### Remaining boundaries
 
-- Final KRM-92 UI polish and artist-facing assignment inspection and override
-  controls.
-- Production `orms_variants.json` manifests proving ordered semantic identity
-  across each Set's x1–x4 atlas families.
-- Final installed 0.1.18 acceptance in both RTX renderer modes.
 - Optional ORMS 2.0 glass contamination and parallax art-direction controls.
 - A geometry-versus-Room-Map performance benchmark.
 
@@ -415,15 +447,15 @@ and depth-slice content. This content factory is a separate upstream authoring
 system, not part of the MDL shader itself. Building 150 now exercises five
 selector-driven production libraries across x1–x4 room sizes, while packaged
 labelled debug families remain available as a global diagnostic mode and
-per-family fallback. Production libraries still require semantic variant
-manifests before cross-family identity can be formally accepted.
+per-family fallback. The five local production libraries publish versioned
+semantic variant manifests with aligned x1-x4 identity sequences.
 
 ## Production Validation Path
 
-The technical R&D core, first production-building integration, and installable
-Kit extension are complete. The remaining validation path refines the
-artist-facing UI and scales the accepted contract from one building to an
-urban digital-twin context.
+The technical R&D core, first production-building integration, installable Kit
+extension, and KRM-92 artist workflow are complete. The remaining validation
+path scales the accepted contract from one building to an urban digital-twin
+context and adds controlled performance evidence.
 
 ### Stage 1: Building 150 Integration — Complete
 
@@ -588,11 +620,12 @@ Python package, MDL resources, public debug atlases, icons, changelog, and
 Extension Manager documentation are materialised into one non-overwriting
 release bundle and published through Kit's ordinary extension-registry flow.
 
-Installed versions through 0.1.16 have exercised the local-registry workflow,
+Installed versions through 0.1.18 have exercised the local-registry workflow,
 AUTOLOAD, Material Library creation, reversible automatic assignment, five
 Interior Sets, independent x1–x4 runtime material families, and source-safe
-Session Layer ownership. Version 0.1.18 is published as the current checkpoint;
-its final two-renderer and disable/re-enable acceptance remains pending.
+Session Layer ownership. Version 0.1.20 is published and accepted in RTX
+Real-Time and RTX Interactive; its final log also confirms clean
+disable/re-enable ownership.
 
 The canonical module ownership and Session Layer flow are described once in
 [Extension Architecture](#extension-architecture). This milestone section
@@ -600,9 +633,9 @@ records the installed result rather than repeating that architecture.
 
 The [KRM-91 integration record](docs/knowledge_base/mdl/011_orms_kit_extension.md)
 contains the architecture, failure history, and installed acceptance evidence.
-The [KRM-92 UI plan](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md)
-defines the remaining artist-facing presentation work without reopening the
-accepted extension runtime.
+The [KRM-92 delivery record](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md)
+records the completed artist-facing implementation and installed acceptance
+without reopening the accepted extension runtime.
 
 ---
 
@@ -615,6 +648,12 @@ camera path, renderer settings, and visual target. It will record GPU frame
 time or FPS, VRAM, scene load time, USD prim or instance count, and practical
 geometry statistics before the workflow is presented as a city-scale
 optimisation.
+
+The draft [geometry-versus-ORMS VRAM benchmark](docs/knowledge_base/mdl/013_geometry_vs_orms_vram_benchmark.md)
+predicts approximately **15-34x lower texture residency for ORMS** under its
+primary like-for-like assumptions. This is an unverified analytical hypothesis,
+not an empirical performance result: it does not yet prove an equivalent FPS
+gain, load-time reduction, or measured renderer-memory ratio.
 
 ---
 
@@ -667,10 +706,9 @@ The renderer-validated implementation supports:
 - Staged structural editing, live per-Set material controls, and portable
   `.orms` scene-profile save/load.
 
-The remaining work no longer concerns the core PIM mathematics or the Kit
-extension boundary. It concerns the remaining KRM-92 artist workflow,
-production semantic manifests, performance evidence, and urban-scale
-validation.
+The remaining work no longer concerns the core PIM mathematics, the Kit
+extension boundary, or KRM-92. It concerns controlled performance evidence and
+urban-scale validation.
 
 ### Phase 4: Productionisation — In progress
 
@@ -679,8 +717,6 @@ Kit extension boundary. ORMS now has repeatable packaging, local-registry
 publication, Extension Manager installation, AUTOLOAD, configuration,
 diagnostics, and controlled lifecycle behaviour. Its remaining scope will:
 
-- complete the KRM-92 artist-facing UI and assignment-management pass;
-- publish semantic identity manifests for the production x1–x4 libraries;
 - scale the workflow to a family of buildings assembled into several city
   blocks; and
 - complete the controlled geometry-versus-ORMS performance benchmark.
@@ -751,7 +787,8 @@ interior emission. The same system is packaged as an installable Kit extension
 with registry installation, AUTOLOAD, Material Library integration, reversible
 automatic assignment, central controls, external production-atlas routing,
 version-safe upgrades, and symmetric teardown. Multi-building profiling and
-final KRM-92 UI polish remain separate boundaries.
+controlled performance evidence remain separate boundaries; KRM-92 installed
+acceptance is complete.
 
 The retained evidence demonstrates:
 
@@ -781,7 +818,7 @@ registry publication tool. The complete workflow is described in
 [extension README](exts/msp.orms.runtime/README.md), the publication section
 above, the
 [KRM-91 integration record](docs/knowledge_base/mdl/011_orms_kit_extension.md),
-and the [KRM-92 UI plan](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md).
+and the [KRM-92 delivery record](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md).
 
 **For shader and OpenUSD developers**: See the
 [Knowledge Base](docs/knowledge_base/) for the technical contracts.
