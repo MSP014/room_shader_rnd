@@ -9,8 +9,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.omniverse.interior_sets.atlas_mode import normalise_atlas_mode
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.atlas_mode import normalise_atlas_mode
+from msp.orms.interior_sets.contracts import (
     ROOM_SIZES,
     InteriorSetCollection,
     InteriorSetConfig,

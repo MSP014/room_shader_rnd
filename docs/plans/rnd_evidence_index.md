@@ -179,7 +179,7 @@ Map mathematics was introduced.
 
 **Supporting artefacts:**
 
-- `src/mdl/hello_world.mdl`
+- `exts/msp.orms.runtime/data/mdl/hello_world.mdl`
 - `tests/test_hello_world_material.py`
 - `docs/knowledge_base/mdl/001_hello_world.md`
 
@@ -207,10 +207,10 @@ not supply the material view vector required for PIM.
 **Supporting artefacts:**
 
 - `assets/_external/usd/test_grid/test_grid.usd`
-- `src/mdl/diagnostics/normal_as_colour.mdl`
-- `src/mdl/diagnostics/position_as_colour.mdl`
-- `src/mdl/diagnostics/direction_as_colour.mdl`
-- `src/mdl/diagnostics/uv0_as_colour.mdl`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/normal_as_colour.mdl`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/position_as_colour.mdl`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/direction_as_colour.mdl`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/uv0_as_colour.mdl`
 - `tests/test_state_diagnostics.py`
 - `docs/knowledge_base/mdl/002_state_functions.md`
 
@@ -237,10 +237,10 @@ camera motion without persisting camera updates to the source layer.
 
 **Supporting artefacts:**
 
-- `src/mdl/diagnostics/camera_direction_as_colour.mdl`
-- `tools/omniverse/runtime/camera_position_bridge.py`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/camera_direction_as_colour.mdl`
+- `exts/msp.orms.runtime/msp/orms/scene/camera_position_bridge.py`
 - `tests/shared_room_runtime/runtime/test_camera_position_bridge.py`
-- `tools/omniverse/runtime/status_log.py`
+- `exts/msp.orms.runtime/msp/orms/scene/status_log.py`
 - `tests/shared_room_runtime/runtime/test_status_log.py`
 - `docs/knowledge_base/mdl/003_camera_position_bridge.md`
 
@@ -268,7 +268,7 @@ expected encoded values without falling back to magenta.
 **Supporting artefacts:**
 
 - `assets/_external/usd/test_grid_attribs/test_grid_attribs.usd`
-- `src/mdl/diagnostics/primvar_as_colour.mdl`
+- `exts/msp.orms.runtime/data/mdl/diagnostics/primvar_as_colour.mdl`
 - `tests/test_primvar_access.py`
 - `docs/knowledge_base/mdl/004_primvar_access.md`
 
@@ -295,7 +295,7 @@ orientation were accepted in both RTX modes.
 
 **Supporting artefacts:**
 
-- `src/mdl/room_map_single.mdl`
+- `exts/msp.orms.runtime/data/mdl/room_map_single.mdl`
 - `assets/_external/tex/room_map_debug/room_map_debug.1001.png`
 - `tests/test_room_map_single.py`
 - `docs/knowledge_base/mdl/005_single_room_parallax.md`
@@ -331,7 +331,7 @@ bounded analytic intersections rather than ray marching.
 
 **Supporting artefacts:**
 
-- `src/mdl/room_map.mdl`
+- `exts/msp.orms.runtime/data/mdl/room_map.mdl`
 - `assets/_external/tex/room_map_debug/room_map_debug.1002.png`
 - `tests/test_room_map_slices.py`
 - `docs/knowledge_base/mdl/006_depth_slices.md`
@@ -375,7 +375,7 @@ ordinary packed UV layout to be replaced.
 - `assets/_external/usd/test_grid_wins/test_grid_wins.usd` — exported
   component root; its payload, geometry, and material layers are retained in
   the same directory.
-- `src/mdl/room_map.mdl`
+- `exts/msp.orms.runtime/data/mdl/room_map.mdl`
 - `assets/_external/tex/room_map_debug/room_map_debug.1001.png`
 - `assets/_external/tex/room_map_debug/room_map_debug.1002.png`
 - `assets/_external/tex/room_map_debug/room_map_debug.1003.png`
@@ -422,7 +422,7 @@ and retains the camera bridge, room-frame, and UDIM-variant contracts.
 - `assets/_external/usd/test_grid_wins_diff/test_grid_wins_diff.usd` —
   exported component root; its payload, geometry, and material layers are
   retained in the same directory.
-- `src/mdl/room_map.mdl`
+- `exts/msp.orms.runtime/data/mdl/room_map.mdl`
 - `tests/test_room_map_apertures.py`
 - `tests/test_room_map_apertures_houdini.py`
 - `docs/knowledge_base/mdl/008_window_apertures.md`

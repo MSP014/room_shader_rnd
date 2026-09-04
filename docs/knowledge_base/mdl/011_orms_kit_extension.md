@@ -5,11 +5,17 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-91 |
-| Implementation | `exts/msp.orms.runtime/`, `exts/msp.orms.runtime/msp/orms/runtime/lifecycle.py`, `exts/msp.orms.runtime/msp/orms/runtime/lifecycle_controls.py`, `exts/msp.orms.runtime/msp/orms/runtime/runtime_imports.py`, `exts/msp.orms.runtime/msp/orms/runtime/settings_window.py`, `tools/omniverse/runtime/assignment.py`, `tools/omniverse/runtime/resources.py`, `tools/omniverse/runtime/stage_visibility.py`, `tools/omniverse/shared_room/material_controls.py`, `tools/omniverse/shared_room/settings_panel.py`, `tools/package_orms_extension.py` |
-| Automated evidence | `tests/kit_extension/`, `tests/kit_extension/lifecycle/`, `tests/kit_extension/runtime_imports/`, `tests/shared_room_runtime/runtime/test_assignment.py`, `tests/shared_room_runtime/runtime/test_resources.py`, `tests/shared_room_runtime/runtime/test_stage_visibility.py`, `tests/shared_room_runtime/shared_room/test_material_controls.py`, `tests/shared_room_runtime/room_run/test_classifier.py`, `tests/shared_room_runtime/shared_room/test_controller.py` |
+| Implementation | `exts/msp.orms.runtime/`, including `msp/orms/runtime/`, `msp/orms/scene/`, `msp/orms/classification/`, `msp/orms/shared_room/`, `msp/orms/interior_sets/`, and `data/mdl/`; `tools/package_orms_extension.py` |
+| Automated evidence | `tests/kit_extension/`, `tests/shared_room_runtime/runtime/`, `tests/shared_room_runtime/integration/`, `tests/shared_room_runtime/room_run/`, `tests/shared_room_runtime/shared_room/` |
 | Validation assets | Empty Kit bootstrap stage; hydrated `assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd`; `tests/building_150_runtime/test_room_map_building_150.usda` |
 | Evidence state | KRM-91 accepted live on installed `msp.orms.runtime-0.1.5`: local-registry installation and AUTOLOAD, in-process upgrade, Material Library, Building 150, production and debug atlases, central settings, lifecycle controls, both RTX modes, and disable/re-enable teardown all passed |
-| Last reviewed | 3 September 2026 |
+| Last reviewed | 4 September 2026 |
+
+> Source ownership note, 4 September 2026: KRM-111 consolidated all ORMS
+> product Python and MDL beneath `exts/msp.orms.runtime/`. Historical sections
+> below retain the filenames and package layout used by the KRM-91 versions
+> they document; they are evidence of that implementation sequence, not the
+> current repository inventory.
 
 ## Purpose
 

@@ -7,7 +7,7 @@ from math import isclose
 
 from pxr import Gf, Sdf, Usd, UsdGeom
 
-from ..runtime.resources import is_room_map_source_asset
+from ..scene.resources import is_room_map_source_asset
 from .contracts import RUNTIME_OWNED_PRIMVAR_NAMES
 from .stage import _has_room_map_material_binding
 

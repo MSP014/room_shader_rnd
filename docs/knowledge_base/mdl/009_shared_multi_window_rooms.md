@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-93 — Shared Multi-Window Room Volume and Aspect Controls |
-| Implementation | `tools/omniverse/room_run/`, `tools/omniverse/shared_room/`, `tools/omniverse/runtime/`, `tools/omniverse/reload_room_map_runtime.py`, `src/mdl/room_map.mdl`, `src/mdl/room_map_single.mdl` |
+| Implementation | `exts/msp.orms.runtime/msp/orms/classification/`, `exts/msp.orms.runtime/msp/orms/shared_room/`, `exts/msp.orms.runtime/msp/orms/scene/`, `exts/msp.orms.runtime/msp/orms/runtime/reload_room_map_runtime.py`, `exts/msp.orms.runtime/data/mdl/room_map.mdl`, `exts/msp.orms.runtime/data/mdl/room_map_single.mdl` |
 | Automated evidence | `tests/shared_room_runtime/room_run/`, `tests/shared_room_runtime/shared_room/`, `tests/shared_room_runtime/runtime/`, `tests/shared_room_runtime/integration/`, `tests/shared_room_runtime/test_fixture_launcher_bundle.py` |
 | Validation scenes | `tests/shared_room_runtime/test_room_map_shared_rooms_omniverse.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_instances.usda`, `tests/shared_room_runtime/test_room_map_shared_rooms_houdini_instances.usda` |
 | Evidence state | Renderer-accepted in both required RTX modes; focused automated evidence recorded; final repository quality gate reserved for pre-commit |
@@ -27,8 +27,8 @@ Houdini-authored identity attributes.
 ### Source asset contract
 
 Eligible window meshes retain the existing ORMS data and a source x1 binding.
-The retained fixtures use the renderer-validated `src/mdl/room_map_single.mdl`;
-classified faces receive an ephemeral binding to `src/mdl/room_map.mdl`:
+The retained fixtures use the renderer-validated `exts/msp.orms.runtime/data/mdl/room_map_single.mdl`;
+classified faces receive an ephemeral binding to `exts/msp.orms.runtime/data/mdl/room_map.mdl`:
 
 | Primvar | Type | Normal interpolation | Responsibility |
 | --- | --- | --- | --- |
@@ -473,12 +473,27 @@ stage_path = Path(root_layer.realPath).resolve()
 repository_root = next(
     parent
     for parent in stage_path.parents
-    if (parent / "tools" / "omniverse" / "reload_room_map_runtime.py").is_file()
+    if (
+        parent
+        / "exts"
+        / "msp.orms.runtime"
+        / "msp"
+        / "orms"
+        / "runtime"
+        / "reload_room_map_runtime.py"
+    ).is_file()
 )
+extension_root = repository_root / "exts" / "msp.orms.runtime"
 orms_runtime_loader = runpy.run_path(
-    str(repository_root / "tools" / "omniverse" / "reload_room_map_runtime.py")
+    str(
+        extension_root
+        / "msp"
+        / "orms"
+        / "runtime"
+        / "reload_room_map_runtime.py"
+    )
 )
-orms_runtime_loader["reload_and_start"](repository_root)
+orms_runtime_loader["reload_and_start"](extension_root)
 ```
 
 The Preferences page is available as `ORMS Classifier`. Setting changes are

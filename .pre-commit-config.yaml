@@ -36,7 +36,7 @@ repos:
         entry: conda run -n shader_rnd python -m bandit
         language: system
         types: [python]
-        args: ["-r", "src", "tools"]
+        args: ["-r", "exts", "tools"]
         exclude: "tests/"
 
       # Dependency Consistency Check (ADR 003 Protection)

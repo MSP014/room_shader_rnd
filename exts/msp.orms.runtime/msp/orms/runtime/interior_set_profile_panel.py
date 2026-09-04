@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from tools.omniverse.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_sections import collapsable_frame
 
 
 def build_interior_set_profile_panel(

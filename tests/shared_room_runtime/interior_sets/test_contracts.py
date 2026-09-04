@@ -1,8 +1,7 @@
 """Protect Interior Set identity, ordering, and draft semantics."""
 
 import pytest
-
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     DEFAULT_INTERIOR_SET_ID,
     InteriorSetCollection,
     InteriorSetConfig,

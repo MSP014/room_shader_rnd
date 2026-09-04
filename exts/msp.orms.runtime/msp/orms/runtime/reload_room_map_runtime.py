@@ -1,4 +1,4 @@
-"""Reload and start the manual ORMS runtime from exact repository source."""
+"""Reload and start the manual ORMS runtime from exact extension source."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from pathlib import Path
 from types import ModuleType
 
 if __package__:
-    from .runtime.diagnostics import corner_box_summaries
-    from .runtime.source_loader import (
+    from ..scene.diagnostics import corner_box_summaries
+    from ..scene.source_loader import (
         RuntimeSourceLoader,
         stop_runtime_modules,
     )
@@ -15,14 +15,14 @@ else:
     import sys
 
     # Kit's Script Editor uses runpy.run_path(), which deliberately executes
-    # this entry point without a package.  Expose the checkout root so the same
+    # this entry point without a package. Expose the extension root so the same
     # canonical imports work in both standalone and package execution modes.
-    _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-    _source_repository_text = str(_SOURCE_REPOSITORY_ROOT)
-    if _source_repository_text not in sys.path:
-        sys.path.insert(0, _source_repository_text)
-    from tools.omniverse.runtime.diagnostics import corner_box_summaries
-    from tools.omniverse.runtime.source_loader import (
+    _SOURCE_EXTENSION_ROOT = Path(__file__).resolve().parents[3]
+    _source_extension_text = str(_SOURCE_EXTENSION_ROOT)
+    if _source_extension_text not in sys.path:
+        sys.path.insert(0, _source_extension_text)
+    from msp.orms.scene.diagnostics import corner_box_summaries
+    from msp.orms.scene.source_loader import (
         RuntimeSourceLoader,
         stop_runtime_modules,
     )
@@ -163,7 +163,7 @@ def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
 
 
 def reload_and_start(
-    repository_root: str | Path,
+    extension_root: str | Path,
     *,
     mdl_source_asset: str | None = None,
     atlas_families: tuple[tuple[int, str, int], ...] | None = None,
@@ -172,7 +172,7 @@ def reload_and_start(
 ):
     """Replace cached ORMS modules with exact source and start the runtime."""
 
-    root = Path(repository_root).resolve()
+    root = Path(extension_root).resolve()
     loader = RuntimeSourceLoader(root)
     loader.prepare()
     _stage_probe, _core, shared, bridge, resources = _load_runtime_stack(
@@ -199,7 +199,7 @@ def reload_and_start(
 
     _seed_initial_camera(shared, bridge)
     classifier = shared.start(
-        root,
+        root.parents[1],
         resources=runtime_resources,
         interior_sets=interior_sets,
         interior_set_resources=interior_set_resources,

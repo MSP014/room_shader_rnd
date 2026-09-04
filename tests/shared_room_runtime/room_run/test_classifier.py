@@ -3,7 +3,7 @@
 from dataclasses import replace
 from random import Random
 
-from tools.omniverse.room_run.classifier import (
+from msp.orms.classification.classifier import (
     ClassifierSettings,
     classify_apertures,
 )

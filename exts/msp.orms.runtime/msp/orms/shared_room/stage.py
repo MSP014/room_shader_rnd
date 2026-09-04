@@ -7,8 +7,8 @@ from pathlib import Path
 
 from pxr import Gf, Usd, UsdGeom, UsdShade
 
-from ..room_run.contracts import ApertureDescriptor, ClassifierDiagnostic
-from ..runtime.resources import (
+from ..classification.contracts import ApertureDescriptor, ClassifierDiagnostic
+from ..scene.resources import (
     ROOM_MAP_MDL_FILENAME,
     ROOM_MAP_SINGLE_MDL_FILENAME,
     RuntimeResources,

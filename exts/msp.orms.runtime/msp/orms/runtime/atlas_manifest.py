@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.omniverse.interior_sets.contracts import VariantIdentityManifest
+from msp.orms.interior_sets.contracts import VariantIdentityManifest
 
 VARIANT_MANIFEST_FILENAME = "orms_variants.json"
 DEBUG_VARIANT_NAMESPACE = "orms.packaged_debug.v1"

@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-85 — MDL Hello World |
-| Implementation | `src/mdl/hello_world.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/hello_world.mdl` |
 | Automated evidence | `tests/test_hello_world_material.py` |
 | Validation scene | `assets/_external/usd/hello_world_material.usda` |
 | Evidence state | Renderer-validated |
@@ -13,7 +13,7 @@
 
 ## Purpose
 
-`src/mdl/hello_world.mdl` is the minimal material-authoring proof for the
+`exts/msp.orms.runtime/data/mdl/hello_world.mdl` is the minimal material-authoring proof for the
 Room Map Shader RnD. It exports `hello_world`, a red diffuse material written
 against MDL 1.7.
 
@@ -51,7 +51,7 @@ Important failure checks are:
 2. Confirm that `/World/Cube` has the material binding
    `/World/Looks/HelloWorld`.
 3. Select the material's `Shader` prim. Its source asset must resolve to
-   `../../../src/mdl/hello_world.mdl`, with `hello_world` as the subidentifier.
+   `../../../exts/msp.orms.runtime/data/mdl/hello_world.mdl`, with `hello_world` as the subidentifier.
 4. In Render Settings, select **RTX - Real-Time** and confirm the illuminated
    cube is red.
 5. Select **RTX - Interactive (Path Tracing)** and confirm the cube remains

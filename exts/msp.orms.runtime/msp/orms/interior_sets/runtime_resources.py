@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..runtime.resources import RuntimeResources
+from ..scene.resources import RuntimeResources
 
 
 @dataclass(frozen=True)

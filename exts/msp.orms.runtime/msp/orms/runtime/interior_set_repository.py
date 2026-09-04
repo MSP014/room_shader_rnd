@@ -6,12 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
-from tools.omniverse.interior_sets.atlas_mode import (
+from msp.orms.interior_sets.atlas_mode import (
     ATLAS_MODE_DEBUG,
     ATLAS_MODE_PRODUCTION,
     normalise_atlas_mode,
 )
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     INTERIOR_SET_SCHEMA_VERSION,
     ROOM_SIZES,
     InteriorSetCollection,

@@ -7,10 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.omniverse.interior_sets.contracts import VariantIdentityManifest
+from msp.orms.interior_sets.contracts import VariantIdentityManifest
 
 from .atlas_manifest import debug_variant_manifest, load_variant_manifest
-from .runtime_imports import discover_runtime_root
 
 MATERIAL_SOURCE_ASSET = "room_map.mdl"
 MATERIAL_SUBIDENTIFIER = "room_map"
@@ -51,7 +50,6 @@ class ResourceLayout:
 
     extension_root: Path
     mdl_root: Path
-    runtime_root: Path
     debug_atlases: tuple[AtlasResource, ...]
 
     @classmethod
@@ -60,15 +58,8 @@ class ResourceLayout:
 
         extension_root = Path(module_file).resolve().parents[3]
         checkout_root = extension_root.parents[1]
-        runtime_root = discover_runtime_root(module_file)
 
-        packaged_mdl_root = extension_root / "data" / "mdl"
-        checkout_mdl_root = checkout_root / "src" / "mdl"
-        mdl_root = (
-            packaged_mdl_root
-            if _contains_runtime_mdl(packaged_mdl_root)
-            else checkout_mdl_root
-        )
+        mdl_root = extension_root / "data" / "mdl"
         if not _contains_runtime_mdl(mdl_root):
             raise FileNotFoundError(
                 "The ORMS extension has no packaged room_map.mdl resources"
@@ -115,7 +106,6 @@ class ResourceLayout:
         return cls(
             extension_root=extension_root,
             mdl_root=mdl_root,
-            runtime_root=runtime_root,
             debug_atlases=tuple(debug_atlases),
         )
 

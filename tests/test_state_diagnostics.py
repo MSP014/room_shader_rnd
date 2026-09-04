@@ -69,6 +69,12 @@ def test_each_grid_copy_has_its_diagnostic_material_bound():
         assert material.GetPath() == material_path
         assert source_asset.path.endswith(module_name)
         module_path = (
-            REPOSITORY_ROOT / "src" / "mdl" / "diagnostics" / module_name
+            REPOSITORY_ROOT
+            / "exts"
+            / "msp.orms.runtime"
+            / "data"
+            / "mdl"
+            / "diagnostics"
+            / module_name
         )
         assert state_call in module_path.read_text(encoding="utf-8")

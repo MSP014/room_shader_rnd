@@ -1,14 +1,14 @@
 """Protect deterministic path-level Interior Set selection."""
 
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.classification.contracts import ApertureDescriptor
+from msp.orms.interior_sets.contracts import (
     InteriorSetCollection,
     InteriorSetConfig,
 )
-from tools.omniverse.interior_sets.selectors import (
+from msp.orms.interior_sets.selectors import (
     assign_apertures,
     resolve_selector,
 )
-from tools.omniverse.room_run.contracts import ApertureDescriptor
 
 KITCHENS_ID = "11111111-1111-1111-1111-111111111111"
 SHOPS_ID = "22222222-2222-2222-2222-222222222222"

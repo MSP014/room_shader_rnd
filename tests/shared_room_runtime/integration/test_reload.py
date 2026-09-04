@@ -4,15 +4,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.omniverse import reload_room_map_runtime
-from tools.omniverse import room_run_classifier as legacy_core_module
-from tools.omniverse import shared_room_classifier as legacy_controller_module
-from tools.omniverse.room_run import classifier as core_classifier_module
-from tools.omniverse.shared_room import controller as classifier_module
+from msp.orms.classification import classifier as core_classifier_module
+from msp.orms.runtime import reload_room_map_runtime
+from msp.orms.runtime import room_run_classifier as legacy_core_module
+from msp.orms.runtime import shared_room_classifier as legacy_controller_module
+from msp.orms.shared_room import controller as classifier_module
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 RELOAD_PATH = (
-    REPOSITORY_ROOT / "tools" / "omniverse" / "reload_room_map_runtime.py"
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "msp"
+    / "orms"
+    / "runtime"
+    / "reload_room_map_runtime.py"
 )
 
 

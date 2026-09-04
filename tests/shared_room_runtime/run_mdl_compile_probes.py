@@ -116,9 +116,14 @@ def _write_probe_assets(
     probe_name: str,
     repository_root: Path,
 ) -> tuple[Path, Path]:
-    mdl_source = (repository_root / "src" / "mdl" / "room_map.mdl").read_text(
-        encoding="utf-8"
-    )
+    mdl_source = (
+        repository_root
+        / "exts"
+        / "msp.orms.runtime"
+        / "data"
+        / "mdl"
+        / "room_map.mdl"
+    ).read_text(encoding="utf-8")
     expression = _PROBE_EXPRESSIONS[probe_name]
     if expression is None:
         mdl_source = (

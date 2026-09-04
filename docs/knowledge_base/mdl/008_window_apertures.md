@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-94 — Window Aperture Scale and Offset Controls |
-| Implementation | `src/mdl/room_map.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/room_map.mdl` |
 | Automated evidence | `tests/test_room_map_apertures.py`, `tests/test_room_map_apertures_houdini.py` |
 | Validation scenes | `tests/test_room_map_apertures.usda`, `tests/test_room_map_apertures_houdini.usda` |
 | Evidence state | Renderer-validated on Omniverse- and Houdini-authored geometry |
@@ -104,9 +104,10 @@ import omni.usd
 
 root_layer = omni.usd.get_context().get_stage().GetRootLayer()
 repository_root = Path(root_layer.realPath).parents[1]
-sys.path.append(str(repository_root / "tools" / "omniverse"))
+extension_root = repository_root / "exts" / "msp.orms.runtime"
+sys.path.append(str(extension_root))
 
-import camera_position_bridge
+from msp.orms.scene import camera_position_bridge
 
 camera_position_bridge.stop()
 camera_position_bridge = importlib.reload(camera_position_bridge)

@@ -1,26 +1,25 @@
 """Protect ordered stage classification and bounded material-family authoring."""
 
 import pytest
-from pxr import Gf, Sdf, UsdGeom, UsdShade
-
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     DEFAULT_INTERIOR_SET_ID,
     InteriorSetCollection,
     InteriorSetConfig,
     runtime_set_token,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeResources,
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.runtime.resources import (
+from msp.orms.scene.resources import (
     RuntimeAtlasFamily,
     RuntimeResources,
 )
-from tools.omniverse.shared_room import authoring as authoring_module
-from tools.omniverse.shared_room.authoring import RuntimeLayerOwner
-from tools.omniverse.shared_room.contracts import RuntimeClassifierSettings
-from tools.omniverse.shared_room.pipeline import classify_stage
+from msp.orms.shared_room import authoring as authoring_module
+from msp.orms.shared_room.authoring import RuntimeLayerOwner
+from msp.orms.shared_room.contracts import RuntimeClassifierSettings
+from msp.orms.shared_room.pipeline import classify_stage
+from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 from ._support import REPOSITORY_ROOT, _window_stage
 

@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-90 — Automatic Debug Room Variant Selection |
-| Implementation | `src/mdl/room_map.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/room_map.mdl` |
 | Automated evidence | `tests/test_room_map_variants.py`, `tests/test_room_map_variants_houdini.py`, `tests/test_room_map_texture_assets.py` |
 | Validation scenes | `tests/test_room_map_variants.usda`, `tests/test_room_map_variants_houdini.usda` |
 | Evidence state | Renderer-validated on Omniverse- and Houdini-authored geometry |

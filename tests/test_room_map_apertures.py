@@ -7,7 +7,14 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_apertures.usda"
-MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
+MDL_PATH = (
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
+    / "mdl"
+    / "room_map.mdl"
+)
 
 WINDOW_DIMENSIONS = {
     "WindowSquareDefault": (1.0, 1.0),

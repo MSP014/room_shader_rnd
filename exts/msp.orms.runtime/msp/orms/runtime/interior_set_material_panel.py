@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import partial
 
-from tools.omniverse.shared_room.material_controls import MATERIAL_CONTROLS
-from tools.omniverse.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
+from msp.orms.shared_room.ui_sections import collapsable_frame
 
 from .interior_set_controller import InteriorSetController
 from .interior_set_fields import material_field

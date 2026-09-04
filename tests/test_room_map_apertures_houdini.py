@@ -178,7 +178,9 @@ def test_capture_stage_overrides_only_exported_window_material():
 
     assert relationship
     assert material.GetPath() == MATERIAL_PATH
-    assert source_asset.path.endswith("src/mdl/room_map.mdl")
+    assert source_asset.path.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map.mdl"
+    )
     assert (
         shader.GetPrim()
         .GetAttribute("info:mdl:sourceAsset:subIdentifier")

@@ -2,13 +2,15 @@
 
 from pathlib import Path
 
-from tools.omniverse.runtime.source_loader import RuntimeSourceLoader
+from msp.orms.scene import source_loader
+from msp.orms.scene.source_loader import RuntimeSourceLoader
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+EXTENSION_ROOT = REPOSITORY_ROOT / "exts" / "msp.orms.runtime"
 
 
 def test_runtime_source_manifest_covers_every_split_dependency():
-    loader = RuntimeSourceLoader(REPOSITORY_ROOT)
+    loader = RuntimeSourceLoader(EXTENSION_ROOT)
 
     expected = {
         "runtime_resource_metrics",
@@ -45,11 +47,22 @@ def test_runtime_source_manifest_covers_every_split_dependency():
 
 
 def test_runtime_source_loader_uses_canonical_package_names():
-    loader = RuntimeSourceLoader(REPOSITORY_ROOT)
+    loader = RuntimeSourceLoader(EXTENSION_ROOT)
     loader.prepare()
 
     module = loader.load("room_run_contracts")
 
-    assert module.__name__ == "tools.omniverse.room_run.contracts"
-    assert module.__package__ == "tools.omniverse.room_run"
+    assert module.__name__ == "msp.orms.classification.contracts"
+    assert module.__package__ == "msp.orms.classification"
     assert Path(module.__file__) == loader.source_paths["room_run_contracts"]
+
+
+def test_runtime_cleanup_retains_the_pre_consolidation_lifecycle_names():
+    legacy_names = {
+        "tools.omniverse.runtime.stage_load_probe",
+        "tools.omniverse.shared_room_classifier",
+        "tools.omniverse.shared_room.controller",
+        "tools.omniverse.runtime.camera_position_bridge",
+    }
+
+    assert legacy_names <= set(source_loader._LIFECYCLE_MODULE_NAMES)

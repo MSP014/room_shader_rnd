@@ -1,13 +1,12 @@
 """Protect the one-to-many ORMS-window-to-material control contract."""
 
-from pxr import Gf
-
-from tools.omniverse.shared_room.authoring import _SHARED_ARTIST_INPUT_NAMES
-from tools.omniverse.shared_room.material_controls import (
+from msp.orms.shared_room.authoring import _SHARED_ARTIST_INPUT_NAMES
+from msp.orms.shared_room.material_controls import (
     MATERIAL_CONTROLS,
     material_input_values_from_mapping,
     material_setting_path,
 )
+from pxr import Gf
 
 
 def test_preferences_cover_every_shared_artist_input_once():

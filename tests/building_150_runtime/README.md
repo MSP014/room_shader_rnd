@@ -14,7 +14,8 @@ The launcher deliberately does not start ORMS or claim renderer completion.
 After the stage-open record appears, use the installed `msp.orms.runtime`
 0.1.20 extension through **Window > ORMS**. Configure or load the required
 Interior Sets, press **Apply Interior Sets**, and press **Start** if the runtime
-is inactive. The manual `tools/omniverse/reload_room_map_runtime.py` entry point
+is inactive. The manual
+`exts/msp.orms.runtime/msp/orms/runtime/reload_room_map_runtime.py` entry point
 is reserved for exact-source development, not normal fixture acceptance.
 Follow the runtime and renderer-validation boundaries documented in
 `../shared_room_runtime/README.md`.

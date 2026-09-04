@@ -2,7 +2,7 @@
 
 import sys
 
-from .room_run import classifier as _classifier
+from ..classification import classifier as _classifier
 
 # Aliasing the module object preserves monkeypatches and identity-sensitive
 # contracts; copying exports here would create a second observable facade state.

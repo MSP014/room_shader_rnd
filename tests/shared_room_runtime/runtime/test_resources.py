@@ -4,8 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-from tools.omniverse.runtime.resources import (
+from msp.orms.scene.resources import (
     RuntimeAtlasFamily,
     RuntimeResources,
     coerce_runtime_resources,
@@ -42,7 +41,7 @@ def _touch_udim_family(asset_path: Path) -> None:
 
 
 def test_repository_adapter_exposes_only_complete_debug_families(tmp_path):
-    mdl_root = tmp_path / "src" / "mdl"
+    mdl_root = tmp_path / "exts" / "msp.orms.runtime" / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     (mdl_root / "room_map.mdl").touch()
     complete = (
@@ -69,7 +68,9 @@ def test_repository_adapter_exposes_only_complete_debug_families(tmp_path):
 
     assert resources.available_room_sizes == frozenset({1})
     assert resources.atlas_family(1).asset_path == complete.as_posix()
-    assert resources.mdl_source_asset.endswith("src/mdl/room_map.mdl")
+    assert resources.mdl_source_asset.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map.mdl"
+    )
     with pytest.raises(KeyError, match="x2"):
         resources.atlas_family(2)
 

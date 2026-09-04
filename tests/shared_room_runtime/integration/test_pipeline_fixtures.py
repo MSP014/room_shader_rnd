@@ -5,9 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from pxr import Usd, UsdGeom, UsdShade
-
-from tools.omniverse.shared_room.controller import (
+from msp.orms.shared_room.controller import (
     DERIVED_APERTURE_MASK_OFFSET_U,
     DERIVED_MAP_AXIS_U,
     DERIVED_MAP_ORIGIN,
@@ -21,6 +19,7 @@ from tools.omniverse.shared_room.controller import (
     RuntimeLayerOwner,
     classify_stage,
 )
+from pxr import Usd, UsdGeom, UsdShade
 
 from ._fixture_support import (
     HOUDINI_EXPORT,
@@ -53,7 +52,9 @@ def test_omniverse_fixture_uses_unique_debug_textures_and_coherent_layout():
         .GetAttribute("info:mdl:sourceAsset:subIdentifier")
         .Get()
     )
-    assert source_asset.path.endswith("src/mdl/room_map_single.mdl")
+    assert source_asset.path.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map_single.mdl"
+    )
     assert source_sub_identifier == "room_map_single"
     selected_textures = set()
     for (

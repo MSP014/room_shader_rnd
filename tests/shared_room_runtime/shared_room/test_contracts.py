@@ -3,8 +3,7 @@
 from dataclasses import FrozenInstanceError
 
 import pytest
-
-from tools.omniverse.shared_room.contracts import RuntimeClassifierSettings
+from msp.orms.shared_room.contracts import RuntimeClassifierSettings
 
 
 def test_runtime_settings_are_frozen_and_always_retain_x1_fallback():

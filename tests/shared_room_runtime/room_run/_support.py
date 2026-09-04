@@ -3,8 +3,7 @@
 import math
 
 import pytest
-
-from tools.omniverse.room_run.classifier import ApertureDescriptor
+from msp.orms.classification.classifier import ApertureDescriptor
 
 
 def _window(

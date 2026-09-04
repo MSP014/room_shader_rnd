@@ -4,21 +4,20 @@ import ast
 from pathlib import Path
 
 import pytest
-from pxr import Sdf, Usd, UsdGeom, UsdShade
-
-from tools.omniverse.runtime.assignment import (
+from msp.orms.scene.assignment import (
     AutoAssignmentOwner,
     evaluate_windows_glass,
 )
-from tools.omniverse.shared_room import controller as classifier_module
-from tools.omniverse.shared_room.controller import (
+from msp.orms.shared_room import controller as classifier_module
+from msp.orms.shared_room.controller import (
     RuntimeClassifierSettings,
     SharedRoomClassifier,
 )
-from tools.omniverse.shared_room.stage import (
+from msp.orms.shared_room.stage import (
     extract_stage_apertures,
     resolve_stage_metrics,
 )
+from pxr import Sdf, Usd, UsdGeom, UsdShade
 
 FIXTURE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = FIXTURE_ROOT.parents[1]
@@ -446,8 +445,10 @@ def test_building_150_wrapper_changes_only_the_window_material():
 def test_shared_room_runtime_does_not_enable_scene_wide_face_culling():
     source_path = (
         REPOSITORY_ROOT
-        / "tools"
-        / "omniverse"
+        / "exts"
+        / "msp.orms.runtime"
+        / "msp"
+        / "orms"
         / "shared_room"
         / "controller.py"
     )

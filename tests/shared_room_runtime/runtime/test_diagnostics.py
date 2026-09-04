@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from tools.omniverse.runtime.diagnostics import corner_box_summaries
+from msp.orms.scene.diagnostics import corner_box_summaries
 
 
 def test_corner_box_summaries_ignore_straight_rooms_and_describe_corners():

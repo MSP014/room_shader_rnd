@@ -5,16 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from tools.omniverse.shared_room.interior_set_diagnostics import (
+from msp.orms.scene.status_log import (
+    log_room_map_error,
+    log_room_map_warning,
+)
+from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
-from tools.omniverse.shared_room.material_controls import (
+from msp.orms.shared_room.material_controls import (
     ensure_material_setting_defaults,
 )
-from tools.omniverse.shared_room.settings import (
+from msp.orms.shared_room.settings import (
     ensure_classifier_setting_defaults,
 )
-from tools.omniverse.shared_room.settings_panel import build_settings_panel
+from msp.orms.shared_room.settings_panel import build_settings_panel
 
 from .assignment_panel import build_assignment_panel
 from .assignment_session import AssignmentSnapshot
@@ -358,10 +362,13 @@ class OrmsSettingsWindow:
             self._apply_interior_sets()
             self._structural_error = None
         except Exception as error:
-            import carb
-
             self._structural_error = str(error)
-            carb.log_error(f"[ORMS] Apply Interior Sets failed: {error!r}")
+            log_room_map_error(
+                owner="INTERIOR SETS UI",
+                process="APPLY",
+                state="FAILED",
+                details={"error": repr(error)},
+            )
         self._rebuild_window()
 
     def _rebuild_window(self) -> None:
@@ -386,11 +393,15 @@ class OrmsSettingsWindow:
             and self._interior_sets.dirty
             and self._window is not None
         ):
-            import carb
-
-            carb.log_warn(
-                "[ORMS] Apply or revert Interior Set changes before "
-                "closing the window"
+            log_room_map_warning(
+                owner="INTERIOR SETS UI",
+                process="WINDOW CLOSE",
+                state="BLOCKED",
+                details={
+                    "reason": (
+                        "Apply or revert Interior Set changes before closing"
+                    )
+                },
             )
             self._window.visible = True
             return

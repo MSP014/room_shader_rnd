@@ -10,120 +10,120 @@ from types import ModuleType
 
 _RUNTIME_SOURCE_MODULES = {
     "status_log": (
-        "tools.omniverse.runtime.status_log",
-        "runtime/status_log.py",
+        "msp.orms.scene.status_log",
+        "scene/status_log.py",
     ),
     "runtime_resource_metrics": (
-        "tools.omniverse.runtime.resource_metrics",
-        "runtime/resource_metrics.py",
+        "msp.orms.scene.resource_metrics",
+        "scene/resource_metrics.py",
     ),
     "runtime_resources": (
-        "tools.omniverse.runtime.resources",
-        "runtime/resources.py",
+        "msp.orms.scene.resources",
+        "scene/resources.py",
     ),
     "interior_set_atlas_mode": (
-        "tools.omniverse.interior_sets.atlas_mode",
+        "msp.orms.interior_sets.atlas_mode",
         "interior_sets/atlas_mode.py",
     ),
     "interior_set_identity": (
-        "tools.omniverse.interior_sets.identity",
+        "msp.orms.interior_sets.identity",
         "interior_sets/identity.py",
     ),
     "interior_set_manifest": (
-        "tools.omniverse.interior_sets.manifest",
+        "msp.orms.interior_sets.manifest",
         "interior_sets/manifest.py",
     ),
     "interior_set_contracts": (
-        "tools.omniverse.interior_sets.contracts",
+        "msp.orms.interior_sets.contracts",
         "interior_sets/contracts.py",
     ),
     "interior_set_selectors": (
-        "tools.omniverse.interior_sets.selectors",
+        "msp.orms.interior_sets.selectors",
         "interior_sets/selectors.py",
     ),
     "interior_set_runtime_resources": (
-        "tools.omniverse.interior_sets.runtime_resources",
+        "msp.orms.interior_sets.runtime_resources",
         "interior_sets/runtime_resources.py",
     ),
     "runtime_stage_visibility": (
-        "tools.omniverse.runtime.stage_visibility",
-        "runtime/stage_visibility.py",
+        "msp.orms.scene.stage_visibility",
+        "scene/stage_visibility.py",
     ),
     "stage_load_state": (
-        "tools.omniverse.runtime.stage_load_state",
-        "runtime/stage_load_state.py",
+        "msp.orms.scene.stage_load_state",
+        "scene/stage_load_state.py",
     ),
     "stage_load_probe": (
-        "tools.omniverse.runtime.stage_load_probe",
-        "runtime/stage_load_probe.py",
+        "msp.orms.scene.stage_load_probe",
+        "scene/stage_load_probe.py",
     ),
     "room_run_contracts": (
-        "tools.omniverse.room_run.contracts",
-        "room_run/contracts.py",
+        "msp.orms.classification.contracts",
+        "classification/contracts.py",
     ),
     "room_run_topology": (
-        "tools.omniverse.room_run.topology",
-        "room_run/topology.py",
+        "msp.orms.classification.topology",
+        "classification/topology.py",
     ),
     "room_run_mapping": (
-        "tools.omniverse.room_run.mapping",
-        "room_run/mapping.py",
+        "msp.orms.classification.mapping",
+        "classification/mapping.py",
     ),
     "room_run_classifier": (
-        "tools.omniverse.room_run.classifier",
-        "room_run/classifier.py",
+        "msp.orms.classification.classifier",
+        "classification/classifier.py",
     ),
     "shared_room_contracts": (
-        "tools.omniverse.shared_room.contracts",
+        "msp.orms.shared_room.contracts",
         "shared_room/contracts.py",
     ),
     "shared_room_stage": (
-        "tools.omniverse.shared_room.stage",
+        "msp.orms.shared_room.stage",
         "shared_room/stage.py",
     ),
     "shared_room_authoring": (
-        "tools.omniverse.shared_room.authoring",
+        "msp.orms.shared_room.authoring",
         "shared_room/authoring.py",
     ),
     "shared_room_interior_set_authoring": (
-        "tools.omniverse.shared_room.interior_set_authoring",
+        "msp.orms.shared_room.interior_set_authoring",
         "shared_room/interior_set_authoring.py",
     ),
     "shared_room_interior_set_diagnostics": (
-        "tools.omniverse.shared_room.interior_set_diagnostics",
+        "msp.orms.shared_room.interior_set_diagnostics",
         "shared_room/interior_set_diagnostics.py",
     ),
     "shared_room_pipeline": (
-        "tools.omniverse.shared_room.pipeline",
+        "msp.orms.shared_room.pipeline",
         "shared_room/pipeline.py",
     ),
     "shared_room_settings": (
-        "tools.omniverse.shared_room.settings",
+        "msp.orms.shared_room.settings",
         "shared_room/settings.py",
     ),
     "shared_room_changes": (
-        "tools.omniverse.shared_room.changes",
+        "msp.orms.shared_room.changes",
         "shared_room/changes.py",
     ),
     "shared_room_material_diagnostics": (
-        "tools.omniverse.shared_room.material_diagnostics",
+        "msp.orms.shared_room.material_diagnostics",
         "shared_room/material_diagnostics.py",
     ),
     "shared_room_material_controls": (
-        "tools.omniverse.shared_room.material_controls",
+        "msp.orms.shared_room.material_controls",
         "shared_room/material_controls.py",
     ),
     "runtime_renderer_settings": (
-        "tools.omniverse.runtime.renderer_settings",
-        "runtime/renderer_settings.py",
+        "msp.orms.scene.renderer_settings",
+        "scene/renderer_settings.py",
     ),
     "shared_room_classifier": (
-        "tools.omniverse.shared_room.controller",
+        "msp.orms.shared_room.controller",
         "shared_room/controller.py",
     ),
     "camera_position_bridge": (
-        "tools.omniverse.runtime.camera_position_bridge",
-        "runtime/camera_position_bridge.py",
+        "msp.orms.scene.camera_position_bridge",
+        "scene/camera_position_bridge.py",
     ),
 }
 
@@ -132,16 +132,20 @@ _RUNTIME_SOURCE_MODULES = {
 _LIFECYCLE_MODULE_NAMES = (
     "stage_load_probe",
     "tools.omniverse.stage_load_probe",
-    "runtime.stage_load_probe",
     "tools.omniverse.runtime.stage_load_probe",
+    "runtime.stage_load_probe",
+    "msp.orms.scene.stage_load_probe",
     "shared_room_classifier",
     "tools.omniverse.shared_room_classifier",
-    "shared_room.controller",
     "tools.omniverse.shared_room.controller",
+    "msp.orms.runtime.shared_room_classifier",
+    "shared_room.controller",
+    "msp.orms.shared_room.controller",
     "camera_position_bridge",
     "tools.omniverse.camera_position_bridge",
-    "runtime.camera_position_bridge",
     "tools.omniverse.runtime.camera_position_bridge",
+    "runtime.camera_position_bridge",
+    "msp.orms.scene.camera_position_bridge",
 )
 
 
@@ -216,11 +220,11 @@ def _ensure_package(name: str, source_directory: Path) -> None:
 
 
 class RuntimeSourceLoader:
-    """Resolve and load the exact runtime dependency graph from one checkout."""
+    """Resolve and load one extension's exact runtime dependency graph."""
 
-    def __init__(self, repository_root: str | Path):
-        self.repository_root = Path(repository_root).resolve()
-        self.module_root = self.repository_root / "tools" / "omniverse"
+    def __init__(self, extension_root: str | Path):
+        self.extension_root = Path(extension_root).resolve()
+        self.module_root = self.extension_root / "msp" / "orms"
         self.source_paths = {
             name: self.module_root / relative_path
             for name, (_, relative_path) in _RUNTIME_SOURCE_MODULES.items()
@@ -243,20 +247,20 @@ class RuntimeSourceLoader:
 
         stop_runtime_modules()
         for package_name, source_directory in (
-            ("tools", self.repository_root / "tools"),
-            ("tools.omniverse", self.module_root),
-            ("tools.omniverse.runtime", self.module_root / "runtime"),
+            ("msp", self.extension_root / "msp"),
+            ("msp.orms", self.module_root),
+            ("msp.orms.scene", self.module_root / "scene"),
             (
-                "tools.omniverse.interior_sets",
+                "msp.orms.interior_sets",
                 self.module_root / "interior_sets",
             ),
-            ("tools.omniverse.room_run", self.module_root / "room_run"),
-            ("tools.omniverse.shared_room", self.module_root / "shared_room"),
+            ("msp.orms.classification", self.module_root / "classification"),
+            ("msp.orms.shared_room", self.module_root / "shared_room"),
         ):
             _ensure_package(package_name, source_directory)
 
     def load(self, name: str) -> ModuleType:
-        """Load one declared dependency from its exact repository source."""
+        """Load one declared dependency from its exact extension source."""
 
         try:
             source_path = self.source_paths[name]

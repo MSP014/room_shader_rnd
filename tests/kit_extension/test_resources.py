@@ -4,6 +4,15 @@ import json
 from pathlib import Path
 
 import pytest
+from msp.orms.interior_sets.atlas_mode import (
+    ATLAS_MODE_DEBUG,
+    ATLAS_MODE_PRODUCTION,
+)
+from msp.orms.interior_sets.contracts import (
+    InteriorSetCollection,
+    InteriorSetConfig,
+    semantic_variant_id,
+)
 from msp.orms.runtime.interior_set_resources import (
     resolve_interior_set_resources,
 )
@@ -12,16 +21,6 @@ from msp.orms.runtime.resources import (
     ResourceLayout,
     discover_production_atlas,
     select_runtime_atlases,
-)
-
-from tools.omniverse.interior_sets.atlas_mode import (
-    ATLAS_MODE_DEBUG,
-    ATLAS_MODE_PRODUCTION,
-)
-from tools.omniverse.interior_sets.contracts import (
-    InteriorSetCollection,
-    InteriorSetConfig,
-    semantic_variant_id,
 )
 
 from . import _support  # noqa: F401
@@ -59,8 +58,7 @@ def test_checkout_layout_keeps_mdl_canonical_and_finds_debug_fallback(
     module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
     module_file.parent.mkdir(parents=True)
     module_file.touch()
-    (tmp_path / "workspace" / "tools" / "omniverse").mkdir(parents=True)
-    mdl_root = tmp_path / "workspace" / "src" / "mdl"
+    mdl_root = extension_root / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     (mdl_root / "room_map.mdl").touch()
     (mdl_root / "room_map_single.mdl").touch()
@@ -77,7 +75,6 @@ def test_checkout_layout_keeps_mdl_canonical_and_finds_debug_fallback(
 
     resources = ResourceLayout.discover(module_file)
 
-    assert resources.runtime_root == tmp_path / "workspace"
     assert resources.mdl_root == mdl_root
     assert resources.debug_atlas(1).asset_path == debug_asset
     assert resources.debug_atlas(1).source == "checkout"
@@ -89,9 +86,6 @@ def test_packaged_resources_win_over_checkout_fallback(tmp_path):
     module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
     module_file.parent.mkdir(parents=True)
     module_file.touch()
-    (extension_root / "data" / "runtime" / "tools" / "omniverse").mkdir(
-        parents=True
-    )
     mdl_root = extension_root / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     (mdl_root / "room_map.mdl").touch()
@@ -170,9 +164,6 @@ def test_configured_production_family_overrides_only_matching_debug_size(
     module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
     module_file.parent.mkdir(parents=True)
     module_file.touch()
-    (extension_root / "data" / "runtime" / "tools" / "omniverse").mkdir(
-        parents=True
-    )
     mdl_root = extension_root / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     (mdl_root / "room_map.mdl").touch()
@@ -230,9 +221,6 @@ def test_per_set_fallback_and_cross_family_coherence_are_independent(
     module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
     module_file.parent.mkdir(parents=True)
     module_file.touch()
-    (extension_root / "data" / "runtime" / "tools" / "omniverse").mkdir(
-        parents=True
-    )
     mdl_root = extension_root / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     (mdl_root / "room_map.mdl").touch()

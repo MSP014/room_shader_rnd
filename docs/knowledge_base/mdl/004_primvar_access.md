@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-87 — MDL Primvar Access |
-| Implementation | `src/mdl/diagnostics/primvar_as_colour.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/diagnostics/primvar_as_colour.mdl` |
 | Automated evidence | `tests/test_primvar_access.py` |
 | Validation scene | `assets/_external/usd/test_grid_attribs/primvar_access.usda` |
 | Evidence state | Renderer-validated |

@@ -3,6 +3,11 @@
 from pathlib import Path
 
 import pytest
+from msp.orms.interior_sets.atlas_mode import (
+    ATLAS_MODE_DEBUG,
+    ATLAS_MODE_PRODUCTION,
+)
+from msp.orms.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
 from msp.orms.runtime.interior_set_controller import InteriorSetController
 from msp.orms.runtime.interior_set_repository import (
     InteriorSetSettingsRepository,
@@ -11,12 +16,6 @@ from msp.orms.runtime.interior_set_transaction import (
     InteriorSetRollbackError,
 )
 from msp.orms.runtime.resources import ResourceLayout
-
-from tools.omniverse.interior_sets.atlas_mode import (
-    ATLAS_MODE_DEBUG,
-    ATLAS_MODE_PRODUCTION,
-)
-from tools.omniverse.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
 
 from . import _support  # noqa: F401
 

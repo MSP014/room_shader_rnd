@@ -15,16 +15,20 @@ STAGE_PATH = (
 )
 MDL_PATH = (
     REPOSITORY_ROOT
-    / "src"
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
     / "mdl"
     / "diagnostics"
     / "camera_direction_as_colour.mdl"
 )
 BRIDGE_PATH = (
     REPOSITORY_ROOT
-    / "tools"
-    / "omniverse"
-    / "runtime"
+    / "exts"
+    / "msp.orms.runtime"
+    / "msp"
+    / "orms"
+    / "scene"
     / "camera_position_bridge.py"
 )
 

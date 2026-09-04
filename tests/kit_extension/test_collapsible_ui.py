@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from tools.omniverse.shared_room.ui_buttons import (
+from msp.orms.shared_room.ui_buttons import (
     SELECTION_BUTTON_STYLE,
     selection_button,
 )
-from tools.omniverse.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_sections import collapsable_frame
 
 
 def test_shared_collapsable_frame_releases_content_height_and_reports_state():
@@ -39,7 +39,12 @@ def test_shared_collapsable_frame_releases_content_height_and_reports_state():
 def test_every_runtime_collapsable_frame_uses_the_shared_layout_helper():
     repository_root = Path(__file__).resolve().parents[2]
     search_roots = (
-        repository_root / "tools" / "omniverse" / "shared_room",
+        repository_root
+        / "exts"
+        / "msp.orms.runtime"
+        / "msp"
+        / "orms"
+        / "shared_room",
         repository_root
         / "exts"
         / "msp.orms.runtime"
@@ -54,7 +59,7 @@ def test_every_runtime_collapsable_frame_uses_the_shared_layout_helper():
                 direct_constructors.append(path.relative_to(repository_root))
 
     assert direct_constructors == [
-        Path("tools/omniverse/shared_room/ui_sections.py")
+        Path("exts/msp.orms.runtime/msp/orms/shared_room/ui_sections.py")
     ]
 
 
@@ -62,8 +67,10 @@ def test_tab_overlay_and_pages_are_content_sized():
     repository_root = Path(__file__).resolve().parents[2]
     source = (
         repository_root
-        / "tools"
-        / "omniverse"
+        / "exts"
+        / "msp.orms.runtime"
+        / "msp"
+        / "orms"
         / "shared_room"
         / "settings_panel.py"
     ).read_text(encoding="utf-8")

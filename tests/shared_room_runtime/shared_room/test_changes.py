@@ -1,8 +1,7 @@
 """Protect USD notice filtering around runtime-owned and artist inputs."""
 
+from msp.orms.shared_room.changes import _is_relevant_change
 from pxr import Sdf, UsdGeom
-
-from tools.omniverse.shared_room.changes import _is_relevant_change
 
 from ._support import _window_stage
 

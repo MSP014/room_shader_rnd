@@ -1,17 +1,16 @@
 """Protect transactional Interior Set persistence and migration."""
 
 import pytest
+from msp.orms.interior_sets.atlas_mode import (
+    ATLAS_MODE_DEBUG,
+    ATLAS_MODE_PRODUCTION,
+)
+from msp.orms.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
 from msp.orms.runtime.interior_set_repository import (
     INTERIOR_SET_SETTINGS_ROOT,
     InteriorSetSettingsRepository,
 )
 from msp.orms.runtime.resources import PRODUCTION_DIRECTORY_SETTING
-
-from tools.omniverse.interior_sets.atlas_mode import (
-    ATLAS_MODE_DEBUG,
-    ATLAS_MODE_PRODUCTION,
-)
-from tools.omniverse.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
 
 from . import _support  # noqa: F401
 

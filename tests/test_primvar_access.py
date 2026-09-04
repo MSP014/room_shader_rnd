@@ -15,7 +15,13 @@ EXPORTED_GRID_PATH = (
 )
 DIAGNOSTIC_STAGE_PATH = EXPORTED_GRID_PATH.with_name("primvar_access.usda")
 DIAGNOSTIC_MODULE_PATH = (
-    REPOSITORY_ROOT / "src" / "mdl" / "diagnostics" / "primvar_as_colour.mdl"
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
+    / "mdl"
+    / "diagnostics"
+    / "primvar_as_colour.mdl"
 )
 EXPORTED_MESH_PATH = "/test_grid_attribs/geo/test_grid"
 

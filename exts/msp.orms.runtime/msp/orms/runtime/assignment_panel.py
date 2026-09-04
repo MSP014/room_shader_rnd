@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from tools.omniverse.shared_room.ui_buttons import selection_button
+from msp.orms.shared_room.ui_buttons import selection_button
 
 from .assignment_session import AssignmentItem, AssignmentSnapshot
 

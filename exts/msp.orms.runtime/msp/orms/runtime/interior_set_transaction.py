@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from tools.omniverse.interior_sets.contracts import InteriorSetCollection
+from msp.orms.interior_sets.contracts import InteriorSetCollection
 
 
 @dataclass(frozen=True)

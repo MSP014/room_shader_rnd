@@ -1,6 +1,6 @@
 """Protect the Kit Stage-window metadata seam for internal ORMS prims."""
 
-from tools.omniverse.runtime.stage_visibility import (
+from msp.orms.scene.stage_visibility import (
     HIDE_IN_STAGE_WINDOW_METADATA,
     hide_in_stage_window,
 )

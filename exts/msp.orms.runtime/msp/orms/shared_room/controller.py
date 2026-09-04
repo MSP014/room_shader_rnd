@@ -12,13 +12,8 @@ from typing import Any
 
 from pxr import Sdf, Tf, Usd, UsdShade
 
-from ..interior_sets.contracts import InteriorSetCollection, runtime_set_token
-from ..interior_sets.runtime_resources import (
-    InteriorSetRuntimeResources,
-    InteriorSetRuntimeSnapshot,
-)
-from ..room_run import classifier as _room_run_classifier
-from ..room_run.classifier import (
+from ..classification import classifier as _room_run_classifier
+from ..classification.classifier import (
     ApertureDescriptor,
     ClassificationResult,
     ClassifierDiagnostic,
@@ -26,12 +21,17 @@ from ..room_run.classifier import (
     DerivedApertureMapping,
     classify_apertures,
 )
-from ..runtime.renderer_settings import (
+from ..interior_sets.contracts import InteriorSetCollection, runtime_set_token
+from ..interior_sets.runtime_resources import (
+    InteriorSetRuntimeResources,
+    InteriorSetRuntimeSnapshot,
+)
+from ..scene.renderer_settings import (
     _enable_rtx_cutout_opacity,
     _restore_rtx_cutout_opacity,
 )
-from ..runtime.resources import RuntimeResources, coerce_runtime_resources
-from ..runtime.status_log import log_room_map_warning
+from ..scene.resources import RuntimeResources, coerce_runtime_resources
+from ..scene.status_log import log_room_map_warning
 from .authoring import (
     _ROOM_MAP_INPUT_TYPES,
     _SHARED_ARTIST_INPUT_NAMES,

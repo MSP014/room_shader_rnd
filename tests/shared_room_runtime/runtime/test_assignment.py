@@ -1,17 +1,16 @@
 """Protect default Windows Glass assignment and its reversible ownership."""
 
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
-
-from tools.omniverse.runtime import assignment as assignment_module
-from tools.omniverse.runtime.assignment import (
+from msp.orms.scene import assignment as assignment_module
+from msp.orms.scene.assignment import (
     AutoAssignmentOwner,
     evaluate_windows_glass,
 )
-from tools.omniverse.runtime.assignment_overrides import (
+from msp.orms.scene.assignment_overrides import (
     AssignmentOverrideOwner,
 )
-from tools.omniverse.shared_room.contracts import ResolvedStageMetrics
-from tools.omniverse.shared_room.stage import extract_stage_apertures
+from msp.orms.shared_room.contracts import ResolvedStageMetrics
+from msp.orms.shared_room.stage import extract_stage_apertures
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
 
 def _stage_with_window(

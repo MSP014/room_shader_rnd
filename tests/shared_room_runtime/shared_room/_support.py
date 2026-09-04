@@ -5,7 +5,14 @@ from pathlib import Path
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
+MDL_PATH = (
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
+    / "mdl"
+    / "room_map.mdl"
+)
 
 
 def _window_stage(room_ids=(1, 1, 2, 1, 1)):
@@ -83,7 +90,7 @@ def _window_stage(room_ids=(1, 1, 2, 1, 1)):
         "info:mdl:sourceAsset",
         Sdf.ValueTypeNames.Asset,
         custom=False,
-    ).Set(Sdf.AssetPath("../src/mdl/room_map.mdl"))
+    ).Set(Sdf.AssetPath("../exts/msp.orms.runtime/data/mdl/room_map.mdl"))
     shader.GetPrim().CreateAttribute(
         "info:mdl:sourceAsset:subIdentifier",
         Sdf.ValueTypeNames.Token,
@@ -107,7 +114,7 @@ def _instance_stage():
         asset_stage.GetPrimAtPath("/World/Building/Looks/RoomMap/Shader")
     )
     source_shader.GetPrim().GetAttribute("info:mdl:sourceAsset").Set(
-        Sdf.AssetPath("../src/mdl/room_map_single.mdl")
+        Sdf.AssetPath("../exts/msp.orms.runtime/data/mdl/room_map_single.mdl")
     )
     source_shader.GetPrim().GetAttribute(
         "info:mdl:sourceAsset:subIdentifier"

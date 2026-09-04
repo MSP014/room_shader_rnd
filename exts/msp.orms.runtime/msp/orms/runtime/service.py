@@ -5,14 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     DEFAULT_INTERIOR_SET_ID,
     InteriorSetCollection,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.shared_room.interior_set_diagnostics import (
+from msp.orms.scene.status_log import (
+    log_room_map_error,
+    log_room_map_warning,
+)
+from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
 
@@ -28,7 +32,6 @@ from .resources import (
     PRODUCTION_DIRECTORY_SETTING,
     ResourceLayout,
 )
-from .runtime_imports import activate_runtime_imports
 
 _SETTINGS_ROOT = "/persistent/exts/msp.orms.runtime"
 _AUTO_ASSIGN_SETTING = f"{_SETTINGS_ROOT}/autoAssignWindowsGlass"
@@ -103,7 +106,6 @@ class OrmsRuntimeService:
                 InteriorSetSettingsRepository(settings),
             )
 
-            self._ensure_runtime_path()
             from .settings_window import OrmsSettingsWindow
 
             self._settings_window = OrmsSettingsWindow()
@@ -145,22 +147,7 @@ class OrmsRuntimeService:
             raise
         carb.log_info("[ORMS] Runtime extension started")
 
-    def _ensure_runtime_path(self) -> None:
-        """Expose this version and evict cached earlier ORMS installations."""
-
-        import carb
-
-        activation = activate_runtime_imports(self._resources.runtime_root)
-        if activation.removed_modules:
-            carb.log_info(
-                "[ORMS] Replaced cached runtime from an earlier installation: "
-                f"modules={len(activation.removed_modules)}, "
-                "roots="
-                f"{'; '.join(activation.removed_runtime_roots)}"
-            )
-
     def _on_stage_event(self, event: object) -> None:
-        import carb
         import omni.usd
 
         event_name = getattr(event, "event_name", "")
@@ -180,7 +167,12 @@ class OrmsRuntimeService:
         except Exception as error:
             self._deactivate_stage()
             self._lifecycle.fail()
-            carb.log_error(f"[ORMS] Stage lifecycle failed: {error!r}")
+            log_room_map_error(
+                owner="ORMS RUNTIME SERVICE",
+                process="STAGE EVENT",
+                state="FAILED",
+                details={"error": repr(error)},
+            )
 
     def _activate_current_stage(
         self,
@@ -199,9 +191,6 @@ class OrmsRuntimeService:
             stage,
             preserve_assignment_overrides,
         )
-        runtime_root = self._resources.runtime_root
-        self._ensure_runtime_path()
-
         settings = carb.settings.get_settings()
         if self._interior_sets is None:
             raise RuntimeError("Interior Set configuration is unavailable")
@@ -215,9 +204,11 @@ class OrmsRuntimeService:
             except KeyError:
                 seed_x1 = None
             if seed_x1 is None:
-                carb.log_warn(
-                    "[ORMS] Windows Glass auto-assignment skipped: "
-                    "no valid x1 atlas is available"
+                log_room_map_warning(
+                    owner="ORMS RUNTIME SERVICE",
+                    process="WINDOWS GLASS AUTO-ASSIGNMENT",
+                    state="SKIPPED",
+                    details={"reason": "no valid x1 atlas is available"},
                 )
             else:
                 result = assignment_session.apply(
@@ -236,7 +227,7 @@ class OrmsRuntimeService:
                     f"decisions={decision_summary or '<none>'}"
                 )
 
-        from tools.omniverse.shared_room.stage import (
+        from msp.orms.shared_room.stage import (
             stage_has_room_map_source_mesh,
         )
 
@@ -248,14 +239,14 @@ class OrmsRuntimeService:
             self._refresh_settings_window()
             return
 
-        from tools.omniverse.reload_room_map_runtime import (
+        from msp.orms.runtime.reload_room_map_runtime import (
             reload_and_start,
             stop_runtime,
         )
 
         try:
             classifier, camera_bridge = reload_and_start(
-                runtime_root,
+                self._resources.extension_root,
                 mdl_source_asset=MATERIAL_SOURCE_ASSET,
                 atlas_families=tuple(
                     (
@@ -395,8 +386,6 @@ class OrmsRuntimeService:
         action: str,
         error: Exception,
     ) -> None:
-        import carb
-
         cleanup_error = None
         try:
             self._deactivate_stage()
@@ -408,7 +397,12 @@ class OrmsRuntimeService:
             if cleanup_error is not None
             else ""
         )
-        carb.log_error(f"[ORMS] {action} failed: {error!r}{cleanup_suffix}")
+        log_room_map_error(
+            owner="ORMS RUNTIME SERVICE",
+            process=action.upper(),
+            state="FAILED",
+            details={"error": f"{error!r}{cleanup_suffix}"},
+        )
 
     def _on_lifecycle_state_changed(self, state: RuntimeState) -> None:
         if self._settings_window is not None:
@@ -422,7 +416,7 @@ class OrmsRuntimeService:
         classifier = self._lifecycle.classifier
         if classifier is None:
             return
-        from tools.omniverse.shared_room.settings import settings_from_kit
+        from msp.orms.shared_room.settings import settings_from_kit
 
         classifier.set_settings(settings_from_kit())
 
@@ -570,7 +564,12 @@ class OrmsRuntimeService:
         try:
             self._deactivate_stage()
         except Exception as error:
-            carb.log_error(f"[ORMS] Stage cleanup failed: {error!r}")
+            log_room_map_error(
+                owner="ORMS RUNTIME SERVICE",
+                process="SHUTDOWN CLEANUP",
+                state="FAILED",
+                details={"error": repr(error)},
+            )
         for subscription in self._stage_subscriptions:
             reset = getattr(subscription, "reset", None)
             if callable(reset):

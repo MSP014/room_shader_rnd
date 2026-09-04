@@ -3,8 +3,7 @@
 from dataclasses import FrozenInstanceError
 
 import pytest
-
-from tools.omniverse.room_run.contracts import (
+from msp.orms.classification.contracts import (
     ApertureDescriptor,
     ClassifierSettings,
 )

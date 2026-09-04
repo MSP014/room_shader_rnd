@@ -6,6 +6,8 @@ import asyncio
 from collections.abc import Callable
 from typing import Any
 
+from ..scene.status_log import log_room_map_error
+
 
 class UiUpdateScheduler:
     """Keep only the newest pending callback for each editable control."""
@@ -27,7 +29,6 @@ class UiUpdateScheduler:
             pending.cancel()
 
         async def invoke() -> None:
-            import carb
             import omni.kit.app
 
             try:
@@ -39,8 +40,11 @@ class UiUpdateScheduler:
             except asyncio.CancelledError:
                 return
             except Exception as error:
-                carb.log_error(
-                    f"[ORMS] {key} setting update failed: {error!r}"
+                log_room_map_error(
+                    owner="ORMS UI",
+                    process="DEFERRED SETTING UPDATE",
+                    state="FAILED",
+                    details={"key": key, "error": repr(error)},
                 )
             finally:
                 current = self._tasks.get(key)

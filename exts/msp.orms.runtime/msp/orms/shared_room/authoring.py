@@ -9,23 +9,23 @@ from pathlib import Path
 
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
-from ..interior_sets.contracts import (
-    DEFAULT_INTERIOR_SET_ID,
-    runtime_set_token,
-)
-from ..room_run.contracts import (
+from ..classification.contracts import (
     ClassificationResult,
     ClassifierDiagnostic,
     DerivedApertureMapping,
 )
-from ..runtime.resources import (
+from ..interior_sets.contracts import (
+    DEFAULT_INTERIOR_SET_ID,
+    runtime_set_token,
+)
+from ..scene.resources import (
     ROOM_MAP_MDL_FILENAME,
     RuntimeResources,
     coerce_runtime_resources,
     is_room_map_source_asset,
     mdl_source_asset_name,
 )
-from ..runtime.stage_visibility import hide_in_stage_window
+from ..scene.stage_visibility import hide_in_stage_window
 from .contracts import (
     _REQUIRED_SOURCE_PRIMVARS,
     _RTX_CUTOUT_OPT_IN_ATTRIBUTE,

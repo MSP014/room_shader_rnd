@@ -1,12 +1,11 @@
 """Protect user-facing labels at the Kit-to-runtime settings boundary."""
 
 import pytest
-
-from tools.omniverse.shared_room.contracts import (
+from msp.orms.shared_room.contracts import (
     INSTANCE_POLICY_SESSION_DEINSTANCE,
     METRICS_MODE_LOCAL_OVERRIDE,
 )
-from tools.omniverse.shared_room.settings import settings_from_mapping
+from msp.orms.shared_room.settings import settings_from_mapping
 
 
 def test_preferences_labels_resolve_to_runtime_policy_tokens():

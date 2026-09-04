@@ -43,18 +43,16 @@ def _fake_repository(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (
-        extension_root / "msp" / "orms" / "runtime" / "runtime_imports.py"
+        extension_root
+        / "msp"
+        / "orms"
+        / "runtime"
+        / "reload_room_map_runtime.py"
     ).write_text(
-        "# version-safe import boundary\n",
-        encoding="utf-8",
-    )
-    runtime_root = root / "tools" / "omniverse"
-    runtime_root.mkdir(parents=True)
-    (runtime_root / "reload_room_map_runtime.py").write_text(
         "# runtime entry point\n",
         encoding="utf-8",
     )
-    mdl_root = root / "src" / "mdl"
+    mdl_root = extension_root / "data" / "mdl"
     mdl_root.mkdir(parents=True)
     for filename in ("room_map.mdl", "room_map_single.mdl"):
         (mdl_root / filename).write_text("mdl 1.7;\n", encoding="utf-8")
@@ -62,7 +60,7 @@ def _fake_repository(tmp_path: Path) -> Path:
     return root
 
 
-def test_builder_materialises_runtime_mdl_and_public_debug_content(tmp_path):
+def test_builder_packages_canonical_source_and_public_debug_content(tmp_path):
     repository_root = _fake_repository(tmp_path)
     output = tmp_path / "bundle" / "msp.orms.runtime"
 
@@ -71,16 +69,9 @@ def test_builder_materialises_runtime_mdl_and_public_debug_content(tmp_path):
     assert built == output.resolve()
     assert (built / "data" / "mdl" / "room_map.mdl").is_file()
     assert (
-        built
-        / "data"
-        / "runtime"
-        / "tools"
-        / "omniverse"
-        / "reload_room_map_runtime.py"
+        built / "msp" / "orms" / "runtime" / "reload_room_map_runtime.py"
     ).is_file()
-    assert (
-        built / "msp" / "orms" / "runtime" / "runtime_imports.py"
-    ).is_file()
+    assert not (built / "data" / "runtime").exists()
     assert (
         built
         / "data"
@@ -93,6 +84,9 @@ def test_builder_materialises_runtime_mdl_and_public_debug_content(tmp_path):
         (built / "data" / "bundle_manifest.json").read_text(encoding="utf-8")
     )
     assert manifest["production_atlases_included"] is False
+    assert manifest["source_policy"] == (
+        "canonical extension tree plus packaged debug atlases"
+    )
     assert all("production" not in item["path"] for item in manifest["files"])
 
 

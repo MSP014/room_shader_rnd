@@ -35,7 +35,7 @@ def Xform "HoudiniBuilding" (
             def Shader "Shader"
             {
                 uniform token info:implementationSource = "sourceAsset"
-                uniform asset info:mdl:sourceAsset = @../../src/mdl/room_map_single.mdl@
+                uniform asset info:mdl:sourceAsset = @../../exts/msp.orms.runtime/data/mdl/room_map_single.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
                 float3 inputs:camera_position_world = (8, 3, 5)
                 float inputs:emission_strength = 1

@@ -6,14 +6,14 @@ import json
 from dataclasses import replace
 from typing import Any
 
-from tools.omniverse.interior_sets.atlas_mode import normalise_atlas_mode
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.atlas_mode import normalise_atlas_mode
+from msp.orms.interior_sets.contracts import (
     ROOM_SIZES,
     InteriorSetCollection,
     InteriorSetConfig,
 )
-from tools.omniverse.interior_sets.selectors import validate_selector
-from tools.omniverse.shared_room.material_controls import MATERIAL_CONTROLS
+from msp.orms.interior_sets.selectors import validate_selector
+from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
 
 INTERIOR_SET_SETTINGS_ROOT = "/persistent/exts/msp.orms.runtime/interior_sets"
 SCHEMA_PATH = f"{INTERIOR_SET_SETTINGS_ROOT}/schema_version"

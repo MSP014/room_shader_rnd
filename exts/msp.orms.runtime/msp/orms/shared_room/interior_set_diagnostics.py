@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
+from ..classification.contracts import ClassificationResult
 from ..interior_sets.contracts import InteriorSetCollection
 from ..interior_sets.runtime_resources import InteriorSetRuntimeSnapshot
 from ..interior_sets.selectors import SelectorResolution
-from ..room_run.contracts import ClassificationResult
 from .contracts import StageExtraction
 
 

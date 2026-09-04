@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from tools.omniverse.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_sections import collapsable_frame
 
 from .lifecycle import RuntimeState
 

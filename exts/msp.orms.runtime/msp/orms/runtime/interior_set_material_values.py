@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 
-from tools.omniverse.shared_room.material_controls import MATERIAL_CONTROLS
+from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
 
 _CONTROLS_BY_NAME = {control.name: control for control in MATERIAL_CONTROLS}
 

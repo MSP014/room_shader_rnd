@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from ..scene.status_log import log_room_map_error
 from .interior_set_controller import InteriorSetController
 from .interior_set_panel_state import InteriorSetPanelState
 from .interior_set_profile_panel import build_interior_set_profile_panel
@@ -105,7 +106,10 @@ class InteriorSetProfileWorkflow:
         self._rebuild()
 
     def _report_error(self, action: str, error: Exception) -> None:
-        import carb
-
         self._state.profile_status = f"Profile {action} failed: {error}"
-        carb.log_error(f"[ORMS] Scene profile {action} failed: {error!r}")
+        log_room_map_error(
+            owner="INTERIOR SET PROFILE",
+            process=action.upper(),
+            state="FAILED",
+            details={"error": repr(error)},
+        )

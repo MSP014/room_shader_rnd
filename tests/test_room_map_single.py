@@ -6,7 +6,14 @@ from pxr import Sdf, Usd, UsdGeom, UsdShade
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_single.usda"
-MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map_single.mdl"
+MDL_PATH = (
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
+    / "mdl"
+    / "room_map_single.mdl"
+)
 
 EXPECTED_FRAME_PRIMVARS = {
     "roomP": UsdGeom.Tokens.vertex,
@@ -69,7 +76,9 @@ def test_single_room_stage_binds_the_mdl_material_and_debug_atlas():
 
     assert relationship
     assert material.GetPath() == "/World/Looks/RoomMapSingle"
-    assert source_asset.path.endswith("src/mdl/room_map_single.mdl")
+    assert source_asset.path.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map_single.mdl"
+    )
     assert (
         shader.GetPrim()
         .GetAttribute("info:mdl:sourceAsset:subIdentifier")

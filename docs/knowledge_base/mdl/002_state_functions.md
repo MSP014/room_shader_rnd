@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-86 — MDL State Functions |
-| Implementation | `src/mdl/diagnostics/normal_as_colour.mdl`, `position_as_colour.mdl`, `direction_as_colour.mdl`, `uv0_as_colour.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/diagnostics/normal_as_colour.mdl`, `position_as_colour.mdl`, `direction_as_colour.mdl`, `uv0_as_colour.mdl` |
 | Automated evidence | `tests/test_state_diagnostics.py` |
 | Validation scene | `assets/_external/usd/test_grid/state_diagnostics.usda` |
 | Evidence state | Renderer-validated |

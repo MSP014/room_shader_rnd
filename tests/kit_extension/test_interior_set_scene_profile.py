@@ -4,6 +4,8 @@ import json
 from dataclasses import replace
 
 import pytest
+from msp.orms.interior_sets.atlas_mode import ATLAS_MODE_PRODUCTION
+from msp.orms.interior_sets.contracts import InteriorSetCollection
 from msp.orms.runtime import interior_set_scene_profile as profile_module
 from msp.orms.runtime.interior_set_scene_profile import (
     PROFILE_FORMAT,
@@ -13,10 +15,7 @@ from msp.orms.runtime.interior_set_scene_profile import (
     profile_from_document,
     save_scene_profile,
 )
-
-from tools.omniverse.interior_sets.atlas_mode import ATLAS_MODE_PRODUCTION
-from tools.omniverse.interior_sets.contracts import InteriorSetCollection
-from tools.omniverse.shared_room.material_controls import MATERIAL_CONTROLS
+from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
 
 KITCHENS_ID = "11111111-1111-1111-1111-111111111111"
 

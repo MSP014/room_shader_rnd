@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tools.omniverse.shared_room.interior_set_diagnostics import (
+from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
 

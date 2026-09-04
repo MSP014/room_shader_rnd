@@ -7,7 +7,7 @@
 | Jira | KRM-98 — Integrate ORMS with the Building 150 Production Asset |
 | Source asset | `assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd` |
 | Fixture | `tests/building_150_runtime/` |
-| Reference implementation | `tests/shared_room_runtime/`, `tools/omniverse/`, `src/mdl/room_map.mdl` |
+| Reference implementation | `tests/shared_room_runtime/`, `exts/msp.orms.runtime/msp/orms/`, `exts/msp.orms.runtime/data/mdl/room_map.mdl` |
 | Evidence state | Building 150 debug-atlas, glass-surface, real x1 atlas, luminance-selected emission, and per-depth-slice emission-selector validation passed in both renderers; real x2–x4 content is not yet available |
 | Last reviewed | 2 September 2026 |
 
@@ -118,7 +118,7 @@ setting, fallback, or Session Layer transition.
 
 Every record must use `format_room_map_diagnostic_block()` through the shared
 `log_room_map_warning()` helper in
-`tools/omniverse/runtime/status_log.py`; direct `print` calls, direct Carb log
+`exts/msp.orms.runtime/msp/orms/scene/status_log.py`; direct `print` calls, direct Carb log
 calls, and locally invented formats are outside the contract. The R&D
 Omniverse Console exposes these operational records at warning severity, so
 successful steps, state transitions, fallbacks, and failures all use that
@@ -174,7 +174,7 @@ renderer idle must not be treated as interchangeable events.
 
 ### Current one-surface material boundary
 
-`src/mdl/room_map.mdl` remains a complete MDL material rather than a standalone
+`exts/msp.orms.runtime/data/mdl/room_map.mdl` remains a complete MDL material rather than a standalone
 colour-producing node. Its composited room colour now sits beneath a tinted
 Fresnel-shaped glass response with four public controls:
 
@@ -374,7 +374,7 @@ The retained shared-room bundle supplies the accepted fixture pattern:
 - `tests/shared_room_runtime/kit_exts/msp.orms.fixture_launcher/` waits for Kit
   application readiness and the first viewport frame before opening the heavy
   validation stage;
-- `tools/omniverse/reload_room_map_runtime.py` provides the manual R&D runtime
+- `exts/msp.orms.runtime/msp/orms/runtime/reload_room_map_runtime.py` provides the manual R&D runtime
   composition entry point after the stage opens.
 
 The launcher is deliberately scoped. `APP_READY`, the first viewport frame,
@@ -808,7 +808,7 @@ milestone, and UI lifecycle evidence belongs to KRM-92.
 ### Step 7 — Start and inspect the ORMS runtime
 
 1. Start the accepted manual runtime through
-   `tools/omniverse/reload_room_map_runtime.py` after Building 150 opens.
+   `exts/msp.orms.runtime/msp/orms/runtime/reload_room_map_runtime.py` after Building 150 opens.
 2. Confirm the camera bridge, classifier, atlas inventory, runtime material
    families, Session Layer owner, and diagnostic heartbeat.
 3. Confirm that the camera bridge targets only classified window material

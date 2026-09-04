@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-88 — Single Debug Room: Cross-Atlas Parallax |
-| Implementation | `src/mdl/room_map_single.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/room_map_single.mdl` |
 | Automated evidence | `tests/test_room_map_single.py` |
 | Validation scene | `tests/test_room_map_single.usda` |
 | Evidence state | Renderer-validated |
@@ -68,9 +68,10 @@ import omni.usd
 
 root_layer = omni.usd.get_context().get_stage().GetRootLayer()
 repository_root = Path(root_layer.realPath).parents[1]
-sys.path.append(str(repository_root / "tools" / "omniverse"))
+extension_root = repository_root / "exts" / "msp.orms.runtime"
+sys.path.append(str(extension_root))
 
-import camera_position_bridge
+from msp.orms.scene import camera_position_bridge
 
 camera_position_bridge.start(
     "/World/Looks/RoomMapSingle/Shader.inputs:camera_position_world"

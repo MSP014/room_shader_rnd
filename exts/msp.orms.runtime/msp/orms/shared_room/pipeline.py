@@ -8,14 +8,14 @@ from pathlib import Path
 
 from pxr import Sdf, Usd, UsdShade
 
+from ..classification.classifier import classify_apertures
 from ..interior_sets.contracts import InteriorSetCollection
 from ..interior_sets.runtime_resources import (
     InteriorSetRuntimeResources,
     InteriorSetRuntimeSnapshot,
 )
 from ..interior_sets.selectors import assign_apertures
-from ..room_run.classifier import classify_apertures
-from ..runtime.resources import RuntimeResources, coerce_runtime_resources
+from ..scene.resources import RuntimeResources, coerce_runtime_resources
 from .authoring import (
     apply_instance_policy,
     author_camera_position_primvar,

@@ -2,8 +2,7 @@
 
 from msp.orms.runtime.interior_set_alerts import selector_conflict_alerts
 from msp.orms.runtime.interior_set_controller import InteriorSetController
-
-from tools.omniverse.shared_room.interior_set_diagnostics import (
+from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
     SelectorConflict,
 )

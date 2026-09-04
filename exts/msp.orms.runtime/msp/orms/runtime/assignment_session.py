@@ -30,7 +30,7 @@ class AssignmentSession:
     """Keep per-stage overrides while automatic bindings are rebuilt."""
 
     def __init__(self, stage: Any) -> None:
-        from tools.omniverse.runtime.assignment_overrides import (
+        from msp.orms.scene.assignment_overrides import (
             AssignmentOverrideOwner,
         )
 
@@ -53,7 +53,7 @@ class AssignmentSession:
     ) -> Any:
         """Re-evaluate recognised meshes and replace automatic bindings."""
 
-        from tools.omniverse.runtime.assignment import AutoAssignmentOwner
+        from msp.orms.scene.assignment import AutoAssignmentOwner
 
         self.stop_assignments()
         owner = AutoAssignmentOwner(
@@ -70,7 +70,7 @@ class AssignmentSession:
         """Return the last pre-binding decisions with owned override state."""
 
         if self._result is None:
-            from tools.omniverse.runtime.assignment import (
+            from msp.orms.scene.assignment import (
                 evaluate_windows_glass,
             )
 

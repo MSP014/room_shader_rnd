@@ -1,8 +1,7 @@
 """Protect temporary RTX setting ownership and exact restoration."""
 
 import pytest
-
-from tools.omniverse.runtime import renderer_settings as renderer_module
+from msp.orms.scene import renderer_settings as renderer_module
 
 
 @pytest.mark.parametrize("previous_value", [None, False, True])

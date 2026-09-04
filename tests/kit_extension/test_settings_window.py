@@ -9,8 +9,7 @@ from msp.orms.runtime.resources import (
     PRODUCTION_DIRECTORY_SETTING,
 )
 from msp.orms.runtime.settings_window import MENU_GROUP, WINDOW_NAME
-
-from tools.omniverse.shared_room.settings_panel import SETTINGS_TAB_LABELS
+from msp.orms.shared_room.settings_panel import SETTINGS_TAB_LABELS
 
 
 def test_settings_live_in_one_dockable_orms_window():

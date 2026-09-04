@@ -63,7 +63,12 @@ def test_minimal_compile_probe_covers_fail_open_binary_backface_cutout():
         encoding="utf-8"
     )
     production_source = (
-        VALIDATION_ROOT.parents[1] / "src" / "mdl" / "room_map.mdl"
+        VALIDATION_ROOT.parents[1]
+        / "exts"
+        / "msp.orms.runtime"
+        / "data"
+        / "mdl"
+        / "room_map.mdl"
     ).read_text(encoding="utf-8")
 
     function_marker = "float physical_aperture_cutout_opacity("

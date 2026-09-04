@@ -7,12 +7,12 @@ from collections.abc import Mapping, Sequence
 
 from pxr import Sdf, Usd, UsdShade
 
+from ..classification.contracts import DerivedApertureMapping
 from ..interior_sets.contracts import (
     DEFAULT_INTERIOR_SET_ID,
     InteriorSetCollection,
 )
 from ..interior_sets.runtime_resources import InteriorSetRuntimeSnapshot
-from ..room_run.contracts import DerivedApertureMapping
 from .authoring import author_family_materials
 from .material_controls import material_input_values_from_mapping
 

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from tools.omniverse.interior_sets.atlas_mode import (
+from msp.orms.interior_sets.atlas_mode import (
     ATLAS_MODE_DEBUG,
     ATLAS_MODE_PRODUCTION,
 )
-from tools.omniverse.shared_room.interior_set_diagnostics import (
+from msp.orms.shared_room.interior_set_diagnostics import (
     InteriorSetDiagnostics,
 )
-from tools.omniverse.shared_room.ui_buttons import selection_button
-from tools.omniverse.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_buttons import selection_button
+from msp.orms.shared_room.ui_sections import collapsable_frame
 
 from .interior_set_alerts import selector_conflict_alerts
 from .interior_set_controller import InteriorSetController

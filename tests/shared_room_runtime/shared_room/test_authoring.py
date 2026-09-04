@@ -1,16 +1,14 @@
 """Protect reversible Session Layer authoring, instances, and pose primvars."""
 
 import pytest
-from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
-
-from tools.omniverse.room_run.classifier import classify_apertures
-from tools.omniverse.shared_room import authoring as authoring_module
-from tools.omniverse.shared_room.authoring import (
+from msp.orms.classification.classifier import classify_apertures
+from msp.orms.shared_room import authoring as authoring_module
+from msp.orms.shared_room.authoring import (
     RuntimeLayerOwner,
     author_derived_primvars,
     seed_camera_position_primvar,
 )
-from tools.omniverse.shared_room.contracts import (
+from msp.orms.shared_room.contracts import (
     CAMERA_POSITION_PRIMVAR_NAME,
     DERIVED_APERTURE_MASK_OFFSET_U,
     DERIVED_MAP_AXIS_U,
@@ -31,11 +29,12 @@ from tools.omniverse.shared_room.contracts import (
     INSTANCE_POLICY_SESSION_DEINSTANCE,
     RuntimeClassifierSettings,
 )
-from tools.omniverse.shared_room.pipeline import classify_stage
-from tools.omniverse.shared_room.stage import (
+from msp.orms.shared_room.pipeline import classify_stage
+from msp.orms.shared_room.stage import (
     extract_stage_apertures,
     resolve_stage_metrics,
 )
+from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 
 from ._support import (
     REPOSITORY_ROOT,

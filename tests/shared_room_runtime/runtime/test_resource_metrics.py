@@ -3,12 +3,11 @@
 import sys
 from types import SimpleNamespace
 
-from pxr import Sdf, Usd, UsdShade
-
-from tools.omniverse.runtime.resource_metrics import (
+from msp.orms.scene.resource_metrics import (
     _renderer_snapshot,
     _windows_memory_snapshot,
 )
+from pxr import Sdf, Usd, UsdShade
 
 
 def test_windows_memory_snapshot_reports_process_and_host_memory():

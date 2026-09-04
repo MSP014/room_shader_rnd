@@ -96,16 +96,16 @@ Extension Manager / AUTOLOAD
 | `lifecycle.py` | Owns the `Inactive`, `Running`, `Stopped`, and `Failed` state transitions. |
 | `lifecycle_controls.py` | Presents lifecycle commands and delegates them to the service. |
 | `settings_window.py` | Owns the dockable `Window > ORMS` shell and its Kit model subscriptions. |
-| `tools/omniverse/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
-| `tools/omniverse/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
+| `msp/orms/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
+| `msp/orms/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
 | `resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
 | `mdl_registration.py` | Owns portable MDL search-path registration and symmetric cleanup. |
 | `material_visibility.py` | Adds only the required ORMS entry to restrictive host Material Library filters. |
 | `material_library.py` | Composes MDL registration, visibility, and the ORMS source-asset entry. |
-| `runtime_imports.py` | Prevents stale Python modules during in-process extension upgrades. |
-| `tools/omniverse/runtime/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
-| `tools/omniverse/room_run/` | Performs deterministic, Kit-independent x1–x4 room classification. |
-| `tools/omniverse/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
+| `msp/orms/scene/source_loader.py` | Reloads the exact extension-owned runtime graph and cleans up live callback owners. |
+| `msp/orms/scene/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
+| `msp/orms/classification/` | Performs deterministic, Kit-independent x1–x4 room classification. |
+| `msp/orms/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
 
 Automatic assignment and generated ORMS state use separate anonymous Session
 sublayers. Their implementation prims are hidden from the ordinary Stage tree,
@@ -511,7 +511,7 @@ module remains a possible compatibility path, not a demonstrated capability.
 ### 2. **Camera Position Runtime Bridge**
 
 `state::direction()` was tested and does not provide the material view direction
-required for PIM. Instead, `tools/omniverse/runtime/camera_position_bridge.py`
+required for PIM. Instead, `msp/orms/scene/camera_position_bridge.py`
 obtains the active Kit or Composer camera world position and writes it to the
 `camera_position_world` material input in the USD **Session Layer**. Camera
 motion therefore does not become a permanent edit to the source USD scene.
@@ -742,13 +742,15 @@ USD prim or instance count, plus geometry statistics where practical.
 ## Repository Structure
 
 ```text
-exts/msp.orms.runtime/              # Installable Kit extension package
-src/mdl/                            # Canonical ORMS MDL sources
-tools/omniverse/
-├── room_run/                       # Kit-independent classification
-├── shared_room/                    # OpenUSD runtime authoring
-├── runtime/                        # Reusable Kit infrastructure
-└── reload_room_map_runtime.py      # Development-only manual entry point
+exts/msp.orms.runtime/              # Canonical source and installable package
+├── config/extension.toml           # Kit package metadata
+├── data/mdl/                       # Production and diagnostic MDL
+└── msp/orms/
+    ├── classification/             # Kit-independent x1–x4 classification
+    ├── interior_sets/              # Set identity, selectors, and resources
+    ├── scene/                      # Reusable stage and Kit infrastructure
+    ├── shared_room/                # OpenUSD runtime authoring
+    └── runtime/                    # Extension service, UI, and reload entry
 tests/
 ├── kit_extension/                  # Extension and lifecycle seams
 ├── shared_room_runtime/            # Classifier and OpenUSD fixtures
@@ -757,8 +759,10 @@ docs/
 ├── adr/                            # Architecture decisions
 ├── img/                            # Retained visual evidence
 └── knowledge_base/mdl/             # Ordered implementation records
-tools/package_orms_extension.py     # Standalone package builder
-tools/publish_orms_local_registry.py # Registry publication workflow
+tools/                              # Repository utilities only
+├── mcp/                            # Local documentation clients
+├── package_orms_extension.py       # Standalone package builder
+└── publish_orms_local_registry.py  # Registry publication workflow
 ```
 
 This is a directory inventory, not a second architecture specification. Module
@@ -881,8 +885,9 @@ Your support funds:
   publication, Extension Manager installation, AUTOLOAD, Material Library,
   reversible automatic assignment, central ORMS controls, lifecycle commands,
   external production-atlas routing, clean source restoration, and the
-  checkpointed five-Set architecture with per-Set x1–x4 atlases, material
-  profiles, staged editing, and portable `.orms` scene profiles.
+  completed five-Set architecture with per-Set x1–x4 atlases, material
+  profiles, staged editing, portable `.orms` scene profiles, and a canonical
+  extension-owned Python and MDL source tree published as `0.1.21`.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

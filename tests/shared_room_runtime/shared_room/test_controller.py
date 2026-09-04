@@ -1,21 +1,19 @@
 """Protect runtime tracing, USD change routing, pose refresh, and teardown."""
 
 import pytest
-from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
-
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     DEFAULT_INTERIOR_SET_ID,
     InteriorSetCollection,
     InteriorSetConfig,
     runtime_set_token,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeResources,
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.runtime.resources import RuntimeResources
-from tools.omniverse.shared_room import controller as classifier_module
-from tools.omniverse.shared_room.controller import (
+from msp.orms.scene.resources import RuntimeResources
+from msp.orms.shared_room import controller as classifier_module
+from msp.orms.shared_room.controller import (
     DERIVED_PHYSICAL_NORMAL,
     DERIVED_ROOM_AXIS_U,
     DERIVED_ROOM_AXIS_V,
@@ -23,6 +21,7 @@ from tools.omniverse.shared_room.controller import (
     RuntimeClassifierSettings,
     SharedRoomClassifier,
 )
+from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 
 from ._support import REPOSITORY_ROOT, _window_stage
 

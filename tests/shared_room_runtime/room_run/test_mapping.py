@@ -3,14 +3,13 @@
 import math
 
 import pytest
-
-from tools.omniverse.interior_sets.manifest import (
-    VariantIdentityManifest,
-    semantic_variant_id,
-)
-from tools.omniverse.room_run.classifier import (
+from msp.orms.classification.classifier import (
     ClassifierSettings,
     classify_apertures,
+)
+from msp.orms.interior_sets.manifest import (
+    VariantIdentityManifest,
+    semantic_variant_id,
 )
 
 from ._support import (

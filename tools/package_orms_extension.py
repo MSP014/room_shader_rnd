@@ -39,10 +39,17 @@ def _validate_sources(repository_root: Path, output_directory: Path) -> None:
         / EXTENSION_NAME
         / "config"
         / "extension.toml",
-        repository_root / "tools" / "omniverse" / "reload_room_map_runtime.py",
+        repository_root
+        / "exts"
+        / EXTENSION_NAME
+        / "msp"
+        / "orms"
+        / "runtime"
+        / "reload_room_map_runtime.py",
     ]
     required.extend(
-        repository_root / "src" / "mdl" / filename for filename in MDL_FILES
+        repository_root / "exts" / EXTENSION_NAME / "data" / "mdl" / filename
+        for filename in MDL_FILES
     )
     required.extend(_required_debug_tiles(repository_root))
     missing = tuple(path for path in required if not path.is_file())
@@ -52,26 +59,6 @@ def _validate_sources(repository_root: Path, output_directory: Path) -> None:
             "Cannot package ORMS; required source resources are missing:\n"
             + missing_text
         )
-
-
-def _copy_python_runtime(
-    repository_root: Path, output_directory: Path
-) -> None:
-    source_root = repository_root / "tools" / "omniverse"
-    target_root = output_directory / "data" / "runtime" / "tools" / "omniverse"
-    for source_path in source_root.rglob("*.py"):
-        relative_path = source_path.relative_to(source_root)
-        target_path = target_root / relative_path
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, target_path)
-
-
-def _copy_mdl_content(repository_root: Path, output_directory: Path) -> None:
-    source_root = repository_root / "src" / "mdl"
-    target_root = output_directory / "data" / "mdl"
-    target_root.mkdir(parents=True, exist_ok=True)
-    for filename in MDL_FILES:
-        shutil.copy2(source_root / filename, target_root / filename)
 
 
 def _copy_debug_atlases(repository_root: Path, output_directory: Path) -> None:
@@ -106,7 +93,7 @@ def _write_manifest(output_directory: Path) -> None:
     )
     manifest = {
         "extension": EXTENSION_NAME,
-        "source_policy": "canonical repository sources copied at build time",
+        "source_policy": "canonical extension tree plus packaged debug atlases",
         "production_atlases_included": False,
         "files": [
             {
@@ -135,8 +122,6 @@ def build_extension(repository_root: Path, output_directory: Path) -> Path:
         output,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    _copy_python_runtime(root, output)
-    _copy_mdl_content(root, output)
     _copy_debug_atlases(root, output)
     _write_manifest(output)
     return output

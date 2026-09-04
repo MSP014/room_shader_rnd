@@ -2,12 +2,11 @@
 
 from pathlib import Path
 
-from pxr import Usd
-
-from tools.omniverse.shared_room.material_diagnostics import (
+from msp.orms.shared_room.material_diagnostics import (
     capture_material_state,
     material_state_log_details,
 )
+from pxr import Usd
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 BUILDING_FIXTURE = (

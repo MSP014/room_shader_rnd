@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import IntEnum
 from types import SimpleNamespace
 
-from tools.omniverse.runtime.stage_load_probe import StageLoadProbe
+from msp.orms.scene.stage_load_probe import StageLoadProbe
 
 
 class _Guard:

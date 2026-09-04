@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-from pxr import Usd, UsdGeom, UsdShade
-
-from tools.omniverse.shared_room.controller import (
+from msp.orms.shared_room.controller import (
     DERIVED_MAP_AXIS_U,
     DERIVED_MAP_AXIS_V,
     DERIVED_MAP_ORIGIN,
@@ -13,6 +11,7 @@ from tools.omniverse.shared_room.controller import (
     RuntimeLayerOwner,
     classify_stage,
 )
+from pxr import Usd, UsdGeom, UsdShade
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 OMNIVERSE_FIXTURE = (

@@ -11,7 +11,7 @@ def test_extension_manifest_declares_required_runtime_dependencies():
 
     package = manifest["package"]
     assert package["title"] == "Omniverse Room Map Shader"
-    assert package["version"] == "0.1.20"
+    assert package["version"] == "0.1.21"
     assert package["repository"] == (
         "https://github.com/MSP014/room_shader_rnd"
     )

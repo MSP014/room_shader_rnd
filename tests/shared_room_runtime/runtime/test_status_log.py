@@ -2,10 +2,12 @@
 
 from pathlib import Path
 
-from tools.omniverse.runtime import status_log
+from msp.orms.scene import status_log
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-OMNIVERSE_TOOLS_DIRECTORY = REPOSITORY_ROOT / "tools" / "omniverse"
+ORMS_SOURCE_DIRECTORY = (
+    REPOSITORY_ROOT / "exts" / "msp.orms.runtime" / "msp" / "orms"
+)
 
 
 def _fixed_timestamp(content):
@@ -68,7 +70,7 @@ def test_console_helpers_route_the_same_block_to_the_requested_severity():
 def test_omniverse_runtime_does_not_bypass_the_console_helpers():
     direct_log_calls = ("carb.log_warn(", "carb.log_error(")
 
-    for path in OMNIVERSE_TOOLS_DIRECTORY.rglob("*.py"):
+    for path in ORMS_SOURCE_DIRECTORY.rglob("*.py"):
         if path.name == "status_log.py":
             continue
 

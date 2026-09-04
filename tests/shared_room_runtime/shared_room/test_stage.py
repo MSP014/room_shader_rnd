@@ -1,18 +1,17 @@
 """Protect composed-stage metrics, resource discovery, and aperture extraction."""
 
 import pytest
-from pxr import Usd, UsdGeom
-
-from tools.omniverse.shared_room.contracts import (
+from msp.orms.shared_room.contracts import (
     METRICS_MODE_LOCAL_OVERRIDE,
     RuntimeClassifierSettings,
 )
-from tools.omniverse.shared_room.stage import (
+from msp.orms.shared_room.stage import (
     discover_atlas_family_availability,
     extract_stage_apertures,
     resolve_stage_metrics,
     stage_has_room_map_source_mesh,
 )
+from pxr import Usd, UsdGeom
 
 from ._support import REPOSITORY_ROOT, _window_stage
 

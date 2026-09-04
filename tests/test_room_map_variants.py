@@ -7,8 +7,9 @@ from pxr import Sdf, Usd, UsdGeom, UsdShade
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_variants.usda"
-MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
-SINGLE_MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map_single.mdl"
+MDL_ROOT = REPOSITORY_ROOT / "exts" / "msp.orms.runtime" / "data" / "mdl"
+MDL_PATH = MDL_ROOT / "room_map.mdl"
+SINGLE_MDL_PATH = MDL_ROOT / "room_map_single.mdl"
 
 ROOM_IDS = (0, 1, 2, 2, 0, 1)
 
@@ -74,7 +75,9 @@ def test_variant_stage_binds_one_material_and_a_udim_atlas():
 
     assert relationship
     assert material.GetPath() == "/World/Looks/RoomMapVariants"
-    assert source_asset.path.endswith("src/mdl/room_map.mdl")
+    assert source_asset.path.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map.mdl"
+    )
     assert (
         shader.GetPrim()
         .GetAttribute("info:mdl:sourceAsset:subIdentifier")

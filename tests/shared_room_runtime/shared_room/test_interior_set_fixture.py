@@ -1,19 +1,18 @@
 """Protect the compact installed-extension Interior Set fixture."""
 
-from pxr import Sdf, Usd
-
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     InteriorSetCollection,
     InteriorSetConfig,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeResources,
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.runtime.resources import RuntimeResources
-from tools.omniverse.shared_room.authoring import RuntimeLayerOwner
-from tools.omniverse.shared_room.contracts import RuntimeClassifierSettings
-from tools.omniverse.shared_room.pipeline import classify_stage
+from msp.orms.scene.resources import RuntimeResources
+from msp.orms.shared_room.authoring import RuntimeLayerOwner
+from msp.orms.shared_room.contracts import RuntimeClassifierSettings
+from msp.orms.shared_room.pipeline import classify_stage
+from pxr import Sdf, Usd
 
 from ._support import REPOSITORY_ROOT
 

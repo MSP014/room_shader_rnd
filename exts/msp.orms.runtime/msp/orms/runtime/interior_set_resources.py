@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from tools.omniverse.interior_sets.atlas_mode import (
+from msp.orms.interior_sets.atlas_mode import (
     ATLAS_MODE_DEBUG,
     ATLAS_MODE_PRODUCTION,
     normalise_atlas_mode,
 )
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     ROOM_SIZES,
     InteriorSetCollection,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeResources,
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.runtime.resources import (
+from msp.orms.scene.resources import (
     RuntimeAtlasFamily,
     RuntimeResources,
 )

@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Jira | KRM-89 — Depth Slices and Artist-Facing MDL Material Node |
-| Implementation | `src/mdl/room_map.mdl` |
+| Implementation | `exts/msp.orms.runtime/data/mdl/room_map.mdl` |
 | Automated evidence | `tests/test_room_map_slices.py` |
 | Validation scene | `tests/test_room_map_slices.usda` |
 | Evidence state | Renderer-validated |

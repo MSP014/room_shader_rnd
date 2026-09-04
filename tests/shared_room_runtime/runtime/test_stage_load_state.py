@@ -1,6 +1,6 @@
 """Protect pure asset-batch timing and terminal-state summaries."""
 
-from tools.omniverse.runtime.stage_load_state import AssetBatchTracker
+from msp.orms.scene.stage_load_state import AssetBatchTracker
 
 
 def test_asset_batch_tracker_records_longest_message_and_completion():

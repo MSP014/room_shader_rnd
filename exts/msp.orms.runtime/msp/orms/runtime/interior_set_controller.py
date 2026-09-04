@@ -5,18 +5,18 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 
-from tools.omniverse.interior_sets.atlas_mode import (
+from msp.orms.interior_sets.atlas_mode import (
     ATLAS_MODE_DEBUG,
     normalise_atlas_mode,
 )
-from tools.omniverse.interior_sets.contracts import (
+from msp.orms.interior_sets.contracts import (
     InteriorSetCollection,
     InteriorSetTransaction,
 )
-from tools.omniverse.interior_sets.runtime_resources import (
+from msp.orms.interior_sets.runtime_resources import (
     InteriorSetRuntimeSnapshot,
 )
-from tools.omniverse.interior_sets.selectors import (
+from msp.orms.interior_sets.selectors import (
     validate_collection_selectors,
 )
 

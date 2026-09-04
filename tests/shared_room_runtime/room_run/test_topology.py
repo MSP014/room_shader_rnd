@@ -3,13 +3,12 @@
 import math
 
 import pytest
-
-from tools.omniverse.room_run.classifier import (
+from msp.orms.classification.classifier import (
     ClassifierSettings,
     classify_apertures,
     partition_room_run,
 )
-from tools.omniverse.room_run.topology import _facade_bucket, _up_vector
+from msp.orms.classification.topology import _facade_bucket, _up_vector
 
 from ._support import _window
 

@@ -4,12 +4,11 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from pxr import Usd, UsdGeom, UsdShade
-
-from tools.omniverse.shared_room.controller import (
+from msp.orms.shared_room.controller import (
     INSTANCE_POLICY_SESSION_DEINSTANCE,
     RuntimeClassifierSettings,
 )
+from pxr import Usd, UsdGeom, UsdShade
 
 from ._fixture_support import (
     HOUDINI_INSTANCE_FIXTURE,

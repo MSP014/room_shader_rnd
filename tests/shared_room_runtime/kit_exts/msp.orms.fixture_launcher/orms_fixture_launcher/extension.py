@@ -14,18 +14,19 @@ from omni.kit.viewport.ready.viewport_ready import ViewportReady
 
 _SETTINGS_ROOT = "/exts/msp.orms.fixture_launcher"
 
-# The test extension is loaded from its own extension root, while diagnostics
-# remain owned by the canonical repository runtime module.
+# The test extension is loaded from its own root, while diagnostics remain
+# owned by the canonical ORMS extension package.
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
-_repository_root_text = str(_REPOSITORY_ROOT)
-if _repository_root_text not in sys.path:
-    sys.path.insert(0, _repository_root_text)
+_EXTENSION_ROOT = _REPOSITORY_ROOT / "exts" / "msp.orms.runtime"
+_extension_root_text = str(_EXTENSION_ROOT)
+if _extension_root_text not in sys.path:
+    sys.path.insert(0, _extension_root_text)
 
 
 def _load_warning_logger():
-    """Resolve the canonical formatter after exposing the checkout root."""
+    """Resolve the canonical formatter from the ORMS extension package."""
 
-    from tools.omniverse.runtime.status_log import log_room_map_warning
+    from msp.orms.scene.status_log import log_room_map_warning
 
     return log_room_map_warning
 

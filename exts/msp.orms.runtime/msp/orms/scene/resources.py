@@ -94,7 +94,12 @@ class RuntimeResources:
                 )
         return cls(
             mdl_source_asset=(
-                root / "src" / "mdl" / "room_map.mdl"
+                root
+                / "exts"
+                / "msp.orms.runtime"
+                / "data"
+                / "mdl"
+                / "room_map.mdl"
             ).as_posix(),
             atlas_families=tuple(families),
         )

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.21
+
+- Consolidate all ORMS Python and MDL product source under the Kit extension
+  tree, leaving `tools/` for repository utilities only.
+- Package the canonical extension tree directly instead of maintaining a
+  second Python runtime copy under `data/runtime` or a separate `src/mdl` tree.
+- Keep exact-source reload support within the `msp.orms` package hierarchy and
+  remove the legacy `tools.omniverse` import bootstrap.
+
 ## 0.1.20
 
 - Keep mesh-assignment controls read-only while the runtime is stopped or

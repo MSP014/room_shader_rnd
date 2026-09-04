@@ -16,7 +16,6 @@ def _resources(tmp_path: Path) -> ResourceLayout:
     return ResourceLayout(
         extension_root=tmp_path,
         mdl_root=mdl_root,
-        runtime_root=tmp_path,
         debug_atlases=(),
     )
 

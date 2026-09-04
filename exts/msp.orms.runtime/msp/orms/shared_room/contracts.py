@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 
 from pxr import Sdf
 
-from ..interior_sets.selectors import SelectorResolution
-from ..room_run.contracts import (
+from ..classification.contracts import (
     ApertureDescriptor,
     ClassificationResult,
     ClassifierDiagnostic,
     ClassifierSettings,
 )
+from ..interior_sets.selectors import SelectorResolution
 
 if TYPE_CHECKING:
     from .interior_set_diagnostics import InteriorSetDiagnostics

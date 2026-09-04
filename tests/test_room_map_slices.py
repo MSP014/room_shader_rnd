@@ -6,7 +6,14 @@ from pxr import Usd, UsdShade
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STAGE_PATH = REPOSITORY_ROOT / "tests" / "test_room_map_slices.usda"
-MDL_PATH = REPOSITORY_ROOT / "src" / "mdl" / "room_map.mdl"
+MDL_PATH = (
+    REPOSITORY_ROOT
+    / "exts"
+    / "msp.orms.runtime"
+    / "data"
+    / "mdl"
+    / "room_map.mdl"
+)
 
 SLICE_DEPTHS = (20.0, 40.0, 60.0, 80.0)
 
@@ -29,7 +36,9 @@ def test_depth_slice_stage_binds_the_public_material_and_green_atlas():
 
     assert relationship
     assert material.GetPath() == "/World/Looks/RoomMap"
-    assert source_asset.path.endswith("src/mdl/room_map.mdl")
+    assert source_asset.path.endswith(
+        "exts/msp.orms.runtime/data/mdl/room_map.mdl"
+    )
     assert (
         shader.GetPrim()
         .GetAttribute("info:mdl:sourceAsset:subIdentifier")
