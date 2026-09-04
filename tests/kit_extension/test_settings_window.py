@@ -163,6 +163,9 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     assignment_source = (runtime_root / "assignment_panel.py").read_text(
         encoding="utf-8"
     )
+    debug_atlas_source = (runtime_root / "debug_atlas_panel.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "build_interior_set_atlas_panel" in window_source
     assert "build_interior_set_material_panel" in window_source
@@ -171,8 +174,11 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     assert '"+ Add Interior Set"' in atlas_source
     assert '"Duplicate"' in atlas_source
     assert '"Browse..."' in atlas_source
+    assert '"Browse..."' in debug_atlas_source
+    assert '"Clear"' in debug_atlas_source
+    assert "Packaged default" in debug_atlas_source
     assert "Default is evaluated last" in atlas_source
-    assert '"Debug (force packaged)"' in atlas_source
+    assert '"Debug (force global)"' in atlas_source
     assert '"Production + debug fallback"' in atlas_source
     assert "InteriorSetProfileWorkflow" in window_source
     assert "MATERIAL_CONTROLS" in material_source

@@ -1,12 +1,14 @@
 """Protect content-sized collapse behaviour across every ORMS tab."""
 
 from pathlib import Path
+from types import ModuleType
 
 from msp.orms.shared_room.ui_buttons import (
     SELECTION_BUTTON_STYLE,
     selection_button,
 )
 from msp.orms.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
 
 def test_shared_collapsable_frame_releases_content_height_and_reports_state():
@@ -34,6 +36,48 @@ def test_shared_collapsable_frame_releases_content_height_and_reports_state():
     assert frame.options == {"collapsed": True, "height": 0}
     frame.callback(False)
     assert events == [False]
+
+
+def test_hover_help_is_fixed_width_and_word_wrapped(monkeypatch):
+    label_options = []
+
+    class Stack:
+        def __init__(self, **options):
+            self.options = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    class Widget:
+        def set_tooltip_fn(self, callback):
+            self.callback = callback
+
+    omni = ModuleType("omni")
+    ui = ModuleType("omni.ui")
+    ui.VStack = Stack
+    ui.Label = lambda text, **options: label_options.append((text, options))
+    omni.ui = ui
+    monkeypatch.setitem(__import__("sys").modules, "omni", omni)
+    monkeypatch.setitem(__import__("sys").modules, "omni.ui", ui)
+
+    widget = Widget()
+    with_wrapped_tooltip(widget, "Readable hover help")
+    widget.callback()
+
+    assert label_options == [
+        (
+            "Readable hover help",
+            {
+                "width": 300,
+                "height": 0,
+                "word_wrap": True,
+                "style": {"color": 0xFF202020},
+            },
+        )
+    ]
 
 
 def test_every_runtime_collapsable_frame_uses_the_shared_layout_helper():

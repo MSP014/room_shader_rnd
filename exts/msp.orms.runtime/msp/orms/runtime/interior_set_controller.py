@@ -38,7 +38,11 @@ from .interior_set_transaction import (
     InteriorSetApplyResult,
     InteriorSetRollbackError,
 )
-from .resources import ResourceLayout
+from .resources import (
+    DebugAtlasDecision,
+    ResourceLayout,
+    resolve_debug_atlases,
+)
 
 RuntimeApply = Callable[
     [InteriorSetCollection, InteriorSetRuntimeSnapshot],
@@ -62,6 +66,7 @@ class InteriorSetController:
         self._transaction = InteriorSetTransaction.from_applied(
             migration.collection,
             migration.atlas_mode,
+            migration.debug_atlas_directories,
         )
         self._last_apply_status = "loaded"
         self._last_material_update_counts: dict[str, int] = {}
@@ -103,6 +108,22 @@ class InteriorSetController:
         return self._transaction.draft_atlas_mode
 
     @property
+    def applied_debug_atlas_directories(
+        self,
+    ) -> tuple[str, str, str, str]:
+        """Return committed global debug-family override directories."""
+
+        return self._transaction.applied_debug_atlas_directories
+
+    @property
+    def draft_debug_atlas_directories(
+        self,
+    ) -> tuple[str, str, str, str]:
+        """Return staged global debug-family override directories."""
+
+        return self._transaction.draft_debug_atlas_directories
+
+    @property
     def applied_revision(self) -> int:
         """Return the structural revision currently owned by runtime."""
 
@@ -136,6 +157,7 @@ class InteriorSetController:
         self,
         collection: InteriorSetCollection | None = None,
         atlas_mode: str | None = None,
+        debug_atlas_directories: tuple[str, str, str, str] | None = None,
     ) -> InteriorSetRuntimeSnapshot:
         """Resolve per-Set atlas choices without mutating settings or USD."""
 
@@ -143,6 +165,11 @@ class InteriorSetController:
             self._resources,
             collection or self.applied,
             atlas_mode or self.applied_atlas_mode,
+            (
+                debug_atlas_directories
+                if debug_atlas_directories is not None
+                else self.applied_debug_atlas_directories
+            ),
         )
 
     def resource_decisions(
@@ -154,7 +181,27 @@ class InteriorSetController:
             self._resources,
             self.draft,
             self.draft_atlas_mode,
+            self.draft_debug_atlas_directories,
         )
+
+    def debug_atlas_decisions(self) -> tuple[DebugAtlasDecision, ...]:
+        """Return staged global debug-resource diagnostics."""
+
+        return resolve_debug_atlases(
+            self._resources,
+            self.draft_debug_atlas_directories,
+        )
+
+    def debug_atlas_display_directory(self, room_size: int) -> str:
+        """Return a staged override or its effective packaged directory."""
+
+        if room_size not in range(1, 5):
+            raise ValueError(f"Unsupported ORMS room size: x{room_size}")
+        configured = self.draft_debug_atlas_directories[room_size - 1]
+        if configured:
+            return configured
+        packaged = self._resources.debug_atlas(room_size)
+        return packaged.asset_path.parent.as_posix() if packaged else ""
 
     def stage_atlas_mode(self, atlas_mode: str) -> str:
         """Stage Debug or Production selection without rebuilding runtime."""
@@ -162,6 +209,28 @@ class InteriorSetController:
         mode = normalise_atlas_mode(atlas_mode)
         self._transaction.stage_atlas_mode(mode)
         return mode
+
+    def stage_debug_atlas_directory(
+        self,
+        room_size: int,
+        directory: str,
+    ) -> tuple[str, str, str, str]:
+        """Stage one global debug-family override without rebuilding USD."""
+
+        if room_size not in range(1, 5):
+            raise ValueError(f"Unsupported ORMS room size: x{room_size}")
+        directories = list(self.draft_debug_atlas_directories)
+        directories[room_size - 1] = str(directory)
+        self._transaction.stage_debug_atlas_directories(tuple(directories))
+        return self.draft_debug_atlas_directories
+
+    def clear_debug_atlas_directory(
+        self,
+        room_size: int,
+    ) -> tuple[str, str, str, str]:
+        """Clear one override so the extension-owned default is restored."""
+
+        return self.stage_debug_atlas_directory(room_size, "")
 
     def stage_profile(
         self,
@@ -261,7 +330,11 @@ class InteriorSetController:
             collection = collection.replace(
                 replace(item, atlas_directories=("", "", "", ""))
             )
-        self._transaction.stage_snapshot(collection, ATLAS_MODE_DEBUG)
+        self._transaction.stage_snapshot(
+            collection,
+            ATLAS_MODE_DEBUG,
+            ("", "", "", ""),
+        )
         return self.draft
 
     def rename(
@@ -380,12 +453,14 @@ class InteriorSetController:
             self._resources,
             self.draft,
             self.draft_atlas_mode,
+            self.draft_debug_atlas_directories,
             decisions,
         )
         try:
             commit = self._repository.commit(
                 self.draft,
                 self.draft_atlas_mode,
+                self.draft_debug_atlas_directories,
             )
         except Exception:
             self._last_apply_status = "persistence_failed"

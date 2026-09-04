@@ -85,7 +85,8 @@ def test_variant_stage_binds_one_material_and_a_udim_atlas():
         == "room_map"
     )
     assert atlas_asset.path.endswith(
-        "assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png"
+        "exts/msp.orms.runtime/data/atlases/room_map_debug_x1/"
+        "room_map_debug_x1.<UDIM>.png"
     )
     assert shader.GetInput("room_variant_count").Get() == 3
     assert shader.GetInput("variation_seed").Get() == 0

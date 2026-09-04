@@ -26,7 +26,7 @@ _UDIM_SEED_PATTERN = re.compile(r"(?<!\d)1001(?!\d)")
 _UDIM_TOKEN = "<UDIM>"  # nosec B105
 
 _DEBUG_FAMILY_NAMES = {
-    1: "room_map_debug",
+    1: "room_map_debug_x1",
     2: "room_map_debug_x2",
     3: "room_map_debug_x3",
     4: "room_map_debug_x4",
@@ -46,7 +46,7 @@ class AtlasResource:
 
 @dataclass(frozen=True)
 class ResourceLayout:
-    """Resolve packaged resources first and checkout resources for development."""
+    """Resolve MDL and debug resources from the owning extension tree."""
 
     extension_root: Path
     mdl_root: Path
@@ -57,8 +57,6 @@ class ResourceLayout:
         """Find resources relative to the installed extension or source checkout."""
 
         extension_root = Path(module_file).resolve().parents[3]
-        checkout_root = extension_root.parents[1]
-
         mdl_root = extension_root / "data" / "mdl"
         if not _contains_runtime_mdl(mdl_root):
             raise FileNotFoundError(
@@ -71,34 +69,16 @@ class ResourceLayout:
                 extension_root
                 / "data"
                 / "atlases"
-                / "debug"
-                / f"x{room_size}"
-                / f"{family_name}.<UDIM>.png"
-            )
-            checkout_asset = (
-                checkout_root
-                / "assets"
-                / "_external"
-                / "tex"
                 / family_name
                 / f"{family_name}.<UDIM>.png"
             )
-            asset_path = (
-                packaged_asset
-                if _is_complete_udim_family(packaged_asset)
-                else checkout_asset
-            )
-            if _is_complete_udim_family(asset_path):
+            if _is_complete_udim_family(packaged_asset):
                 debug_atlases.append(
                     AtlasResource(
                         room_size,
-                        asset_path,
+                        packaged_asset,
                         DEBUG_VARIANT_COUNT,
-                        (
-                            "packaged"
-                            if asset_path == packaged_asset
-                            else "checkout"
-                        ),
+                        "packaged",
                         debug_variant_manifest(DEBUG_VARIANT_COUNT),
                     )
                 )
@@ -119,6 +99,24 @@ class ResourceLayout:
                 if atlas.room_size == room_size
             ),
             None,
+        )
+
+
+@dataclass(frozen=True)
+class DebugAtlasDecision:
+    """Describe one global debug override and its packaged fallback."""
+
+    room_size: int
+    configured_directory: str
+    atlas: AtlasResource | None
+    validation_error: str | None = None
+
+    @property
+    def uses_override(self) -> bool:
+        """Return whether the configured directory resolved successfully."""
+
+        return (
+            bool(self.configured_directory) and self.validation_error is None
         )
 
 
@@ -146,12 +144,96 @@ def discover_production_atlas(
 ) -> AtlasResource:
     """Discover one continuous UDIM family inside an external directory."""
 
+    return _discover_directory_atlas(
+        room_size=room_size,
+        atlas_directory=atlas_directory,
+        source="production",
+    )
+
+
+def discover_debug_atlas(
+    *,
+    room_size: int,
+    atlas_directory: str | Path,
+) -> AtlasResource:
+    """Discover one artist-selected global debug atlas family."""
+
+    atlas = _discover_directory_atlas(
+        room_size=room_size,
+        atlas_directory=atlas_directory,
+        source="debug override",
+    )
+    manifest = atlas.variant_manifest or debug_variant_manifest(
+        atlas.variant_count
+    )
+    return AtlasResource(
+        room_size=atlas.room_size,
+        asset_path=atlas.asset_path,
+        variant_count=atlas.variant_count,
+        source=atlas.source,
+        variant_manifest=manifest,
+    )
+
+
+def resolve_debug_atlases(
+    resources: ResourceLayout,
+    atlas_directories: tuple[str, str, str, str],
+) -> tuple[DebugAtlasDecision, ...]:
+    """Resolve global debug overrides with source-owned safe fallbacks."""
+
+    if len(atlas_directories) != 4:
+        raise ValueError("Debug atlas overrides require x1-x4 directories")
+    decisions = []
+    for room_size, configured in enumerate(atlas_directories, start=1):
+        directory = str(configured).strip()
+        if not directory:
+            decisions.append(
+                DebugAtlasDecision(
+                    room_size=room_size,
+                    configured_directory="",
+                    atlas=resources.debug_atlas(room_size),
+                )
+            )
+            continue
+        try:
+            atlas = discover_debug_atlas(
+                room_size=room_size,
+                atlas_directory=directory,
+            )
+        except (FileNotFoundError, ValueError) as error:
+            decisions.append(
+                DebugAtlasDecision(
+                    room_size=room_size,
+                    configured_directory=directory,
+                    atlas=resources.debug_atlas(room_size),
+                    validation_error=str(error),
+                )
+            )
+        else:
+            decisions.append(
+                DebugAtlasDecision(
+                    room_size=room_size,
+                    configured_directory=directory,
+                    atlas=atlas,
+                )
+            )
+    return tuple(decisions)
+
+
+def _discover_directory_atlas(
+    *,
+    room_size: int,
+    atlas_directory: str | Path,
+    source: str,
+) -> AtlasResource:
+    """Discover one continuous external atlas without policy decisions."""
+
     if room_size not in {1, 2, 3, 4}:
         raise ValueError(f"Unsupported ORMS room size: x{room_size}")
     directory = Path(atlas_directory).expanduser().resolve()
     if not directory.is_dir():
         raise FileNotFoundError(
-            f"ORMS production atlas directory does not exist: {directory}"
+            f"ORMS {source} atlas directory does not exist: {directory}"
         )
 
     asset_patterns = {
@@ -161,13 +243,13 @@ def discover_production_atlas(
     }
     if not asset_patterns:
         raise FileNotFoundError(
-            "No ORMS production atlas beginning with UDIM 1001 was found "
+            f"No ORMS {source} atlas beginning with UDIM 1001 was found "
             f"in: {directory}"
         )
     if len(asset_patterns) > 1:
         names = ", ".join(sorted(path.name for path in asset_patterns))
         raise ValueError(
-            "An ORMS production family directory must contain exactly one "
+            f"An ORMS {source} family directory must contain exactly one "
             f"UDIM sequence; found: {names}"
         )
 
@@ -176,14 +258,14 @@ def discover_production_atlas(
     expected_tiles = tuple(range(1001, 1001 + len(tiles)))
     if tiles != expected_tiles:
         raise FileNotFoundError(
-            "The ORMS production atlas must be continuous from UDIM 1001; "
+            f"The ORMS {source} atlas must be continuous from UDIM 1001; "
             f"found: {', '.join(str(tile) for tile in tiles)}"
         )
     return AtlasResource(
         room_size=room_size,
         asset_path=asset_path,
         variant_count=len(tiles),
-        source="production",
+        source=source,
         variant_manifest=load_variant_manifest(directory, len(tiles)),
     )
 

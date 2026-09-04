@@ -46,7 +46,8 @@ def test_depth_slice_stage_binds_the_public_material_and_green_atlas():
         == "room_map"
     )
     assert atlas_asset.path.endswith(
-        "assets/_external/tex/room_map_debug/room_map_debug.1002.png"
+        "exts/msp.orms.runtime/data/atlases/room_map_debug_x1/"
+        "room_map_debug_x1.1002.png"
     )
 
 

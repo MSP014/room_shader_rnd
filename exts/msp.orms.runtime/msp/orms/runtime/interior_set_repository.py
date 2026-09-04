@@ -43,6 +43,7 @@ class InteriorSetCommit:
     active_slot: str
     collection: InteriorSetCollection
     atlas_mode: str
+    debug_atlas_directories: tuple[str, str, str, str]
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class MigrationResult:
 
     collection: InteriorSetCollection
     atlas_mode: str
+    debug_atlas_directories: tuple[str, str, str, str]
     migrated: bool
     resumed_interrupted_migration: bool = False
 
@@ -107,9 +109,13 @@ class InteriorSetSettingsRepository:
                 )
             else:
                 atlas_mode = self._store.load_atlas_mode(str(active_slot))
+            debug_atlas_directories = self._store.load_debug_atlas_directories(
+                str(active_slot)
+            )
             return MigrationResult(
                 collection=collection,
                 atlas_mode=atlas_mode,
+                debug_atlas_directories=debug_atlas_directories,
                 migrated=migrated,
                 resumed_interrupted_migration=resumed,
             )
@@ -150,6 +156,7 @@ class InteriorSetSettingsRepository:
         return MigrationResult(
             commit.collection,
             commit.atlas_mode,
+            commit.debug_atlas_directories,
             migrated=True,
         )
 
@@ -175,10 +182,22 @@ class InteriorSetSettingsRepository:
             raise ValueError("Interior Set settings have no active snapshot")
         return self._store.load_atlas_mode(str(active_slot))
 
+    def load_debug_atlas_directories(self) -> tuple[str, str, str, str]:
+        """Load global debug-family overrides from the active snapshot."""
+
+        version = self._settings.get(SCHEMA_PATH)
+        if version != INTERIOR_SET_SCHEMA_VERSION:
+            return self.ensure_migrated().debug_atlas_directories
+        active_slot = self._settings.get(ACTIVE_SLOT_PATH)
+        if active_slot not in SLOTS:
+            raise ValueError("Interior Set settings have no active snapshot")
+        return self._store.load_debug_atlas_directories(str(active_slot))
+
     def commit(
         self,
         candidate: InteriorSetCollection,
         atlas_mode: str | None = None,
+        debug_atlas_directories: tuple[str, str, str, str] | None = None,
     ) -> InteriorSetCommit:
         """Write one inactive snapshot before changing the active pointer."""
 
@@ -194,14 +213,31 @@ class InteriorSetSettingsRepository:
                 else _inferred_atlas_mode(collection)
             )
         mode = normalise_atlas_mode(atlas_mode)
+        if debug_atlas_directories is None:
+            debug_atlas_directories = (
+                self._store.load_debug_atlas_directories(previous_slot)
+                if previous_slot is not None
+                else ("", "", "", "")
+            )
+        debug_directories = tuple(
+            str(directory).strip() for directory in debug_atlas_directories
+        )
+        if len(debug_directories) != len(ROOM_SIZES):
+            raise ValueError("Debug atlas overrides require x1-x4 directories")
         active_slot = "b" if previous_slot == "a" else "a"
-        self._store.write(active_slot, collection, mode)
+        self._store.write(
+            active_slot,
+            collection,
+            mode,
+            debug_directories,
+        )
         self._settings.set(ACTIVE_SLOT_PATH, active_slot)
         return InteriorSetCommit(
             previous_slot=previous_slot,
             active_slot=active_slot,
             collection=collection,
             atlas_mode=mode,
+            debug_atlas_directories=debug_directories,
         )
 
     def rollback(self, commit: InteriorSetCommit) -> None:

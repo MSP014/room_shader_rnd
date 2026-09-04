@@ -9,11 +9,17 @@ from .material_controls import MATERIAL_CONTROLS, material_setting_path
 from .settings import classifier_setting_path
 from .ui_buttons import selection_button
 from .ui_sections import collapsable_frame
+from .ui_tooltips import with_wrapped_tooltip
 
 SETTINGS_TAB_LABELS = (
     "ORMS Classifier",
     "Material Parameters",
     "Interior Atlases",
+)
+
+_ROOM_FAMILY_HELP = (
+    "x1 is always available. Disabling x2, x3, or x4 reclassifies those "
+    "rooms through x1 fallback; window geometry is not removed."
 )
 
 ModelCallback = Callable[[object, Callable[[], None]], None]
@@ -88,6 +94,7 @@ class _SettingsPanelBuilder:
         enabled: bool = True,
         minimum: float | None = None,
         maximum: float | None = None,
+        tooltip: str | None = None,
     ) -> None:
         import omni.ui as ui
         from omni.kit.widget.settings import create_setting_widget
@@ -101,7 +108,9 @@ class _SettingsPanelBuilder:
                     "hard_range": True,
                 }
             )
-        with ui.HStack(height=24):
+        row = ui.HStack(height=24)
+        with_wrapped_tooltip(row, tooltip)
+        with row:
             self._label(label)
             _widget, model = create_setting_widget(
                 path,
@@ -190,14 +199,8 @@ class _SettingsPanelBuilder:
                         classifier_setting_path(f"enable_x{size}"),
                         SettingType.BOOL,
                         changed=self._classifier_changed,
+                        tooltip=_ROOM_FAMILY_HELP,
                     )
-                ui.Label(
-                    "x1 is always available. Disabling x2, x3, or x4 "
-                    "reclassifies those rooms through the x1 fallback; "
-                    "window geometry is not removed.",
-                    word_wrap=True,
-                    height=0,
-                )
                 self._setting_row(
                     "Partition seed",
                     classifier_setting_path("partition_seed"),
@@ -309,6 +312,10 @@ class _SettingsPanelBuilder:
         import omni.ui as ui
         from omni.kit.widget.settings import SettingType
 
+        if self._build_atlas_panel is not None:
+            self._models.extend(self._build_atlas_panel())
+            return
+
         frame = collapsable_frame(
             ui,
             "Packaged debug atlas fallback (global)",
@@ -326,10 +333,6 @@ class _SettingsPanelBuilder:
                         SettingType.STRING,
                         enabled=False,
                     )
-
-        if self._build_atlas_panel is not None:
-            self._models.extend(self._build_atlas_panel())
-            return
 
         with self._section_frame(
             ui,

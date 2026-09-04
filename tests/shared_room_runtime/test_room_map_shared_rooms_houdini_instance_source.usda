@@ -39,7 +39,7 @@ def Xform "HoudiniBuilding" (
                 uniform token info:mdl:sourceAsset:subIdentifier = "room_map_single"
                 float3 inputs:camera_position_world = (8, 3, 5)
                 float inputs:emission_strength = 1
-                asset inputs:room_atlas = @../../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                asset inputs:room_atlas = @../../exts/msp.orms.runtime/data/atlases/room_map_debug_x1/room_map_debug_x1.<UDIM>.png@
                 float inputs:room_depth = 1
                 int inputs:room_variant_count = 8
                 int inputs:variation_seed = 0

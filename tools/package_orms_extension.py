@@ -11,7 +11,7 @@ from pathlib import Path
 
 EXTENSION_NAME = "msp.orms.runtime"
 DEBUG_FAMILY_NAMES = {
-    1: "room_map_debug",
+    1: "room_map_debug_x1",
     2: "room_map_debug_x2",
     3: "room_map_debug_x3",
     4: "room_map_debug_x4",
@@ -20,7 +20,9 @@ MDL_FILES = ("room_map.mdl", "room_map_single.mdl")
 
 
 def _required_debug_tiles(repository_root: Path) -> tuple[Path, ...]:
-    texture_root = repository_root / "assets" / "_external" / "tex"
+    texture_root = (
+        repository_root / "exts" / EXTENSION_NAME / "data" / "atlases"
+    )
     return tuple(
         texture_root / family_name / f"{family_name}.{tile}.png"
         for family_name in DEBUG_FAMILY_NAMES.values()
@@ -61,20 +63,6 @@ def _validate_sources(repository_root: Path, output_directory: Path) -> None:
         )
 
 
-def _copy_debug_atlases(repository_root: Path, output_directory: Path) -> None:
-    source_root = repository_root / "assets" / "_external" / "tex"
-    target_root = output_directory / "data" / "atlases" / "debug"
-    for room_size, family_name in DEBUG_FAMILY_NAMES.items():
-        family_target = target_root / f"x{room_size}"
-        family_target.mkdir(parents=True, exist_ok=True)
-        for tile in range(1001, 1009):
-            filename = f"{family_name}.{tile}.png"
-            shutil.copy2(
-                source_root / family_name / filename,
-                family_target / filename,
-            )
-
-
 def _file_digest(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -93,7 +81,7 @@ def _write_manifest(output_directory: Path) -> None:
     )
     manifest = {
         "extension": EXTENSION_NAME,
-        "source_policy": "canonical extension tree plus packaged debug atlases",
+        "source_policy": "canonical extension tree with packaged debug atlases",
         "production_atlases_included": False,
         "files": [
             {
@@ -122,7 +110,6 @@ def build_extension(repository_root: Path, output_directory: Path) -> Path:
         output,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    _copy_debug_atlases(root, output)
     _write_manifest(output)
     return output
 

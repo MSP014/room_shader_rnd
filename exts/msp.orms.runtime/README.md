@@ -57,15 +57,17 @@ restore every material value in that Interior Set to factory defaults.
 
 ## Interior Atlases
 
-The four packaged debug atlas paths are read-only global extension resources.
-They are independent of production configuration and remain available for
-diagnosis in every scene.
+The four global debug atlas fields default to extension-owned packaged x1-x4
+families. Each field can be edited directly or changed with **Browse...**;
+**Clear** removes a custom override and restores the packaged default. These
+resources are independent of per-Set production configuration.
 
-- **Debug (force packaged)** uses packaged x1-x4 atlases for every classified
-  window in every Interior Set.
+- **Debug (force global)** uses the selected global x1-x4 debug atlases for
+  every classified window in every Interior Set.
 - **Production + debug fallback** uses each Set's configured x1-x4 production
   families. A missing or invalid family falls back independently to the
-  matching packaged debug family.
+  matching selected debug family, then to its packaged default if a custom
+  debug folder is invalid.
 
 Interior Set selectors use simple glob-style composed prim paths, for example
 `*/Kitchens_Windows`. Specific Sets are evaluated from top to bottom; the first
@@ -74,13 +76,14 @@ remaining compatible window. One composed mesh path resolves to exactly one
 Interior Set; assigning different Sets to faces or subsets of one mesh is
 outside the 0.1.20 contract.
 
-Selectors, production paths, order, Add, Duplicate, Remove, atlas mode, and
-atlas resets are staged edits. Press **Apply Interior Sets** once to validate,
-save, and rebuild the scene. **Revert unapplied changes** discards the draft.
+Selectors, debug and production paths, order, Add, Duplicate, Remove, atlas
+mode, and atlas resets are staged edits. Press **Apply Interior Sets** once to
+validate, save, and rebuild the scene. **Revert unapplied changes** discards
+the draft.
 Use **Clear** beside one xN family, or **Clear all production folders** for one
 Set, to stage an intentional return to packaged fallback. **Reset complete
-atlas configuration** clears production folders for every Set and stages Debug
-mode as one reset action.
+atlas configuration** clears production folders for every Set, restores all
+packaged debug defaults, and stages Debug mode as one reset action.
 
 Use **Save Profile...** to save the applied Interior Sets and atlas mode as a
 portable, human-readable `.orms` file. **Load Profile...** loads a profile into

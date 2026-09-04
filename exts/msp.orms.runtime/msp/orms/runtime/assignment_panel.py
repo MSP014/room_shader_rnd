@@ -10,6 +10,16 @@ from .assignment_session import AssignmentItem, AssignmentSnapshot
 
 AssignmentChanged = Callable[[str, bool | None], None]
 
+_SOURCE_RULE_HELP = (
+    "Use the asset's own orms:autoAssign value without a Session Layer "
+    "override."
+)
+_ALLOW_HELP = "Author a temporary orms:autoAssign=true Session Layer override."
+_EXCLUDE_HELP = (
+    "Author a temporary orms:autoAssign=false override and reveal the source "
+    "material binding."
+)
+
 
 def _state_text(item: AssignmentItem) -> str:
     if item.assigned:
@@ -29,13 +39,6 @@ def build_assignment_panel(
 
     import omni.ui as ui
 
-    ui.Label(
-        "Overrides are authored only in the ORMS Session Layer. "
-        "Use source rule reveals the asset's own orms:autoAssign value; "
-        "Exclude restores the source material binding.",
-        word_wrap=True,
-        height=0,
-    )
     if not snapshot.items:
         ui.Label(
             "No recognised window meshes are available in the active stage.",
@@ -59,6 +62,7 @@ def build_assignment_panel(
                     selected=item.override is None,
                     enabled=snapshot.editable,
                     clicked=lambda path=item.prim_path: changed(path, None),
+                    tooltip=_SOURCE_RULE_HELP,
                 )
                 selection_button(
                     ui,
@@ -66,6 +70,7 @@ def build_assignment_panel(
                     selected=item.override is True,
                     enabled=snapshot.editable,
                     clicked=lambda path=item.prim_path: changed(path, True),
+                    tooltip=_ALLOW_HELP,
                 )
                 selection_button(
                     ui,
@@ -73,6 +78,7 @@ def build_assignment_panel(
                     selected=item.override is False,
                     enabled=snapshot.editable,
                     clicked=lambda path=item.prim_path: changed(path, False),
+                    tooltip=_EXCLUDE_HELP,
                 )
     if not snapshot.editable:
         ui.Label(

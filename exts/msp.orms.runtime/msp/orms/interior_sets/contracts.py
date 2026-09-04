@@ -218,12 +218,30 @@ class InteriorSetTransaction:
     draft_revision: int = 0
     applied_atlas_mode: str = ATLAS_MODE_DEBUG
     draft_atlas_mode: str = ATLAS_MODE_DEBUG
+    applied_debug_atlas_directories: tuple[str, str, str, str] = (
+        "",
+        "",
+        "",
+        "",
+    )
+    draft_debug_atlas_directories: tuple[str, str, str, str] = (
+        "",
+        "",
+        "",
+        "",
+    )
 
     @classmethod
     def from_applied(
         cls,
         applied: InteriorSetCollection,
         atlas_mode: str = ATLAS_MODE_DEBUG,
+        debug_atlas_directories: tuple[str, str, str, str] = (
+            "",
+            "",
+            "",
+            "",
+        ),
     ) -> "InteriorSetTransaction":
         """Begin with an unchanged local draft."""
 
@@ -233,6 +251,8 @@ class InteriorSetTransaction:
             draft=applied,
             applied_atlas_mode=mode,
             draft_atlas_mode=mode,
+            applied_debug_atlas_directories=debug_atlas_directories,
+            draft_debug_atlas_directories=debug_atlas_directories,
         )
 
     @property
@@ -242,6 +262,8 @@ class InteriorSetTransaction:
         return (
             self.draft != self.applied
             or self.draft_atlas_mode != self.applied_atlas_mode
+            or self.draft_debug_atlas_directories
+            != self.applied_debug_atlas_directories
         )
 
     def stage(self, candidate: InteriorSetCollection) -> None:
@@ -261,18 +283,44 @@ class InteriorSetTransaction:
         self.draft_atlas_mode = mode
         self.draft_revision += 1
 
+    def stage_debug_atlas_directories(
+        self,
+        directories: tuple[str, str, str, str],
+    ) -> None:
+        """Replace only the staged global debug-family overrides."""
+
+        if len(directories) != len(ROOM_SIZES):
+            raise ValueError("Debug atlas overrides require x1-x4 directories")
+        if directories == self.draft_debug_atlas_directories:
+            return
+        self.draft_debug_atlas_directories = directories
+        self.draft_revision += 1
+
     def stage_snapshot(
         self,
         candidate: InteriorSetCollection,
         atlas_mode: str,
+        debug_atlas_directories: tuple[str, str, str, str] | None = None,
     ) -> None:
         """Stage one complete profile as a single structural revision."""
 
         mode = normalise_atlas_mode(atlas_mode)
-        if candidate == self.draft and mode == self.draft_atlas_mode:
+        directories = (
+            self.draft_debug_atlas_directories
+            if debug_atlas_directories is None
+            else debug_atlas_directories
+        )
+        if len(directories) != len(ROOM_SIZES):
+            raise ValueError("Debug atlas overrides require x1-x4 directories")
+        if (
+            candidate == self.draft
+            and mode == self.draft_atlas_mode
+            and directories == self.draft_debug_atlas_directories
+        ):
             return
         self.draft = candidate
         self.draft_atlas_mode = mode
+        self.draft_debug_atlas_directories = directories
         self.draft_revision += 1
 
     def accept(self) -> InteriorSetCollection:
@@ -280,6 +328,9 @@ class InteriorSetTransaction:
 
         self.applied = self.draft
         self.applied_atlas_mode = self.draft_atlas_mode
+        self.applied_debug_atlas_directories = (
+            self.draft_debug_atlas_directories
+        )
         self.applied_revision = self.draft_revision
         return self.applied
 
@@ -288,5 +339,8 @@ class InteriorSetTransaction:
 
         self.draft = self.applied
         self.draft_atlas_mode = self.applied_atlas_mode
+        self.draft_debug_atlas_directories = (
+            self.applied_debug_atlas_directories
+        )
         self.draft_revision = self.applied_revision
         return self.draft

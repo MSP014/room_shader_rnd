@@ -7,10 +7,12 @@ from pxr import Usd
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 TESTS_DIRECTORY = REPOSITORY_ROOT / "tests"
-TEXTURE_DIRECTORY = REPOSITORY_ROOT / "assets" / "_external" / "tex"
+TEXTURE_DIRECTORY = (
+    REPOSITORY_ROOT / "exts" / "msp.orms.runtime" / "data" / "atlases"
+)
 
 DEBUG_TEXTURE_FAMILIES = (
-    ("room_map_debug", 1001),
+    ("room_map_debug_x1", 1001),
     ("room_map_debug_x2", 1001),
     ("room_map_debug_x3", 1001),
     ("room_map_debug_x4", 1001),

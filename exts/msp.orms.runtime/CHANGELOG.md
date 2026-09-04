@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.25
+
+- Give wrapped hover help an explicit dark text colour so the light tooltip
+  background retains readable contrast under the host application's theme.
+
+## 0.1.24
+
+- Render hover help in a compact fixed-width tooltip with automatic word
+  wrapping instead of an unreadable single line across the viewport.
+
+## 0.1.23
+
+- Move persistent workflow explanations into hover tooltips across the ORMS
+  tabs so controls retain compact vertical spacing.
+- Keep transient state, validation errors, and apply feedback visible while
+  hiding normal packaged-resource status lines from the atlas layout.
+
+## 0.1.22
+
+- Make `data/atlases/room_map_debug_x1` through `room_map_debug_x4` the
+  extension-owned source and packaged location for global debug atlases.
+- Add staged editable x1-x4 debug folders with Browse and Clear controls;
+  Clear restores the corresponding packaged default.
+- Use valid custom debug families in forced Debug mode and as Production
+  fallback, while retaining packaged fallback for invalid custom folders.
+- Keep production atlas content outside the extension-owned debug tree.
+
 ## 0.1.21
 
 - Consolidate all ORMS Python and MDL product source under the Kit extension

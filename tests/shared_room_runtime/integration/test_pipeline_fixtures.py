@@ -71,16 +71,13 @@ def test_omniverse_fixture_uses_unique_debug_textures_and_coherent_layout():
         variant = (expected_room_id * 1664525) % 8
         assert variant == expected_variant
         for room_size in atlas_sizes:
-            family = (
-                "room_map_debug"
-                if room_size == 1
-                else f"room_map_debug_x{room_size}"
-            )
+            family = f"room_map_debug_x{room_size}"
             texture = (
                 REPOSITORY_ROOT
-                / "assets"
-                / "_external"
-                / "tex"
+                / "exts"
+                / "msp.orms.runtime"
+                / "data"
+                / "atlases"
                 / family
                 / f"{family}.{1001 + variant}.png"
             )

@@ -22,6 +22,7 @@ from msp.orms.shared_room.settings_panel import build_settings_panel
 
 from .assignment_panel import build_assignment_panel
 from .assignment_session import AssignmentSnapshot
+from .debug_atlas_panel import build_debug_atlas_panel
 from .interior_set_atlas_panel import build_interior_set_atlas_panel
 from .interior_set_controller import InteriorSetController
 from .interior_set_directory_picker import InteriorSetDirectoryPicker
@@ -253,7 +254,16 @@ class OrmsSettingsWindow:
 
         if self._interior_sets is None:
             return ()
-        models = list(self._profile_workflow.build_panel())
+        models = list(
+            build_debug_atlas_panel(
+                self._interior_sets,
+                self._rebuild_window,
+                self._directory_picker.choose,
+                collapsed=self._panel_state.debug_atlases_collapsed,
+                collapsed_changed=self._remember_debug_atlases_collapsed,
+            )
+        )
+        models.extend(self._profile_workflow.build_panel())
         models.extend(
             build_interior_set_atlas_panel(
                 self._interior_sets,

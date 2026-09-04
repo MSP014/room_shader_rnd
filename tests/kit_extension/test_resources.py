@@ -20,6 +20,7 @@ from msp.orms.runtime.resources import (
     PRODUCTION_DIRECTORY_SETTING,
     ResourceLayout,
     discover_production_atlas,
+    resolve_debug_atlases,
     select_runtime_atlases,
 )
 
@@ -51,7 +52,7 @@ def _write_manifest(
     )
 
 
-def test_checkout_layout_keeps_mdl_canonical_and_finds_debug_fallback(
+def test_external_texture_tree_is_not_a_debug_resource_fallback(
     tmp_path,
 ):
     extension_root = tmp_path / "workspace" / "exts" / "msp.orms.runtime"
@@ -68,20 +69,19 @@ def test_checkout_layout_keeps_mdl_canonical_and_finds_debug_fallback(
         / "assets"
         / "_external"
         / "tex"
-        / "room_map_debug"
-        / "room_map_debug.<UDIM>.png"
+        / "room_map_debug_x1"
+        / "room_map_debug_x1.<UDIM>.png"
     )
     _touch_udim_family(debug_asset)
 
     resources = ResourceLayout.discover(module_file)
 
     assert resources.mdl_root == mdl_root
-    assert resources.debug_atlas(1).asset_path == debug_asset
-    assert resources.debug_atlas(1).source == "checkout"
+    assert resources.debug_atlas(1) is None
     assert resources.debug_atlas(2) is None
 
 
-def test_packaged_resources_win_over_checkout_fallback(tmp_path):
+def test_extension_owned_debug_resources_are_discovered(tmp_path):
     extension_root = tmp_path / "workspace" / "exts" / "msp.orms.runtime"
     module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
     module_file.parent.mkdir(parents=True)
@@ -94,9 +94,8 @@ def test_packaged_resources_win_over_checkout_fallback(tmp_path):
         extension_root
         / "data"
         / "atlases"
-        / "debug"
-        / "x1"
-        / "room_map_debug.<UDIM>.png"
+        / "room_map_debug_x1"
+        / "room_map_debug_x1.<UDIM>.png"
     )
     _touch_udim_family(debug_asset)
 
@@ -169,15 +168,14 @@ def test_configured_production_family_overrides_only_matching_debug_size(
     (mdl_root / "room_map.mdl").touch()
     (mdl_root / "room_map_single.mdl").touch()
     for room_size, family_name in (
-        (1, "room_map_debug"),
+        (1, "room_map_debug_x1"),
         (2, "room_map_debug_x2"),
     ):
         _touch_udim_family(
             extension_root
             / "data"
             / "atlases"
-            / "debug"
-            / f"x{room_size}"
+            / family_name
             / f"{family_name}.<UDIM>.png"
         )
     production_root = tmp_path / "licensed-pack"
@@ -226,7 +224,7 @@ def test_per_set_fallback_and_cross_family_coherence_are_independent(
     (mdl_root / "room_map.mdl").touch()
     (mdl_root / "room_map_single.mdl").touch()
     for room_size, family_name in (
-        (1, "room_map_debug"),
+        (1, "room_map_debug_x1"),
         (2, "room_map_debug_x2"),
         (3, "room_map_debug_x3"),
         (4, "room_map_debug_x4"),
@@ -235,8 +233,7 @@ def test_per_set_fallback_and_cross_family_coherence_are_independent(
             extension_root
             / "data"
             / "atlases"
-            / "debug"
-            / f"x{room_size}"
+            / family_name
             / f"{family_name}.<UDIM>.png"
         )
     production_x1 = tmp_path / "licensed-pack" / "x1"
@@ -283,6 +280,62 @@ def test_per_set_fallback_and_cross_family_coherence_are_independent(
     assert all(
         family.validation_error is None for family in debug_kitchens.families
     )
+
+
+def test_global_debug_override_replaces_one_family_and_invalid_path_falls_back(
+    tmp_path,
+):
+    extension_root = tmp_path / "workspace" / "exts" / "msp.orms.runtime"
+    module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.touch()
+    mdl_root = extension_root / "data" / "mdl"
+    mdl_root.mkdir(parents=True)
+    (mdl_root / "room_map.mdl").touch()
+    (mdl_root / "room_map_single.mdl").touch()
+    packaged = (
+        extension_root
+        / "data"
+        / "atlases"
+        / "room_map_debug_x1"
+        / "room_map_debug_x1.<UDIM>.png"
+    )
+    _touch_udim_family(packaged)
+    custom_directory = tmp_path / "custom-debug-x1"
+    _touch_udim_family(custom_directory / "diagnostic.<UDIM>.png", 4)
+    resources = ResourceLayout.discover(module_file)
+
+    custom = resolve_debug_atlases(
+        resources,
+        (str(custom_directory), "", "", ""),
+    )[0]
+    invalid = resolve_debug_atlases(
+        resources,
+        (str(tmp_path / "missing"), "", "", ""),
+    )[0]
+
+    assert custom.uses_override
+    assert custom.atlas.source == "debug override"
+    assert custom.atlas.variant_count == 4
+    assert invalid.atlas.asset_path == packaged
+    assert invalid.validation_error is not None
+
+    default = InteriorSetCollection.default_only()
+    debug_family = resolve_interior_set_resources(
+        resources,
+        default,
+        ATLAS_MODE_DEBUG,
+        (str(custom_directory), "", "", ""),
+    )[0].family(1)
+    production_fallback = resolve_interior_set_resources(
+        resources,
+        default,
+        ATLAS_MODE_PRODUCTION,
+        (str(custom_directory), "", "", ""),
+    )[0].family(1)
+
+    assert debug_family.atlas.source == "debug override"
+    assert production_fallback.atlas.source == "debug override"
 
 
 def test_coherent_x4_and_x1_resolve_the_same_corner_variant(tmp_path):

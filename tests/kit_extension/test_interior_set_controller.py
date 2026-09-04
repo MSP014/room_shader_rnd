@@ -132,6 +132,33 @@ def test_atlas_mode_is_staged_and_committed_with_the_same_apply():
     assert restarted.draft_atlas_mode == ATLAS_MODE_PRODUCTION
 
 
+def test_debug_atlas_overrides_are_staged_applied_reverted_and_persisted():
+    controller, settings = _controller_with_settings()
+    packaged_x1 = controller.debug_atlas_display_directory(1)
+
+    controller.stage_debug_atlas_directory(1, "custom-debug-x1")
+
+    assert controller.dirty
+    assert controller.applied_debug_atlas_directories[0] == ""
+    assert controller.draft_debug_atlas_directories[0] == "custom-debug-x1"
+
+    controller.revert()
+
+    assert not controller.dirty
+    assert controller.debug_atlas_display_directory(1) == packaged_x1
+
+    controller.stage_debug_atlas_directory(1, "custom-debug-x1")
+    controller.apply()
+    restarted = InteriorSetController(
+        controller._resources,
+        InteriorSetSettingsRepository(settings),
+    )
+
+    assert restarted.applied_debug_atlas_directories[0] == "custom-debug-x1"
+    restarted.clear_debug_atlas_directory(1)
+    assert restarted.debug_atlas_display_directory(1) == packaged_x1
+
+
 def test_scene_profile_load_stages_one_snapshot_without_persistence_or_apply():
     controller, settings = _controller_with_settings()
     persisted = dict(settings.values)
@@ -233,12 +260,14 @@ def test_atlas_family_and_complete_reset_remain_staged_until_apply():
         DEFAULT_INTERIOR_SET_ID,
         ("new-x1", "new-x2", "new-x3", "new-x4"),
     )
+    controller.stage_debug_atlas_directory(2, "custom-debug-x2")
     revision = controller.draft_revision
 
     controller.reset_atlas_configuration()
 
     assert controller.draft_atlas_mode == ATLAS_MODE_DEBUG
     assert controller.draft.default.atlas_directories == ("", "", "", "")
+    assert controller.draft_debug_atlas_directories == ("", "", "", "")
     assert controller.draft_revision == revision + 1
     assert settings.values == applied_settings
 

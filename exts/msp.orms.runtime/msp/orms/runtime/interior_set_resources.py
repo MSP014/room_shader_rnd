@@ -25,8 +25,10 @@ from msp.orms.scene.resources import (
 from .atlas_manifest import ManifestCoherence, validate_manifest_coherence
 from .resources import (
     AtlasResource,
+    DebugAtlasDecision,
     ResourceLayout,
     discover_production_atlas,
+    resolve_debug_atlases,
 )
 
 
@@ -73,10 +75,15 @@ def resolve_interior_set_resources(
     resources: ResourceLayout,
     collection: InteriorSetCollection,
     atlas_mode: str = ATLAS_MODE_PRODUCTION,
+    debug_atlas_directories: tuple[str, str, str, str] = ("", "", "", ""),
 ) -> tuple[InteriorSetResourceSnapshot, ...]:
     """Apply the global mode before resolving each Set-local family."""
 
     mode = normalise_atlas_mode(atlas_mode)
+    debug_decisions = resolve_debug_atlases(
+        resources,
+        debug_atlas_directories,
+    )
     snapshots = []
     for item in collection.sets:
         families = tuple(
@@ -86,6 +93,7 @@ def resolve_interior_set_resources(
                 room_size,
                 directory,
                 mode,
+                debug_decisions[room_size - 1],
             )
             for room_size, directory in zip(
                 ROOM_SIZES,
@@ -116,6 +124,7 @@ def build_runtime_resource_snapshot(
     resources: ResourceLayout,
     collection: InteriorSetCollection,
     atlas_mode: str = ATLAS_MODE_PRODUCTION,
+    debug_atlas_directories: tuple[str, str, str, str] = ("", "", "", ""),
     resolved: tuple[InteriorSetResourceSnapshot, ...] | None = None,
 ) -> InteriorSetRuntimeSnapshot:
     """Adapt filesystem decisions to the installed runtime contract."""
@@ -124,6 +133,7 @@ def build_runtime_resource_snapshot(
         resources,
         collection,
         atlas_mode,
+        debug_atlas_directories,
     )
     runtime_sets = []
     for snapshot in decisions:
@@ -161,6 +171,7 @@ def _resolve_family(
     room_size: int,
     configured_directory: str,
     atlas_mode: str,
+    debug_decision: DebugAtlasDecision,
 ) -> ResolvedAtlasFamily:
     directory = configured_directory.strip()
     if atlas_mode == ATLAS_MODE_DEBUG:
@@ -168,8 +179,9 @@ def _resolve_family(
             set_id=set_id,
             room_size=room_size,
             configured_directory=directory,
-            atlas=resources.debug_atlas(room_size),
+            atlas=debug_decision.atlas,
             fallback_reason="global debug mode",
+            validation_error=debug_decision.validation_error,
         )
     if directory:
         try:
@@ -184,7 +196,7 @@ def _resolve_family(
                 atlas=production,
             )
         except (FileNotFoundError, ValueError) as error:
-            debug = resources.debug_atlas(room_size)
+            debug = debug_decision.atlas
             return ResolvedAtlasFamily(
                 set_id=set_id,
                 room_size=room_size,
@@ -193,7 +205,7 @@ def _resolve_family(
                 fallback_reason="invalid production family",
                 validation_error=str(error),
             )
-    debug = resources.debug_atlas(room_size)
+    debug = debug_decision.atlas
     return ResolvedAtlasFamily(
         set_id=set_id,
         room_size=room_size,

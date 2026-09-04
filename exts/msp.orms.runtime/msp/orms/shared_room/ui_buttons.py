@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from .ui_tooltips import with_wrapped_tooltip
+
 SELECTION_BUTTON_STYLE = {
     "Button": {"background_color": 0xFF454545},
     "Button:hovered": {"background_color": 0xFF505050},
@@ -19,13 +21,15 @@ def selection_button(
     selected: bool,
     clicked: Callable[[], None],
     enabled: bool = True,
+    tooltip: str | None = None,
 ) -> object:
     """Create one mutually exclusive choice with visible selected state."""
 
-    return ui.Button(
+    button = ui.Button(
         text,
         selected=selected,
         enabled=enabled,
         clicked_fn=clicked,
         style=SELECTION_BUTTON_STYLE,
     )
+    return with_wrapped_tooltip(button, tooltip)

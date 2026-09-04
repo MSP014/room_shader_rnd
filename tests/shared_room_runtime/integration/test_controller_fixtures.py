@@ -65,7 +65,7 @@ def test_source_x1_materials_enable_all_debug_variants(
     assert (
         shader.GetInput("room_atlas")
         .Get()
-        .path.endswith("room_map_debug/room_map_debug.<UDIM>.png")
+        .path.endswith("room_map_debug_x1/room_map_debug_x1.<UDIM>.png")
     )
 
 

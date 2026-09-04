@@ -188,7 +188,8 @@ def test_capture_stage_overrides_only_exported_window_material():
         == "room_map"
     )
     assert atlas_asset.path.endswith(
-        "assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png"
+        "exts/msp.orms.runtime/data/atlases/room_map_debug_x1/"
+        "room_map_debug_x1.<UDIM>.png"
     )
     assert shader.GetInput("room_variant_count").Get() == 3
     assert shader.GetInput("variation_seed").Get() == 0

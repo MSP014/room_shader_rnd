@@ -11,7 +11,7 @@ def test_extension_manifest_declares_required_runtime_dependencies():
 
     package = manifest["package"]
     assert package["title"] == "Omniverse Room Map Shader"
-    assert package["version"] == "0.1.21"
+    assert package["version"] == "0.1.25"
     assert package["repository"] == (
         "https://github.com/MSP014/room_shader_rnd"
     )
@@ -36,7 +36,8 @@ def test_extension_documents_both_texture_distribution_zones():
         EXTENSION_ROOT / "data" / "atlases" / "README.md"
     ).read_text(encoding="utf-8")
 
-    assert "data/atlases/debug/" in atlas_document
+    assert "data/atlases/" in atlas_document
+    assert "room_map_debug_x1" in atlas_document
     assert "/atlases/xN/directory" in atlas_document
     assert "variantCount" not in atlas_document
     assert "do not live in this extension" in atlas_document
@@ -49,7 +50,7 @@ def test_extension_manager_readme_is_an_artist_workflow():
         "Window > ORMS",
         "Use source rule",
         "Restore Original Asset",
-        "Debug (force packaged)",
+        "Debug (force global)",
         "Apply Interior Sets",
         "Save Profile...",
         "Troubleshooting",

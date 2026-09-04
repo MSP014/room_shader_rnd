@@ -70,7 +70,27 @@ def test_fresh_configuration_starts_in_forced_debug_mode():
     migration = repository.ensure_migrated()
 
     assert migration.atlas_mode == ATLAS_MODE_DEBUG
+    assert migration.debug_atlas_directories == ("", "", "", "")
     assert repository.load_atlas_mode() == ATLAS_MODE_DEBUG
+
+
+def test_global_debug_overrides_round_trip_with_the_active_snapshot():
+    settings = _Settings()
+    repository = InteriorSetSettingsRepository(settings)
+    collection = repository.ensure_migrated().collection
+
+    repository.commit(
+        collection,
+        ATLAS_MODE_DEBUG,
+        ("debug-x1", "", "debug-x3", ""),
+    )
+
+    assert repository.load_debug_atlas_directories() == (
+        "debug-x1",
+        "",
+        "debug-x3",
+        "",
+    )
 
 
 def test_failed_inactive_slot_write_preserves_applied_snapshot():

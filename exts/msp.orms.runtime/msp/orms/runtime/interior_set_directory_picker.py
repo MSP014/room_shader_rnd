@@ -54,7 +54,7 @@ class InteriorSetDirectoryPicker:
 
         self._open = True
         importer.show_window(
-            title="Select ORMS production atlas folder",
+            title="Select ORMS atlas folder",
             show_only_collections=["my-computer"],
             show_only_folders=True,
             import_button_label="Select folder",

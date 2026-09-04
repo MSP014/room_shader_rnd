@@ -9,7 +9,7 @@ _DEBUG_VARIANT_COUNT = 8
 ROOM_MAP_MDL_FILENAME = "room_map.mdl"
 ROOM_MAP_SINGLE_MDL_FILENAME = "room_map_single.mdl"
 _DEBUG_FAMILY_NAMES = {
-    1: "room_map_debug",
+    1: "room_map_debug_x1",
     2: "room_map_debug_x2",
     3: "room_map_debug_x3",
     4: "room_map_debug_x4",
@@ -78,7 +78,7 @@ class RuntimeResources:
         """Adapt the retained checkout layout to the portable resource contract."""
 
         root = Path(repository_root).resolve()
-        texture_root = root / "assets" / "_external" / "tex"
+        texture_root = root / "exts" / "msp.orms.runtime" / "data" / "atlases"
         families = []
         for room_size, family_name in _DEBUG_FAMILY_NAMES.items():
             asset_path = (

@@ -4,20 +4,21 @@ The installable extension keeps only public diagnostic content beneath this
 directory:
 
 ```text
-data/atlases/debug/
-|-- x1/room_map_debug.<UDIM>.png
-|-- x2/room_map_debug_x2.<UDIM>.png
-|-- x3/room_map_debug_x3.<UDIM>.png
-`-- x4/room_map_debug_x4.<UDIM>.png
+data/atlases/
+|-- room_map_debug_x1/room_map_debug_x1.<UDIM>.png
+|-- room_map_debug_x2/room_map_debug_x2.<UDIM>.png
+|-- room_map_debug_x3/room_map_debug_x3.<UDIM>.png
+`-- room_map_debug_x4/room_map_debug_x4.<UDIM>.png
 ```
 
 Each debug family contains tiles `1001` through `1008` and reports eight
 variants. These textures are suitable for validation and examples, not as the
 production interior library.
 
-Production Room Map atlases do not live in this extension or in the public
-repository. Install an independently licensed asset pack and point each
-Interior Set family at the directory containing that family's textures:
+Production Room Map atlases do not live in this extension-owned debug tree.
+The repository's `assets/_external/tex` tree is reserved for production
+content. Install an independently licensed asset pack and point each Interior
+Set family at the directory containing that family's textures:
 
 ```text
 /persistent/exts/msp.orms.runtime/interior_sets/
@@ -28,6 +29,18 @@ The directory must contain exactly one continuous UDIM sequence beginning at
 tile `1001`. ORMS derives the `<UDIM>` asset pattern and uses every consecutive
 tile, so artists do not enter filenames or variant counts. A blank xN setting
 retains the packaged debug family for that room size.
+
+The Interior Atlases tab also exposes one optional global debug override per
+x1-x4 family. These overrides are staged in the same snapshot transaction:
+
+```text
+/persistent/exts/msp.orms.runtime/interior_sets/
+  slots/<active_slot>/debug_atlases/xN/directory
+```
+
+Clearing a debug override restores the extension-owned packaged default. A
+valid override is used both by Debug mode and by Production fallback; an
+invalid override reports its error and falls back to the packaged family.
 
 Each production directory also provides `orms_variants.json`:
 

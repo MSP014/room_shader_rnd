@@ -18,7 +18,11 @@ def test_profile_panel_exposes_only_direct_save_and_load_actions(monkeypatch):
         def __exit__(self, *_args):
             return False
 
-    class Frame(Scope):
+    class Widget:
+        def set_tooltip_fn(self, _callback):
+            pass
+
+    class Frame(Scope, Widget):
         def __init__(self, *_args, **_options):
             pass
 
@@ -32,7 +36,12 @@ def test_profile_panel_exposes_only_direct_save_and_load_actions(monkeypatch):
     ui.VStack = lambda **_options: Scope()
     ui.HStack = lambda **_options: Scope()
     ui.Label = lambda *_args, **_options: None
-    ui.Button = lambda label, **_options: buttons.append(label)
+
+    def button(label, **_options):
+        buttons.append(label)
+        return Widget()
+
+    ui.Button = button
     monkeypatch.setitem(sys.modules, "omni", omni)
     monkeypatch.setitem(sys.modules, "omni.ui", ui)
 

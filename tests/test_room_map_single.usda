@@ -55,7 +55,7 @@ def Xform "World"
                 float inputs:emission_strength = 1
                 color3f inputs:fallback_colour = (1, 0, 1)
                 float inputs:room_depth = 1
-                asset inputs:room_atlas = @../assets/_external/tex/room_map_debug/room_map_debug.1001.png@
+                asset inputs:room_atlas = @../exts/msp.orms.runtime/data/atlases/room_map_debug_x1/room_map_debug_x1.1001.png@
                 token outputs:out
             }
         }

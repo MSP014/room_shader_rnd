@@ -46,18 +46,20 @@ def test_repository_adapter_exposes_only_complete_debug_families(tmp_path):
     (mdl_root / "room_map.mdl").touch()
     complete = (
         tmp_path
-        / "assets"
-        / "_external"
-        / "tex"
-        / "room_map_debug"
-        / "room_map_debug.<UDIM>.png"
+        / "exts"
+        / "msp.orms.runtime"
+        / "data"
+        / "atlases"
+        / "room_map_debug_x1"
+        / "room_map_debug_x1.<UDIM>.png"
     )
     _touch_udim_family(complete)
     incomplete = (
         tmp_path
-        / "assets"
-        / "_external"
-        / "tex"
+        / "exts"
+        / "msp.orms.runtime"
+        / "data"
+        / "atlases"
         / "room_map_debug_x2"
         / "room_map_debug_x2.<UDIM>.png"
     )

@@ -7,6 +7,7 @@ from functools import partial
 
 from msp.orms.shared_room.material_controls import MATERIAL_CONTROLS
 from msp.orms.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
 from .interior_set_controller import InteriorSetController
 from .interior_set_fields import material_field
@@ -17,6 +18,11 @@ MaterialStatus = Callable[[str], str | None]
 StatusLabelCreated = Callable[[str, object], None]
 SectionCollapsed = Callable[[str, bool], bool]
 SectionCollapsedChanged = Callable[[str, bool], None]
+
+_LIVE_MATERIAL_HELP = (
+    "Material changes are live and affect only this Interior Set's x1-x4 "
+    "runtime materials."
+)
 
 
 def build_interior_set_material_panel(
@@ -53,16 +59,11 @@ def build_interior_set_material_panel(
                 if section_collapsed_changed is not None
                 else None
             ),
+            tooltip=_LIVE_MATERIAL_HELP,
         )
         with set_frame:
             with ui.VStack(spacing=4):
                 values = item.material_mapping()
-                ui.Label(
-                    "Changes are live and affect only this Set's x1-x4 "
-                    "runtime materials.",
-                    word_wrap=True,
-                    height=0,
-                )
                 status = material_status(item.set_id)
                 status_label = ui.Label(
                     status or "",
@@ -72,12 +73,16 @@ def build_interior_set_material_panel(
                     visible=bool(status),
                 )
                 status_label_created(item.set_id, status_label)
-                ui.Button(
+                complete_reset = ui.Button(
                     "Reset complete material profile",
                     clicked_fn=lambda set_id=item.set_id: material_reset(
                         set_id,
                         None,
                     ),
+                )
+                with_wrapped_tooltip(
+                    complete_reset,
+                    "Restore every material value in this Set.",
                 )
                 for group in groups:
                     group_section_id = (
@@ -106,13 +111,17 @@ def build_interior_set_material_panel(
                     )
                     with group_frame:
                         with ui.VStack(spacing=3):
-                            ui.Button(
+                            group_reset = ui.Button(
                                 f"Reset {group}",
                                 clicked_fn=partial(
                                     material_reset,
                                     item.set_id,
                                     group,
                                 ),
+                            )
+                            with_wrapped_tooltip(
+                                group_reset,
+                                f"Restore the {group} group defaults.",
                             )
                             for control in MATERIAL_CONTROLS:
                                 if control.group != group:

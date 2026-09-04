@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from msp.orms.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
 from .lifecycle import RuntimeState
 
@@ -17,12 +18,15 @@ LIFECYCLE_ACTION_LABELS = (
     ("restore", "Restore Original Asset"),
 )
 
-LIFECYCLE_ACTION_HELP = (
-    "Start activates ORMS or resumes a stopped result.\n"
-    "Stop freezes the current result and releases live updates.\n"
-    "Restart removes and rebuilds ORMS state from the current settings.\n"
-    "Restore Original Asset removes every ORMS-owned Session Layer opinion."
-)
+LIFECYCLE_ACTION_HELP = {
+    "start": "Start activates ORMS or resumes a stopped result.",
+    "stop": "Stop freezes the current result and releases live updates.",
+    "restart": "Restart removes and rebuilds ORMS from current settings.",
+    "restore": (
+        "Restore Original Asset removes every ORMS-owned Session Layer "
+        "opinion."
+    ),
+}
 
 
 def enabled_lifecycle_actions(state: RuntimeState) -> frozenset[str]:
@@ -92,15 +96,15 @@ class LifecycleControls:
                 )
                 with ui.HStack(height=30, spacing=4):
                     for key, label in LIFECYCLE_ACTION_LABELS:
-                        self._buttons[key] = ui.Button(
+                        button = ui.Button(
                             label,
                             clicked_fn=getattr(self._callbacks, key),
                         )
-                ui.Label(
-                    LIFECYCLE_ACTION_HELP,
-                    word_wrap=True,
-                    height=0,
-                )
+                        with_wrapped_tooltip(
+                            button,
+                            LIFECYCLE_ACTION_HELP[key],
+                        )
+                        self._buttons[key] = button
         self.set_state(self._state)
 
     def set_state(self, state: RuntimeState) -> None:

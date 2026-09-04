@@ -13,9 +13,11 @@ from ._support import REPOSITORY_ROOT
 
 
 def _touch_debug_sources(repository_root: Path) -> None:
-    texture_root = repository_root / "assets" / "_external" / "tex"
+    texture_root = (
+        repository_root / "exts" / "msp.orms.runtime" / "data" / "atlases"
+    )
     family_names = (
-        "room_map_debug",
+        "room_map_debug_x1",
         "room_map_debug_x2",
         "room_map_debug_x3",
         "room_map_debug_x4",
@@ -76,8 +78,7 @@ def test_builder_packages_canonical_source_and_public_debug_content(tmp_path):
         built
         / "data"
         / "atlases"
-        / "debug"
-        / "x4"
+        / "room_map_debug_x4"
         / "room_map_debug_x4.1008.png"
     ).is_file()
     manifest = json.loads(
@@ -85,7 +86,7 @@ def test_builder_packages_canonical_source_and_public_debug_content(tmp_path):
     )
     assert manifest["production_atlases_included"] is False
     assert manifest["source_policy"] == (
-        "canonical extension tree plus packaged debug atlases"
+        "canonical extension tree with packaged debug atlases"
     )
     assert all("production" not in item["path"] for item in manifest["files"])
 

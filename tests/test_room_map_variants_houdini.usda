@@ -67,7 +67,7 @@ def Xform "World"
                 bool inputs:enable_slice_3 = 1
                 bool inputs:enable_slice_4 = 1
                 color3f inputs:fallback_colour = (1, 0, 1)
-                asset inputs:room_atlas = @../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                asset inputs:room_atlas = @../exts/msp.orms.runtime/data/atlases/room_map_debug_x1/room_map_debug_x1.<UDIM>.png@
                 float inputs:room_depth = 1
                 int inputs:room_variant_count = 3
                 float inputs:slice_1_depth_percent = 20

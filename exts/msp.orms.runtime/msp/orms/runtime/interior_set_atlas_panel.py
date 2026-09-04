@@ -13,10 +13,25 @@ from msp.orms.shared_room.interior_set_diagnostics import (
 )
 from msp.orms.shared_room.ui_buttons import selection_button
 from msp.orms.shared_room.ui_sections import collapsable_frame
+from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
 
 from .interior_set_alerts import selector_conflict_alerts
 from .interior_set_controller import InteriorSetController
 from .interior_set_fields import string_field
+
+_ATLAS_MODE_HELP = (
+    "Debug forces the global x1-x4 debug atlases for every Interior Set. "
+    "Production uses each Set's configured family and falls back to the "
+    "matching global debug family when it is absent."
+)
+_PRODUCTION_HELP = (
+    "Select a folder containing exactly one continuous UDIM sequence starting "
+    "at 1001. The value remains staged until Apply Interior Sets."
+)
+_DEFAULT_SET_HELP = (
+    "Default is evaluated last and receives every compatible ORMS window not "
+    "matched by a specific Interior Set."
+)
 
 
 def _resource_status(controller: InteriorSetController, set_id: str) -> str:
@@ -42,6 +57,22 @@ def _resource_status(controller: InteriorSetController, set_id: str) -> str:
     return f"{families}. Variant identity: {coherence}."
 
 
+def _resource_errors(
+    controller: InteriorSetController,
+    set_id: str,
+) -> tuple[str, ...]:
+    snapshot = next(
+        item
+        for item in controller.resource_decisions()
+        if item.set_id == set_id
+    )
+    return tuple(
+        f"x{family.room_size}: {family.validation_error}"
+        for family in snapshot.families
+        if family.validation_error
+    )
+
+
 def _select_atlas_mode(
     controller: InteriorSetController,
     atlas_mode: str,
@@ -59,6 +90,7 @@ def _collapsable_frame(
     *,
     collapsed: bool,
     collapsed_changed: Callable[[bool], None] | None,
+    tooltip: str | None = None,
 ) -> object:
     """Create a zero-height collapsible frame with retained state."""
 
@@ -67,6 +99,7 @@ def _collapsable_frame(
         title,
         collapsed=collapsed,
         collapsed_changed=collapsed_changed,
+        tooltip=tooltip,
     )
 
 
@@ -149,26 +182,21 @@ def build_interior_set_atlas_panel(
         "Atlas mode",
         collapsed=atlas_mode_collapsed,
         collapsed_changed=atlas_mode_collapsed_changed,
+        tooltip=_ATLAS_MODE_HELP,
     )
     with atlas_mode_frame:
         with ui.VStack(spacing=4):
-            ui.Label(
-                "Debug forces packaged x1-x4 atlases for every Interior Set. "
-                "Production uses each Set's configured family and falls back "
-                "to the matching packaged debug family when it is absent.",
-                word_wrap=True,
-                height=0,
-            )
             with ui.HStack(height=28, spacing=4):
                 selection_button(
                     ui,
-                    "Debug (force packaged)",
+                    "Debug (force global)",
                     selected=(controller.draft_atlas_mode == ATLAS_MODE_DEBUG),
                     clicked=lambda: _select_atlas_mode(
                         controller,
                         ATLAS_MODE_DEBUG,
                         rebuild,
                     ),
+                    tooltip=_ATLAS_MODE_HELP,
                 )
                 selection_button(
                     ui,
@@ -181,6 +209,7 @@ def build_interior_set_atlas_panel(
                         ATLAS_MODE_PRODUCTION,
                         rebuild,
                     ),
+                    tooltip=_ATLAS_MODE_HELP,
                 )
     _build_structural_actions(ui, controller, rebuild, apply)
     for item in controller.draft.sets:
@@ -204,6 +233,11 @@ def build_interior_set_atlas_panel(
                 if set_collapsed_changed is not None
                 else None
             ),
+            tooltip=(
+                f"{_DEFAULT_SET_HELP}\n{_resource_status(controller, item.set_id)}"
+                if item.is_default
+                else _resource_status(controller, item.set_id)
+            ),
         )
         with frame:
             with ui.VStack(spacing=4):
@@ -218,15 +252,7 @@ def build_interior_set_atlas_panel(
                             ),
                         )
                     )
-                if item.is_default:
-                    ui.Label(
-                        "Default is evaluated last and receives every "
-                        "compatible ORMS window not matched by a specific "
-                        "Interior Set.",
-                        word_wrap=True,
-                        height=0,
-                    )
-                else:
+                if not item.is_default:
                     ui.Label("Target paths / masks", name="title")
                     models.extend(
                         string_field(
@@ -263,9 +289,13 @@ def build_interior_set_atlas_panel(
                             )
 
                         models.extend(
-                            string_field(directories[room_size - 1], changed)
+                            string_field(
+                                directories[room_size - 1],
+                                changed,
+                                tooltip=_PRODUCTION_HELP,
+                            )
                         )
-                        ui.Button(
+                        browse_button = ui.Button(
                             "Browse...",
                             width=82,
                             clicked_fn=(
@@ -277,7 +307,11 @@ def build_interior_set_atlas_panel(
                                 )
                             ),
                         )
-                        ui.Button(
+                        with_wrapped_tooltip(
+                            browse_button,
+                            _PRODUCTION_HELP,
+                        )
+                        clear_button = ui.Button(
                             "Clear",
                             width=54,
                             enabled=bool(directories[room_size - 1]),
@@ -291,6 +325,11 @@ def build_interior_set_atlas_panel(
                                 )
                             ),
                         )
+                        with_wrapped_tooltip(
+                            clear_button,
+                            "Clear this production folder and use the "
+                            "matching global debug fallback.",
+                        )
                 ui.Button(
                     "Clear all production folders",
                     enabled=any(directories),
@@ -299,11 +338,16 @@ def build_interior_set_atlas_panel(
                         rebuild(),
                     ),
                 )
-                ui.Label(
-                    _resource_status(controller, item.set_id),
-                    word_wrap=True,
-                    height=0,
-                )
+                for resource_error in _resource_errors(
+                    controller,
+                    item.set_id,
+                ):
+                    ui.Label(
+                        resource_error,
+                        word_wrap=True,
+                        height=0,
+                        name="warning",
+                    )
                 with ui.HStack(height=28, spacing=4):
                     ui.Button(
                         "Duplicate",

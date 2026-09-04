@@ -90,7 +90,7 @@ def Xform "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "room_map"
                 float3 inputs:camera_position_world = (4.5, 1.5, 3.5)
                 float inputs:emission_strength = 1
-                asset inputs:room_atlas = @../assets/_external/tex/room_map_debug/room_map_debug.<UDIM>.png@
+                asset inputs:room_atlas = @../exts/msp.orms.runtime/data/atlases/room_map_debug_x1/room_map_debug_x1.<UDIM>.png@
                 float inputs:room_depth = 1
                 float inputs:room_uniform_scale = 0.8
                 int inputs:room_variant_count = 3

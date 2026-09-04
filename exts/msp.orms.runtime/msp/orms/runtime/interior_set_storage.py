@@ -80,6 +80,12 @@ class InteriorSetSnapshotStore:
         slot: str,
         collection: InteriorSetCollection,
         atlas_mode: str,
+        debug_atlas_directories: tuple[str, str, str, str] = (
+            "",
+            "",
+            "",
+            "",
+        ),
     ) -> None:
         """Replace one inactive slot with a complete candidate snapshot."""
 
@@ -95,6 +101,17 @@ class InteriorSetSnapshotStore:
             f"{root}/atlas_mode",
             normalise_atlas_mode(atlas_mode),
         )
+        if len(debug_atlas_directories) != len(ROOM_SIZES):
+            raise ValueError("Debug atlas overrides require x1-x4 directories")
+        for room_size, directory in zip(
+            ROOM_SIZES,
+            debug_atlas_directories,
+            strict=True,
+        ):
+            self.settings.set(
+                f"{root}/debug_atlases/x{room_size}/directory",
+                str(directory).strip(),
+            )
         for item in collection.sets:
             item_root = set_root(slot, item.set_id)
             self.settings.set(f"{item_root}/name", item.name)
@@ -135,6 +152,23 @@ class InteriorSetSnapshotStore:
 
         return normalise_atlas_mode(
             self.settings.get(f"{slot_root(slot)}/atlas_mode")
+        )
+
+    def load_debug_atlas_directories(
+        self,
+        slot: str,
+    ) -> tuple[str, str, str, str]:
+        """Load optional global debug overrides from one snapshot."""
+
+        root = slot_root(slot)
+        return tuple(
+            str(
+                self.settings.get(
+                    f"{root}/debug_atlases/x{room_size}/directory"
+                )
+                or ""
+            ).strip()
+            for room_size in ROOM_SIZES
         )
 
     def set_atlas_mode(self, slot: str, atlas_mode: str) -> None:

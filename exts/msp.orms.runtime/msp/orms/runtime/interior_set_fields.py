@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+from msp.orms.shared_room.ui_tooltips import with_wrapped_tooltip
+
 
 def _watch(model: object, changed: Callable[[], None]) -> None:
     add_changed = getattr(model, "add_value_changed_fn", None)
@@ -17,17 +19,19 @@ def string_field(
     changed: Callable[[str], None],
     *,
     multiline: bool = False,
+    tooltip: str | None = None,
 ) -> tuple[object, ...]:
     """Create one local string model for staged or live text."""
 
     import omni.ui as ui
 
     model = ui.SimpleStringModel(value)
-    ui.StringField(
+    field = ui.StringField(
         model=model,
         multiline=multiline,
         height=72 if multiline else 24,
     )
+    with_wrapped_tooltip(field, tooltip)
     _watch(model, lambda: changed(model.get_value_as_string()))
     return (model,)
 
