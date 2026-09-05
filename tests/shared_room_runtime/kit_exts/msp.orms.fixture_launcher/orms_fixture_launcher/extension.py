@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Open the requested Room Map validation stage after Kit startup."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Present live Set-scoped material update outcomes beside their controls."""
 
 from __future__ import annotations

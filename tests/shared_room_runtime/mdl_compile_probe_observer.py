@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Headless observer used by the Room Map MDL compile bisection."""
 
 import asyncio

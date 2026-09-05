@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build staged global debug-atlas controls for the Interior Atlases tab."""
 
 from __future__ import annotations

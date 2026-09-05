@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Load exact ORMS source modules while preserving lifecycle cleanup order."""
 
 from __future__ import annotations

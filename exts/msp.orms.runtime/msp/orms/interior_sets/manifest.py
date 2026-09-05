@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Define ordered semantic identity for coherent atlas families."""
 
 from __future__ import annotations

@@ -2,12 +2,13 @@
 
 > An installable NVIDIA Omniverse Kit extension for scalable parallax interiors
 
-**Status**: KRM-92 is complete in the published `msp.orms.runtime` 0.1.20.
+**Status**: `msp.orms.runtime` 1.0.1 is the current accepted release.
 Automated contracts cover the artist workflow, Interior Sets, source-safe
-mesh-assignment overrides, reset controls, and quieter stage-load telemetry.
-The installed package is accepted in RTX Real-Time and RTX Interactive, and
-the local production libraries publish coherent x1-x4 variant manifests.
-Performance evidence remains a separate empirical-validation task.
+mesh-assignment overrides, reset controls, portable demo content, and quiet
+production diagnostics. The installed package is accepted in RTX Real-Time
+and RTX Interactive, and the local production libraries publish coherent
+x1-x4 variant manifests. Performance evidence remains a separate
+empirical-validation task.
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
@@ -19,100 +20,6 @@ is well established and predates this project.
 Once installed, ORMS is enabled and configured through the ordinary Kit user
 interface. It does not require users to copy Python into Script Editor or add
 `--ext-folder` and `--enable` arguments to every application launch.
-
----
-
-## Install and Use the Kit Extension
-
-The currently accepted distribution path is a local filesystem Kit registry.
-Publishing and installation are separate responsibilities.
-
-### Publish to the Registry — Developer or Distributor
-
-The registry owner publishes the standalone extension from this repository
-into a configured Kit App Template registry:
-
-```powershell
-python tools/publish_orms_local_registry.py `
-    --kit-app-root E:\path\to\kit-app-template
-```
-
-This is a release operation. Artists installing ORMS from an already
-configured registry do not run the publication script.
-
-### Install and Run — Artist or Extension User
-
-Once the application is connected to a registry containing ORMS, use the
-normal Kit workflow:
-
-1. Launch the application normally; for a Kit App Template checkout, use
-   `./repo.sh launch` on Linux or `.\repo.bat launch` on Windows.
-2. Open `Window > Extensions` and find `Omniverse Room Map Shader`.
-3. Select `Install`, enable the extension, and select `AUTOLOAD`.
-4. On later launches, start the Kit application normally. ORMS is discovered
-   from the registry and starts without repository-specific command-line
-   arguments.
-
-Open `Window > ORMS` to access lifecycle controls and the `ORMS Classifier`,
-`Material Parameters`, and `Interior Atlases` tabs. Compatible
-`Windows_Glass` meshes are recognised and assigned automatically. The same
-material remains available for manual assignment through
-`Create > Material > ORMS > Omniverse Room Map Shader`.
-
-`Start` activates an eligible stage, `Stop` freezes its current calculated
-result, `Restart` rebuilds the ORMS runtime, and `Restore Original Asset`
-removes ORMS-owned Session Layer state and reveals the source material binding.
-Disabling the extension performs the same source-safe teardown.
-
-The installed package contains public x1–x4 debug atlases. Production atlases
-remain external content and are selected independently for each room family in
-the `Interior Atlases` tab.
-
-For package construction and local-registry administration, see the
-[extension README](exts/msp.orms.runtime/README.md).
-
-## Extension Architecture
-
-The Kit extension is the product boundary; shader maths, OpenUSD
-classification, runtime state, resource resolution, and UI wiring remain
-separate implementation zones:
-
-```text
-Extension Manager / AUTOLOAD
-    -> extension.py                 minimal Kit entry point
-       -> service.py                lifecycle and stage coordination
-          -> materials/             MDL + Material Library registration
-          -> assignments/           reversible Windows_Glass assignment
-          -> interior_sets/         staged configuration and resolution
-          -> lifecycle state machine
-             -> shared-room classifier and Session Layer authoring
-             -> active-camera material bridge
-          -> ui/                     Window > ORMS and its three settings tabs
-```
-
-| Component | Responsibility |
-| --- | --- |
-| `extension.py` | Starts and stops the extension without owning runtime logic. |
-| `service.py` | Coordinates stage events, assignment, lifecycle, settings, startup, and teardown. |
-| `lifecycle.py` | Owns the `Inactive`, `Running`, `Stopped`, and `Failed` state transitions. |
-| `runtime/assignments/` | Owns automatic mesh-assignment inspection, overrides, and presentation. |
-| `runtime/interior_sets/` | Owns staged set configuration, persistence, transactions, and atlas resolution. |
-| `runtime/profiles/` | Owns portable `.orms` profiles and their save/load workflow. |
-| `runtime/materials/` | Owns MDL registration, atlas manifests, Material Library integration, and update feedback. |
-| `runtime/ui/` | Owns the dockable `Window > ORMS` shell and artist-facing controls. |
-| `msp/orms/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
-| `msp/orms/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
-| `runtime/resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
-| `msp/orms/scene/source_loader.py` | Reloads the exact extension-owned runtime graph and cleans up live callback owners. |
-| `msp/orms/scene/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
-| `msp/orms/classification/` | Performs deterministic, Kit-independent x1–x4 room classification. |
-| `msp/orms/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
-
-Automatic assignment and generated ORMS state use separate anonymous Session
-sublayers. Their implementation prims are hidden from the ordinary Stage tree,
-and removing those layers restores the source asset without rewriting its USD
-files. Common material parameters are presented once in the ORMS window and
-fanned out to the active x1–x4 materials.
 
 ---
 
@@ -426,16 +333,119 @@ only; it is not a substitute for the planned controlled benchmark.*
 - A dockable `Window > ORMS` panel with lifecycle controls, per-Set material
   parameters, staged repeatable Interior Set blocks, debug/production mode,
   and portable `.orms` scene profiles.
-- 0.1.19 source-safe automatic-assignment inspection, lifecycle and x1
-  fallback guidance, material and atlas resets, inline material feedback, and
-  an artist-facing Extension Manager overview, protected by automated tests.
-- Version-aware in-process extension upgrades, with final 0.1.20
-  disable/re-enable ownership accepted from the clean installed log.
+- One-click opening of the bundled Building 150 demo scene, with an automatic
+  relative-path demo profile on a factory-clean first run.
+- Version-aware in-process extension upgrades, with 1.0.1 enablement,
+  demo-scene loading, and source-safe ownership accepted from the installed
+  runtime log.
 
 #### Remaining boundaries
 
 - Optional ORMS 2.0 glass contamination and parallax art-direction controls.
 - A geometry-versus-Room-Map performance benchmark.
+
+---
+
+## Extension Architecture
+
+The Kit extension is the product boundary; shader maths, OpenUSD
+classification, runtime state, resource resolution, and UI wiring remain
+separate implementation zones:
+
+```text
+Extension Manager / AUTOLOAD
+    -> extension.py                 minimal Kit entry point
+       -> service.py                lifecycle and stage coordination
+          -> materials/             MDL + Material Library registration
+          -> assignments/           reversible Windows_Glass assignment
+          -> interior_sets/         staged configuration and resolution
+          -> lifecycle state machine
+             -> shared-room classifier and Session Layer authoring
+             -> active-camera material bridge
+          -> ui/                     Window > ORMS and its three settings tabs
+```
+
+| Component | Responsibility |
+| --- | --- |
+| `extension.py` | Starts and stops the extension without owning runtime logic. |
+| `service.py` | Coordinates stage events, assignment, lifecycle, settings, startup, and teardown. |
+| `lifecycle.py` | Owns the `Inactive`, `Running`, `Stopped`, and `Failed` state transitions. |
+| `runtime/assignments/` | Owns automatic mesh-assignment inspection, overrides, and presentation. |
+| `runtime/interior_sets/` | Owns staged set configuration, persistence, transactions, and atlas resolution. |
+| `runtime/profiles/` | Owns portable `.orms` profiles and their save/load workflow. |
+| `runtime/materials/` | Owns MDL registration, atlas manifests, Material Library integration, and update feedback. |
+| `runtime/ui/` | Owns the dockable `Window > ORMS` shell and artist-facing controls. |
+| `msp/orms/shared_room/settings_panel.py` | Builds the classifier, material, and atlas controls embedded in that shell. |
+| `msp/orms/shared_room/material_controls.py` | Defines the single persistent artist value for every shared shader control. |
+| `runtime/resources.py` | Resolves canonical MDL, packaged debug atlases, and external production families. |
+| `msp/orms/scene/source_loader.py` | Reloads the exact extension-owned runtime graph and cleans up live callback owners. |
+| `msp/orms/scene/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
+| `msp/orms/classification/` | Performs deterministic, Kit-independent x1–x4 room classification. |
+| `msp/orms/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
+
+Automatic assignment and generated ORMS state use separate anonymous Session
+sublayers. Their implementation prims are hidden from the ordinary Stage tree,
+and removing those layers restores the source asset without rewriting its USD
+files. Common material parameters are presented once in the ORMS window and
+fanned out to the active x1–x4 materials.
+
+---
+
+## Install and Use the Kit Extension
+
+The currently accepted distribution path is a local filesystem Kit registry.
+Publishing and installation are separate responsibilities.
+
+### Publish to the Registry — Developer or Distributor
+
+The registry owner publishes the standalone extension from this repository
+into a configured Kit App Template registry:
+
+```powershell
+python tools/publish_orms_local_registry.py `
+    --kit-app-root E:\path\to\kit-app-template
+```
+
+This is a release operation. Artists installing ORMS from an already
+configured registry do not run the publication script.
+
+### Install and Run — Artist or Extension User
+
+Once the application is connected to a registry containing ORMS, use the
+normal Kit workflow:
+
+1. Launch the application normally; for a Kit App Template checkout, use
+   `./repo.sh launch` on Linux or `.\repo.bat launch` on Windows.
+2. Open `Window > Extensions` and find `Omniverse Room Map Shader`.
+3. Select `Install`, enable the extension, and select `AUTOLOAD`.
+4. On later launches, start the Kit application normally. ORMS is discovered
+   from the registry and starts without repository-specific command-line
+   arguments.
+
+Open `Window > ORMS` to access lifecycle controls and the `ORMS Classifier`,
+`Material Parameters`, and `Interior Atlases` tabs. Compatible
+`Windows_Glass` meshes are recognised and assigned automatically. The same
+material remains available for manual assignment through
+`Create > Material > ORMS > Omniverse Room Map Shader`.
+
+`Start` activates an eligible stage, `Stop` freezes its current calculated
+result, `Restart` rebuilds the ORMS runtime, and `Restore Original Asset`
+removes ORMS-owned Session Layer state and reveals the source material binding.
+Disabling the extension performs the same source-safe teardown.
+
+The installed package contains public x1–x4 debug atlases. Production atlases
+remain external content and are selected independently for each room family in
+the `Interior Atlases` tab.
+
+The repository stores its bundled demo binaries with Git LFS. Source users
+should install Git LFS before cloning, or run `git lfs install` followed by
+`git lfs pull` in an existing checkout. For GitHub-generated ZIP downloads,
+the repository owner must enable **Include Git LFS objects in archives**;
+otherwise the archive can contain LFS pointer files instead of the demo
+assets.
+
+For package construction and local-registry administration, see the
+[extension README](exts/msp.orms.runtime/README.md).
 
 ---
 
@@ -850,6 +860,26 @@ and completed validation sequence.
 
 ---
 
+## Licensing
+
+ORMS uses a mixed-licence distribution boundary:
+
+- software and technical documentation are open source under the MIT License;
+- the packaged x1–x4 debug atlases are reusable under CC BY 4.0;
+- the Building 150 scene and reduced eight-tile demo atlas are source-available
+  under the MSP Asset Evaluation License 1.0, which permits non-commercial
+  evaluation, education, demonstrations, and attributed portfolio renders but
+  not commercial use or standalone asset redistribution;
+- the bundled Poly Haven HDRI remains available under CC0 1.0; and
+- full production atlases and Houdini authoring sources are not distributed.
+
+See [`LICENSE.md`](LICENSE.md) for the exact path-by-path scope,
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for provenance, and the
+texts and references in [`LICENSES/`](LICENSES/). Public repository access does
+not change the separate terms applied to demo and third-party assets.
+
+---
+
 ## 📜 Technical Stack
 
 - **Python**: 3.12 (repository baseline and Kit 110.1.2 embedded runtime)
@@ -893,7 +923,9 @@ Your support funds:
   external production-atlas routing, clean source restoration, and the
   completed five-Set architecture with per-Set x1–x4 atlases, material
   profiles, staged editing, portable `.orms` scene profiles, and a canonical
-  extension-owned Python and MDL source tree published as `0.1.21`.
+  extension-owned Python and MDL source tree; followed through `1.0.1` with
+  the bundled Building 150 demo, relative demo-profile resources, quiet
+  production diagnostics, and an explicit mixed-licence distribution boundary.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

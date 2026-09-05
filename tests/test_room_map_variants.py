@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect deterministic roomID variation in the isolated Omniverse fixture."""
 
 from collections import Counter

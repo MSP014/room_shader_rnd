@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Trace the observable Kit stage-loading pipeline at routine info severity."""
 
 from __future__ import annotations
@@ -472,14 +474,17 @@ def _stage_event_types(omni_usd: Any) -> dict[str, object]:
     }
 
 
-def start() -> StageLoadProbe:
-    """Start tracing immediately, including an already-running load batch."""
+def start(*, enabled: bool = True) -> StageLoadProbe | None:
+    """Start the opt-in trace, including an already-running load batch."""
+
+    global _probe
+    stop()
+    if not enabled:
+        return None
 
     import omni.kit.app
     import omni.usd
 
-    global _probe
-    stop()
     _probe = StageLoadProbe(
         omni.usd.get_context(),
         omni.kit.app.get_app(),

@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Coordinate ORMS resources, assignment, and runtime lifecycle inside Kit."""
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +24,7 @@ from msp.orms.shared_room.interior_set_diagnostics import (
 )
 
 from .assignments.session import AssignmentSession, AssignmentSnapshot
+from .demo_scene import open_demo_scene as open_demo_scene_content
 from .interior_sets.controller import InteriorSetController
 from .interior_sets.repository import InteriorSetSettingsRepository
 from .interior_sets.transaction import InteriorSetRollbackError
@@ -35,6 +39,27 @@ from .resources import (
 
 _SETTINGS_ROOT = "/persistent/exts/msp.orms.runtime"
 _AUTO_ASSIGN_SETTING = f"{_SETTINGS_ROOT}/autoAssignWindowsGlass"
+_VERBOSE_DIAGNOSTICS_SETTING = f"{_SETTINGS_ROOT}/verboseDiagnostics"
+
+
+def _verbose_diagnostics_enabled(settings: Any | None = None) -> bool:
+    """Return whether the opt-in research trace should run and emit logs."""
+
+    if settings is None:
+        import carb.settings
+
+        settings = carb.settings.get_settings()
+    return bool(settings.get(_VERBOSE_DIAGNOSTICS_SETTING))
+
+
+def _log_verbose_info(message: str) -> None:
+    """Keep routine lifecycle chatter behind the diagnostics switch."""
+
+    if not _verbose_diagnostics_enabled():
+        return
+    import carb
+
+    carb.log_info(message)
 
 
 class OrmsRuntimeService:
@@ -56,6 +81,7 @@ class OrmsRuntimeService:
         )
         self._settings_window: Any | None = None
         self._interior_sets: InteriorSetController | None = None
+        self._demo_open_task: asyncio.Task[None] | None = None
 
     @classmethod
     def discover(
@@ -87,6 +113,7 @@ class OrmsRuntimeService:
             )
             settings = carb.settings.get_settings()
             settings.set_default(_AUTO_ASSIGN_SETTING, True)
+            settings.set_default(_VERBOSE_DIAGNOSTICS_SETTING, False)
             for room_size in (1, 2, 3, 4):
                 debug_atlas = self._resources.debug_atlas(room_size)
                 settings.set(
@@ -123,6 +150,11 @@ class OrmsRuntimeService:
                 restart_runtime=self.restart_runtime,
                 stop_runtime=self.stop_runtime,
                 restore_asset=self.restore_original_asset,
+                open_demo_scene=self.open_demo_scene,
+                demo_scene_available=(
+                    self._resources.demo_stage is not None
+                    and self._resources.demo_profile is not None
+                ),
             )
             self._settings_window.set_lifecycle_state(self._lifecycle.state)
 
@@ -146,6 +178,85 @@ class OrmsRuntimeService:
             self.stop()
             raise
         carb.log_info("[ORMS] Runtime extension started")
+
+    def open_demo_scene(self) -> None:
+        """Prompt for unsaved work before scheduling the bundled demo."""
+
+        if (
+            self._resources.demo_stage is None
+            or self._resources.demo_profile is None
+        ):
+            self._set_demo_scene_status(
+                "Demo content is unavailable in this ORMS installation."
+            )
+            return
+        if self._demo_open_task is not None:
+            self._set_demo_scene_status("The demo scene is already opening.")
+            return
+
+        import omni.kit.window.file
+
+        omni.kit.window.file.prompt_if_unsaved_stage(
+            self._schedule_demo_scene_open
+        )
+
+    def _schedule_demo_scene_open(self) -> None:
+        """Capture onboarding eligibility only after the save prompt clears."""
+
+        controller = self._interior_sets
+        if controller is None or self._demo_open_task is not None:
+            return
+        auto_apply_profile = controller.is_factory_configuration
+        self._set_demo_scene_status("Opening the ORMS demo scene...")
+        self._demo_open_task = asyncio.ensure_future(
+            self._run_demo_scene_open(auto_apply_profile)
+        )
+
+    async def _run_demo_scene_open(self, auto_apply_profile: bool) -> None:
+        stage_path = self._resources.demo_stage
+        profile_path = self._resources.demo_profile
+        controller = self._interior_sets
+        try:
+            if (
+                stage_path is None
+                or profile_path is None
+                or controller is None
+            ):
+                raise RuntimeError("ORMS demo resources are unavailable")
+            status = await open_demo_scene_content(
+                stage_path,
+                profile_path,
+                controller,
+                self._apply_interior_sets,
+                self._open_stage_async,
+                auto_apply_profile=auto_apply_profile,
+            )
+            self._set_demo_scene_status(status)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self._set_demo_scene_status(f"Demo scene failed: {error}")
+            log_room_map_error(
+                owner="DEMO SCENE",
+                process="OPEN",
+                state="FAILED",
+                details={"error": repr(error)},
+            )
+        finally:
+            if self._demo_open_task is asyncio.current_task():
+                self._demo_open_task = None
+
+    @staticmethod
+    async def _open_stage_async(stage_path: str) -> object:
+        """Open one stage through Kit without blocking its main thread."""
+
+        import omni.usd
+
+        return await omni.usd.get_context().open_stage_async(stage_path)
+
+    def _set_demo_scene_status(self, status: str) -> None:
+        if self._settings_window is not None:
+            self._settings_window.set_demo_scene_status(status)
 
     def _on_stage_event(self, event: object) -> None:
         import omni.usd
@@ -220,22 +331,24 @@ class OrmsRuntimeService:
                     f"{decision.prim_path}:{decision.reason}"
                     for decision in result.decisions
                 )
-                carb.log_info(
-                    "[ORMS] Windows Glass auto-assignment: "
-                    f"assigned={len(result.assigned_prim_paths)}, "
-                    f"examined={len(result.decisions)}, "
-                    f"decisions={decision_summary or '<none>'}"
-                )
+                if _verbose_diagnostics_enabled(settings):
+                    carb.log_info(
+                        "[ORMS] Windows Glass auto-assignment: "
+                        f"assigned={len(result.assigned_prim_paths)}, "
+                        f"examined={len(result.decisions)}, "
+                        f"decisions={decision_summary or '<none>'}"
+                    )
 
         from msp.orms.shared_room.stage import (
             stage_has_room_map_source_mesh,
         )
 
         if not stage_has_room_map_source_mesh(stage):
-            carb.log_info(
-                "[ORMS] Stage activation skipped: no mesh is bound to an "
-                "ORMS source material"
-            )
+            if _verbose_diagnostics_enabled(settings):
+                carb.log_info(
+                    "[ORMS] Stage activation skipped: no mesh is bound to an "
+                    "ORMS source material"
+                )
             self._refresh_settings_window()
             return
 
@@ -258,6 +371,7 @@ class OrmsRuntimeService:
                 ),
                 interior_sets=collection,
                 interior_set_resources=runtime_snapshot,
+                verbose_diagnostics=_verbose_diagnostics_enabled(settings),
             )
         except Exception:
             stop_runtime()
@@ -327,42 +441,36 @@ class OrmsRuntimeService:
     def start_runtime(self) -> None:
         """Start an inactive stage or resume its frozen runtime session."""
 
-        import carb
-
         try:
             if self._lifecycle.resume():
                 self._apply_classifier_settings()
                 self._apply_material_settings()
-                carb.log_info("[ORMS] Runtime resumed")
+                _log_verbose_info("[ORMS] Runtime resumed")
                 return
             if self._lifecycle.state is RuntimeState.RUNNING:
                 return
             self._activate_current_stage(preserve_assignment_overrides=True)
             if self._lifecycle.state is RuntimeState.RUNNING:
-                carb.log_info("[ORMS] Runtime started by user")
+                _log_verbose_info("[ORMS] Runtime started by user")
         except Exception as error:
             self._handle_lifecycle_failure("Start", error)
 
     def restart_runtime(self) -> None:
         """Remove the current runtime result and rebuild it from settings."""
 
-        import carb
-
         try:
             self._activate_current_stage(preserve_assignment_overrides=True)
             if self._lifecycle.state is RuntimeState.RUNNING:
-                carb.log_info("[ORMS] Runtime restarted by user")
+                _log_verbose_info("[ORMS] Runtime restarted by user")
         except Exception as error:
             self._handle_lifecycle_failure("Restart", error)
 
     def stop_runtime(self) -> None:
         """Freeze the current ORMS result while releasing live callbacks."""
 
-        import carb
-
         try:
             if self._lifecycle.pause():
-                carb.log_info(
+                _log_verbose_info(
                     "[ORMS] Runtime stopped; current stage result remains frozen"
                 )
         except Exception as error:
@@ -371,15 +479,13 @@ class OrmsRuntimeService:
     def restore_original_asset(self) -> None:
         """Remove every ORMS-owned layer and reveal source asset bindings."""
 
-        import carb
-
         try:
             self._deactivate_stage()
         except Exception as error:
             self._handle_lifecycle_failure("Restore Original Asset", error)
             return
         self._refresh_settings_window()
-        carb.log_info("[ORMS] Original asset state restored")
+        _log_verbose_info("[ORMS] Original asset state restored")
 
     def _handle_lifecycle_failure(
         self,
@@ -556,8 +662,9 @@ class OrmsRuntimeService:
     def stop(self) -> None:
         """Stop runtime work before removing callbacks and material resources."""
 
-        import carb
-
+        demo_open_task, self._demo_open_task = self._demo_open_task, None
+        if demo_open_task is not None and not demo_open_task.done():
+            demo_open_task.cancel()
         settings_window, self._settings_window = self._settings_window, None
         if settings_window is not None:
             settings_window.stop()
@@ -577,4 +684,4 @@ class OrmsRuntimeService:
         self._stage_subscriptions = ()
         self._material_registration.stop()
         self._interior_sets = None
-        carb.log_info("[ORMS] Runtime extension stopped")
+        _log_verbose_info("[ORMS] Runtime extension stopped")

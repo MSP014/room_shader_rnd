@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build the compact lifecycle controls shown on the ORMS classifier tab."""
 
 from __future__ import annotations

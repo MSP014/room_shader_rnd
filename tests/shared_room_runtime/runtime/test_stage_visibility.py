@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the Kit Stage-window metadata seam for internal ORMS prims."""
 
 from msp.orms.scene.stage_visibility import (

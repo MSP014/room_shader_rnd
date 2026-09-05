@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect shared-room runtime settings and immutable result contracts."""
 
 from dataclasses import FrozenInstanceError

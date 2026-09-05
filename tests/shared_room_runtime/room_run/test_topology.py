@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect deterministic aperture topology, graph isolation, and partitioning."""
 
 import math

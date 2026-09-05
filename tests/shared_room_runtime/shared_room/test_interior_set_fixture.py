@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the compact installed-extension Interior Set fixture."""
 
 from msp.orms.interior_sets.contracts import (

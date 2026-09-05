@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect instance-policy authoring on retained composed fixtures."""
 
 from collections import Counter

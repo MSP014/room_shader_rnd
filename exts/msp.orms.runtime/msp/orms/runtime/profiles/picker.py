@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own local import/export dialogs for portable `.orms` profiles."""
 
 from __future__ import annotations

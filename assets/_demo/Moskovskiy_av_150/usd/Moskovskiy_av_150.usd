@@ -1,0 +1,55 @@
+#usda 1.0
+(
+    defaultPrim = "Moskovskiy_av_150"
+    framesPerSecond = 25
+    metersPerUnit = 1
+    timeCodesPerSecond = 25
+    upAxis = "Y"
+)
+
+def Xform "Moskovskiy_av_150" (
+    prepend apiSchemas = ["AssetPreviewsAPI"]
+    assetInfo = {
+        asset identifier = @./Moskovskiy_av_150.usd@
+        string name = "Moskovskiy_av_150"
+        dictionary previews = {
+            dictionary thumbnails = {
+                dictionary default = {
+                    asset defaultImage = @./thumbnail.png@
+                }
+            }
+        }
+    }
+    customData = {
+        string assetId = "MSP-DTRS-Moskovskiy_av_150"
+        string assetLicense = "LicenseRef-MSP-Asset-Evaluation-1.0"
+        string author = "Maksim Pospelkov"
+        string copyright = "Copyright 2026 Maksim Pospelkov"
+        string sourceProject = "DTRS"
+    }
+    prepend inherits = </__class__/Moskovskiy_av_150>
+    kind = "component"
+    prepend payload = @./payload.usdc@
+    variants = {
+        string geo = "Moskovskiy_av_150_lod00_geo"
+    }
+    prepend variantSets = "geo"
+)
+{
+    variantSet "geo" = {
+        "Moskovskiy_av_150_lod00_geo" (
+            prepend apiSchemas = ["GeomModelAPI"]
+            kind = "component"
+        ) {
+            float3[] extentsHint = [(3.4028235e38, 3.4028235e38, 3.4028235e38), (-3.4028235e38, -3.4028235e38, -3.4028235e38), (-41.58058, 0, -4.8), (4.8, 25.082611, 59.602898)]
+
+        }
+    }
+}
+
+class "__class__"
+{
+    class "Moskovskiy_av_150"
+    {
+    }
+}

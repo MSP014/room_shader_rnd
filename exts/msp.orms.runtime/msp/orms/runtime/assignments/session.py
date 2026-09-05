@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Coordinate assignment inspection, overrides, and reversible bindings."""
 
 from __future__ import annotations

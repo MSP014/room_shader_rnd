@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect content-sized collapse behaviour across every ORMS tab."""
 
 from pathlib import Path

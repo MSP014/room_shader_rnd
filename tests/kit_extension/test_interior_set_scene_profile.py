@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect portable, staged `.orms` scene-profile round trips."""
 
 import json
@@ -56,13 +58,56 @@ def test_scene_profile_round_trip_preserves_identity_order_and_values(
     loaded = load_scene_profile(str(saved))
 
     assert saved.suffix == ".orms"
-    assert loaded == source
     document = json.loads(saved.read_text(encoding="utf-8"))
     assert document["format"] == PROFILE_FORMAT
     assert document["scope"] == "interior_sets"
     assert [item["set_id"] for item in document["interior_sets"]] == [
         item.set_id for item in source.collection.sets
     ]
+    assert loaded.atlas_mode == source.atlas_mode
+    for loaded_item, source_item in zip(
+        loaded.collection.sets,
+        source.collection.sets,
+        strict=True,
+    ):
+        expected_directories = tuple(
+            str((saved.parent / directory).resolve()) if directory else ""
+            for directory in source_item.atlas_directories
+        )
+        assert loaded_item == replace(
+            source_item,
+            atlas_directories=expected_directories,
+        )
+
+
+def test_scene_profile_load_resolves_relative_atlases_from_profile_directory(
+    tmp_path,
+    monkeypatch,
+):
+    profile_directory = tmp_path / "asset" / "usd"
+    profile_directory.mkdir(parents=True)
+    absolute_atlas = tmp_path / "absolute-atlas"
+    document = profile_document(_profile())
+    document["interior_sets"][0]["atlases"] = {
+        "x1": "../../living_rooms",
+        "x2": str(absolute_atlas),
+        "x3": "",
+        "x4": "",
+    }
+    source = profile_directory / "demo.orms"
+    source.write_text(json.dumps(document), encoding="utf-8")
+    unrelated_directory = tmp_path / "unrelated-working-directory"
+    unrelated_directory.mkdir()
+    monkeypatch.chdir(unrelated_directory)
+
+    loaded = load_scene_profile(str(source))
+
+    assert loaded.collection.default.atlas_directories == (
+        str((tmp_path / "living_rooms").resolve()),
+        str(absolute_atlas),
+        "",
+        "",
+    )
 
 
 def test_scene_profile_rejects_wrong_suffix_and_unknown_material(tmp_path):

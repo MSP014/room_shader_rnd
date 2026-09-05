@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own ORMS runtime pause, resume, failure, and teardown transitions."""
 
 from __future__ import annotations

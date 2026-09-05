@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build compact, wrapped hover help for ORMS widgets."""
 
 from __future__ import annotations

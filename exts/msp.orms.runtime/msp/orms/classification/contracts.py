@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Define the stable plain-data contract of shared-room classification."""
 
 from __future__ import annotations

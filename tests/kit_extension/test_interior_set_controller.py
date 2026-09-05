@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect staged structural edits and one-shot runtime application."""
 
 from pathlib import Path
@@ -62,6 +64,25 @@ def _controller_with_settings():
 
 def _controller():
     return _controller_with_settings()[0]
+
+
+def test_factory_configuration_excludes_user_changes():
+    controller = _controller()
+
+    assert controller.is_factory_configuration
+
+    controller.stage_atlas_mode(ATLAS_MODE_PRODUCTION)
+    assert not controller.is_factory_configuration
+
+    controller.revert()
+    assert controller.is_factory_configuration
+
+    controller.update_material(
+        DEFAULT_INTERIOR_SET_ID,
+        "glass_roughness",
+        0.7,
+    )
+    assert not controller.is_factory_configuration
 
 
 def test_structural_edits_wait_for_one_explicit_apply():

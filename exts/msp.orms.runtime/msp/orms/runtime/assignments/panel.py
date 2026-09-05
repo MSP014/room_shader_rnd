@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build artist-facing automatic-assignment inspection and override controls."""
 
 from __future__ import annotations

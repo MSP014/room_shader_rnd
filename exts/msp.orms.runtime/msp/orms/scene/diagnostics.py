@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Summarise classified corner boxes without coupling diagnostics to loading."""
 
 from __future__ import annotations

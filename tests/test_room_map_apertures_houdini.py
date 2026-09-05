@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate aperture controls on retained Houdini-exported geometry."""
 
 from collections import Counter

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Coordinate staged Interior Set edits, persistence, and runtime Apply."""
 
 from __future__ import annotations
@@ -94,6 +96,18 @@ class InteriorSetController:
         """Return whether structural edits await explicit Apply."""
 
         return self._transaction.dirty
+
+    @property
+    def is_factory_configuration(self) -> bool:
+        """Return whether demo onboarding may replace untouched settings."""
+
+        factory = normalise_collection(InteriorSetCollection.default_only())
+        return (
+            not self.dirty
+            and self.applied == factory
+            and self.applied_atlas_mode == ATLAS_MODE_DEBUG
+            and not any(self.applied_debug_atlas_directories)
+        )
 
     @property
     def applied_atlas_mode(self) -> str:

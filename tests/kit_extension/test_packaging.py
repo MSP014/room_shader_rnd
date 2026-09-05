@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect deterministic standalone ORMS extension packaging."""
 
 import json
@@ -7,7 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from tools.package_orms_extension import build_extension
+from tools.package_orms_extension import (
+    DEMO_PROFILE,
+    DEMO_STAGE,
+    LICENSING_FILES,
+    build_extension,
+)
 
 from ._support import REPOSITORY_ROOT
 
@@ -29,6 +36,22 @@ def _touch_debug_sources(repository_root: Path) -> None:
             (family_root / f"{family_name}.{tile}.png").write_bytes(
                 f"{family_name}:{tile}".encode()
             )
+
+
+def _touch_demo_sources(repository_root: Path) -> None:
+    demo_root = repository_root / "assets" / "_demo"
+    for relative_path in (DEMO_STAGE, DEMO_PROFILE):
+        path = demo_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("demo\n", encoding="utf-8")
+    (demo_root / "demo-marker.txt").write_text("demo\n", encoding="utf-8")
+
+
+def _touch_licensing_sources(repository_root: Path) -> None:
+    for relative_path in LICENSING_FILES:
+        path = repository_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{relative_path.as_posix()}\n", encoding="utf-8")
 
 
 def _fake_repository(tmp_path: Path) -> Path:
@@ -59,6 +82,8 @@ def _fake_repository(tmp_path: Path) -> Path:
     for filename in ("room_map.mdl", "room_map_single.mdl"):
         (mdl_root / filename).write_text("mdl 1.7;\n", encoding="utf-8")
     _touch_debug_sources(root)
+    _touch_demo_sources(root)
+    _touch_licensing_sources(root)
     return root
 
 
@@ -73,6 +98,11 @@ def test_builder_packages_canonical_source_and_public_debug_content(tmp_path):
     assert (
         built / "msp" / "orms" / "runtime" / "reload_room_map_runtime.py"
     ).is_file()
+    assert (built / "data" / "demo" / DEMO_STAGE).is_file()
+    assert (built / "data" / "demo" / DEMO_PROFILE).is_file()
+    assert (built / "data" / "demo" / "demo-marker.txt").is_file()
+    for relative_path in LICENSING_FILES:
+        assert (built / relative_path).is_file()
     assert not (built / "data" / "runtime").exists()
     assert (
         built
@@ -85,10 +115,30 @@ def test_builder_packages_canonical_source_and_public_debug_content(tmp_path):
         (built / "data" / "bundle_manifest.json").read_text(encoding="utf-8")
     )
     assert manifest["production_atlases_included"] is False
+    assert manifest["demo_content_included"] is True
     assert manifest["source_policy"] == (
-        "canonical extension tree with packaged debug atlases"
+        "canonical extension tree with debug atlases and demo content"
     )
+    assert manifest["licensing"] == {
+        "software": "MIT",
+        "debug_atlases": "CC-BY-4.0",
+        "demo_assets": "LicenseRef-MSP-Asset-Evaluation-1.0",
+        "demo_hdri": "CC0-1.0",
+        "map": "LICENSE.md",
+        "third_party_notices": "THIRD_PARTY_NOTICES.md",
+    }
     assert all("production" not in item["path"] for item in manifest["files"])
+    manifest_paths = {item["path"] for item in manifest["files"]}
+    assert {path.as_posix() for path in LICENSING_FILES} <= manifest_paths
+
+
+def test_builder_requires_complete_licensing_boundary(tmp_path):
+    repository_root = _fake_repository(tmp_path)
+    missing_notice = repository_root / "THIRD_PARTY_NOTICES.md"
+    missing_notice.unlink()
+
+    with pytest.raises(FileNotFoundError, match="THIRD_PARTY_NOTICES.md"):
+        build_extension(repository_root, tmp_path / "bundle")
 
 
 def test_builder_refuses_to_overwrite_existing_output(tmp_path):

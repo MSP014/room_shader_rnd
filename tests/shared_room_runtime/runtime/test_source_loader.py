@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the exact-source dependency manifest used by manual reloads."""
 
 from pathlib import Path

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect ORMS lifecycle transitions independently from Kit and OmniUI."""
 
 import pytest

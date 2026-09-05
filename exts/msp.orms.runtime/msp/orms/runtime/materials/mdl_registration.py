@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Register ORMS MDL content across local filesystem boundaries."""
 
 from __future__ import annotations

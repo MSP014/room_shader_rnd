@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Load and compare semantic variant identities for atlas families."""
 
 from __future__ import annotations

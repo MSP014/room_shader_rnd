@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Classify aperture runs through deterministic topology and mapping rules."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect pure reader-facing summaries of classified corner boxes."""
 
 from types import SimpleNamespace

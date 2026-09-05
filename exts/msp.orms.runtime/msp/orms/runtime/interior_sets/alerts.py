@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Format actionable Interior Set warnings for the artist-facing panel."""
 
 from __future__ import annotations

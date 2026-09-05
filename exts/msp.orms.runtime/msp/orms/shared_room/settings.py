@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Translate persistent Kit values into validated classifier settings."""
 
 from __future__ import annotations

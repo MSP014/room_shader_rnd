@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own ORMS visibility within a host Material Library allow-list."""
 
 from __future__ import annotations

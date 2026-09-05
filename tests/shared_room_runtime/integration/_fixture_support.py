@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Share retained fixture paths and geometric inspection helpers."""
 
 from pathlib import Path

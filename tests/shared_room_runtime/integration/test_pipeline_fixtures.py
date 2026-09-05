@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect end-to-end classification on retained Omniverse and Houdini stages."""
 
 import math

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Classify USD notices as pose refreshes or geometric invalidations."""
 
 from __future__ import annotations

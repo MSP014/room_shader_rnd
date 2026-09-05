@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own shared-room runtime subscriptions, state transitions, and teardown."""
 
 from __future__ import annotations
@@ -1546,6 +1548,7 @@ _runtime_settings: RuntimeClassifierSettings | None = None
 _runtime_material_input_values: dict[str, object] = {}
 _runtime_interior_sets: InteriorSetCollection | None = None
 _runtime_interior_set_resources: InteriorSetRuntimeSnapshot | None = None
+_runtime_trace_log_warning: Callable[..., None] | None = None
 
 
 def _replace_active_classifier(
@@ -1567,7 +1570,7 @@ def _replace_active_classifier(
         stage,
         _runtime_resources,
         _runtime_settings,
-        trace_log_warning=log_room_map_warning,
+        trace_log_warning=_runtime_trace_log_warning,
         material_input_values=_runtime_material_input_values,
         interior_sets=_runtime_interior_sets,
         interior_set_resources=_runtime_interior_set_resources,
@@ -1606,6 +1609,7 @@ def start(
     resources: RuntimeResources | None = None,
     interior_sets: InteriorSetCollection | None = None,
     interior_set_resources: InteriorSetRuntimeSnapshot | None = None,
+    trace_log_warning: Callable[..., None] | None = None,
 ) -> SharedRoomClassifier:
     """Start on the already-open stage, then subscribe to later stage changes."""
 
@@ -1615,6 +1619,7 @@ def start(
     global _context_subscription, _runtime_material_input_values
     global _runtime_resources, _runtime_settings
     global _runtime_interior_sets, _runtime_interior_set_resources
+    global _runtime_trace_log_warning
     # A fresh start restores every singleton-owned resource from a previous run,
     # making repeated Script Editor execution deterministic and leak-free.
     stop()
@@ -1675,28 +1680,32 @@ def start(
         interior_sets or InteriorSetCollection.default_only()
     )
     _runtime_interior_set_resources = interior_set_resources
+    _runtime_trace_log_warning = trace_log_warning
     _runtime_material_input_values = (
         material_input_values_from_kit() if interior_sets is None else {}
     )
     try:
-        source_material_state = capture_material_state(stage)
-        log_room_map_warning(
-            owner="SHARED ROOM CLASSIFIER",
-            process="RUNTIME SOURCE USD STATE",
-            state="BEFORE_RENDERER_SETTINGS",
-            details=material_state_log_details(source_material_state),
-        )
-        _enable_rtx_cutout_opacity()
-        source_material_state_after_cutout = capture_material_state(stage)
-        log_room_map_warning(
-            owner="SHARED ROOM CLASSIFIER",
-            process="RUNTIME SOURCE USD STATE",
-            state="AFTER_CUTOUT_GATE",
-            details=material_state_log_details(
-                source_material_state_after_cutout,
-                source_material_state,
-            ),
-        )
+        source_material_state = None
+        if trace_log_warning is not None:
+            source_material_state = capture_material_state(stage)
+            trace_log_warning(
+                owner="SHARED ROOM CLASSIFIER",
+                process="RUNTIME SOURCE USD STATE",
+                state="BEFORE_RENDERER_SETTINGS",
+                details=material_state_log_details(source_material_state),
+            )
+        _enable_rtx_cutout_opacity(log_warning=trace_log_warning)
+        if trace_log_warning is not None and source_material_state is not None:
+            source_material_state_after_cutout = capture_material_state(stage)
+            trace_log_warning(
+                owner="SHARED ROOM CLASSIFIER",
+                process="RUNTIME SOURCE USD STATE",
+                state="AFTER_CUTOUT_GATE",
+                details=material_state_log_details(
+                    source_material_state_after_cutout,
+                    source_material_state,
+                ),
+            )
         _replace_active_classifier(stage, trigger="manual_start")
         dispatcher = carb.eventdispatcher.get_eventdispatcher()
         _context_subscription = tuple(
@@ -1714,7 +1723,7 @@ def start(
             )
         )
     except Exception:
-        _restore_rtx_cutout_opacity()
+        _restore_rtx_cutout_opacity(log_warning=trace_log_warning)
         raise
     return _classifier  # type: ignore[return-value]
 
@@ -1731,6 +1740,7 @@ def stop() -> None:
     global _classifier, _context_subscription, _runtime_material_input_values
     global _runtime_interior_sets, _runtime_interior_set_resources
     global _runtime_resources, _runtime_settings
+    global _runtime_trace_log_warning
     if _classifier:
         _classifier.stop()
         _classifier = None
@@ -1749,4 +1759,7 @@ def stop() -> None:
     _runtime_material_input_values = {}
     _runtime_interior_sets = None
     _runtime_interior_set_resources = None
-    _restore_rtx_cutout_opacity()
+    _restore_rtx_cutout_opacity(
+        log_warning=_runtime_trace_log_warning,
+    )
+    _runtime_trace_log_warning = None

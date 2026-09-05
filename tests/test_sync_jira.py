@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect optional filtering of paused tutorial branches from Jira plans."""
 
 from tools.sync_jira import filter_legacy_tutorial_items

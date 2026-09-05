@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect symmetric ORMS MDL and Material Library registration."""
 
 from pathlib import Path

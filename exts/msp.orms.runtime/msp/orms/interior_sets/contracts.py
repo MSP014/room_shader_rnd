@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Define Kit-independent Interior Set configuration contracts."""
 
 from __future__ import annotations

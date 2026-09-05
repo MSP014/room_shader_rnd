@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Verify every retained fixture resolves a complete hydrated UDIM family."""
 
 from pathlib import Path

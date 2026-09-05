@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Compose stage interpretation, pure classification, and USD authoring."""
 
 from __future__ import annotations

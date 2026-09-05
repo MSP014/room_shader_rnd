@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate the minimal MDL discovery and OpenUSD material-binding proof."""
 
 from pathlib import Path

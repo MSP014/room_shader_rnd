@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+// SPDX-License-Identifier: MIT
 mdl 1.7;
 
 // Visualise the bridge-derived world-space surface-to-camera direction.

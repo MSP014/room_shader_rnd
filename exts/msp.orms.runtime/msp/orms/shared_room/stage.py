@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Interpret a composed OpenUSD stage as metre-space ORMS apertures."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own the dockable Window-menu surface for persistent ORMS controls."""
 
 from __future__ import annotations
@@ -70,6 +72,9 @@ class OrmsSettingsWindow:
         self._lifecycle_controls: LifecycleControls | None = None
         self._lifecycle_state = RuntimeState.INACTIVE
         self._structural_error: str | None = None
+        self._open_demo_scene: Callable[[], None] | None = None
+        self._demo_scene_available = False
+        self._demo_scene_status = ""
         self._directory_picker = InteriorSetDirectoryPicker()
         self._active_tab_index = 0
         self._panel_state = InteriorSetPanelState()
@@ -98,6 +103,8 @@ class OrmsSettingsWindow:
         restart_runtime: Callable[[], None],
         stop_runtime: Callable[[], None],
         restore_asset: Callable[[], None],
+        open_demo_scene: Callable[[], None],
+        demo_scene_available: bool,
     ) -> None:
         """Expose `Window > ORMS` without opening it automatically."""
 
@@ -117,6 +124,8 @@ class OrmsSettingsWindow:
         self._rename_interior_set = rename_interior_set
         self._interior_sets = interior_sets
         self._runtime_diagnostics = runtime_diagnostics
+        self._open_demo_scene = open_demo_scene
+        self._demo_scene_available = demo_scene_available
         self._lifecycle_controls = LifecycleControls(
             LifecycleCallbacks(
                 start=start_runtime,
@@ -285,6 +294,9 @@ class OrmsSettingsWindow:
                 set_collapsed_changed=(
                     self._panel_state.remember_set_collapsed
                 ),
+                open_demo_scene=self._open_demo_scene,
+                demo_scene_available=self._demo_scene_available,
+                demo_scene_status=self._demo_scene_status,
             )
         )
         return tuple(models)
@@ -430,6 +442,13 @@ class OrmsSettingsWindow:
         if self._window is not None:
             self._rebuild_window()
 
+    def set_demo_scene_status(self, status: str) -> None:
+        """Present the last demo-open outcome without owning the workflow."""
+
+        self._demo_scene_status = str(status)
+        if self._window is not None:
+            self._rebuild_window()
+
     def stop(self) -> None:
         """Remove the menu, callbacks, models, tasks, and window owned here."""
 
@@ -461,6 +480,9 @@ class OrmsSettingsWindow:
         self._interior_sets = None
         self._runtime_diagnostics = None
         self._structural_error = None
+        self._open_demo_scene = None
+        self._demo_scene_available = False
+        self._demo_scene_status = ""
         self._active_tab_index = 0
         self._panel_state.reset()
         self._directory_picker.stop()

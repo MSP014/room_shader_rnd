@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate the indexed MDL evidence contract and retained renderer records."""
 
 from pathlib import Path

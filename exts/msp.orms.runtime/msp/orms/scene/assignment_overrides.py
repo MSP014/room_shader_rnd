@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own source-safe per-mesh automatic-assignment overrides."""
 
 from __future__ import annotations

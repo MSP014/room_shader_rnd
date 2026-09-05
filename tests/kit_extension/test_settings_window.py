@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the ORMS Window-menu surface and its direct model callbacks."""
 
 from pathlib import Path
@@ -73,6 +75,8 @@ def test_service_owns_window_lifecycle_outside_stage_lifecycle():
     assert "self._lifecycle.resume()" in source
     assert "self._lifecycle.teardown()" in source
     assert "Preferences" not in source
+    assert "prompt_if_unsaved_stage" in source
+    assert "open_stage_async" in source
 
 
 def test_service_skips_runtime_without_a_room_map_source_mesh():
@@ -180,6 +184,10 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     assert "Default is evaluated last" in atlas_source
     assert '"Debug (force global)"' in atlas_source
     assert '"Production + debug fallback"' in atlas_source
+    assert '"Open Demo Scene"' in atlas_source
+    assert atlas_source.index('"Production + debug fallback"') < (
+        atlas_source.index('"Open Demo Scene"')
+    )
     assert "InteriorSetProfileWorkflow" in window_source
     assert "MATERIAL_CONTROLS" in material_source
     assert "material_changed(" in material_source

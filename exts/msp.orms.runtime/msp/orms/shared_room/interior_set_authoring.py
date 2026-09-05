@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Author Set-scoped material families without owning classification."""
 
 from __future__ import annotations

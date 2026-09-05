@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Resolve portable MDL and atlas resources without hard-coded install paths."""
 
 from __future__ import annotations
@@ -35,6 +37,13 @@ _DEBUG_FAMILY_NAMES = {
     4: "room_map_debug_x4",
 }
 
+_DEMO_STAGE_RELATIVE_PATH = (
+    Path("Moskovskiy_av_150") / "usd" / "Moskovskiy_av_150_HDRI.usd"
+)
+_DEMO_PROFILE_RELATIVE_PATH = (
+    Path("Moskovskiy_av_150") / "usd" / "test_150.orms"
+)
+
 
 @dataclass(frozen=True)
 class AtlasResource:
@@ -49,11 +58,13 @@ class AtlasResource:
 
 @dataclass(frozen=True)
 class ResourceLayout:
-    """Resolve MDL and debug resources from the owning extension tree."""
+    """Resolve relocatable runtime and optional demo resources."""
 
     extension_root: Path
     mdl_root: Path
     debug_atlases: tuple[AtlasResource, ...]
+    demo_stage: Path | None = None
+    demo_profile: Path | None = None
 
     @classmethod
     def discover(cls, module_file: str | Path) -> "ResourceLayout":
@@ -86,10 +97,13 @@ class ResourceLayout:
                     )
                 )
 
+        demo_stage, demo_profile = _discover_demo_content(extension_root)
         return cls(
             extension_root=extension_root,
             mdl_root=mdl_root,
             debug_atlases=tuple(debug_atlases),
+            demo_stage=demo_stage,
+            demo_profile=demo_profile,
         )
 
     def debug_atlas(self, room_size: int) -> AtlasResource | None:
@@ -128,6 +142,23 @@ def _contains_runtime_mdl(directory: Path) -> bool:
         (directory / filename).is_file()
         for filename in ("room_map.mdl", "room_map_single.mdl")
     )
+
+
+def _discover_demo_content(
+    extension_root: Path,
+) -> tuple[Path | None, Path | None]:
+    """Find demo content in an installed bundle or its source checkout."""
+
+    candidates = (
+        extension_root / "data" / "demo",
+        extension_root.parents[1] / "assets" / "_demo",
+    )
+    for demo_root in candidates:
+        stage = demo_root / _DEMO_STAGE_RELATIVE_PATH
+        profile = demo_root / _DEMO_PROFILE_RELATIVE_PATH
+        if stage.is_file() and profile.is_file():
+            return stage, profile
+    return None, None
 
 
 def _is_complete_udim_family(asset_path: Path) -> bool:

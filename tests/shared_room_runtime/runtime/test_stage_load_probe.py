@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the Kit stage-event adapter, progress sampling, and teardown."""
 
 from __future__ import annotations
@@ -5,6 +7,7 @@ from __future__ import annotations
 from enum import IntEnum
 from types import SimpleNamespace
 
+from msp.orms.scene import stage_load_probe
 from msp.orms.scene.stage_load_probe import StageLoadProbe
 
 
@@ -86,6 +89,21 @@ def _probe(context, app, stage_event_types, **kwargs):
         ),
         dispatcher,
     )
+
+
+def test_module_probe_can_be_disabled_without_kit_subscriptions(monkeypatch):
+    class ActiveProbe:
+        stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    active_probe = ActiveProbe()
+    monkeypatch.setattr(stage_load_probe, "_probe", active_probe)
+
+    assert stage_load_probe.start(enabled=False) is None
+    assert active_probe.stopped
+    assert stage_load_probe._probe is None
 
 
 def test_probe_records_progress_and_transition_to_idle():

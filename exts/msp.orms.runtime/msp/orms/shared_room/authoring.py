@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Author and remove all ephemeral ORMS opinions in the Session Layer."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the visible lifecycle command and status contract."""
 
 from msp.orms.runtime.lifecycle import RuntimeState

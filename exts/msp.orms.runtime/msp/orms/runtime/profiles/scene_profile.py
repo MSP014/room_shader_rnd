@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Read and write portable staged Interior Set scene profiles."""
 
 from __future__ import annotations
@@ -6,7 +8,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from msp.orms.interior_sets.atlas_mode import normalise_atlas_mode
@@ -127,6 +129,34 @@ def profile_from_document(value: object) -> InteriorSetSceneProfile:
     )
 
 
+def _resolve_atlas_directories(
+    profile: InteriorSetSceneProfile,
+    profile_directory: Path,
+) -> InteriorSetSceneProfile:
+    """Resolve relative atlas directories from the owning profile location."""
+
+    def resolve(directory: str) -> str:
+        if not directory:
+            return ""
+        candidate = Path(directory).expanduser()
+        if candidate.is_absolute():
+            return str(candidate)
+        return str((profile_directory / candidate).resolve())
+
+    collection = InteriorSetCollection(
+        tuple(
+            replace(
+                item,
+                atlas_directories=tuple(
+                    resolve(directory) for directory in item.atlas_directories
+                ),
+            )
+            for item in profile.collection.sets
+        )
+    )
+    return replace(profile, collection=collection)
+
+
 def profile_path(path: str, *, append_suffix: bool) -> Path:
     """Return one local profile path with an explicit `.orms` suffix."""
 
@@ -184,4 +214,5 @@ def load_scene_profile(path: str) -> InteriorSetSceneProfile:
         document = json.loads(source.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise ValueError(f"Cannot read ORMS scene profile: {error}") from error
-    return profile_from_document(document)
+    profile = profile_from_document(document)
+    return _resolve_atlas_directories(profile, source.parent.resolve())

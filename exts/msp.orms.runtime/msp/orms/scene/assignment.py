@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own reversible default ORMS material assignment for eligible window meshes."""
 
 from __future__ import annotations

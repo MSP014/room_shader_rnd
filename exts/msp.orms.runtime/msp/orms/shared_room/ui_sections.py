@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build content-sized ORMS sections with retained collapse state."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect default Windows Glass assignment and its reversible ownership."""
 
 from msp.orms.scene import assignment as assignment_module

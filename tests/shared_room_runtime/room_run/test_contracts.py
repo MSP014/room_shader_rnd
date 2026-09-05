@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect immutable defaults in the room-run plain-data contracts."""
 
 from dataclasses import FrozenInstanceError

@@ -103,6 +103,18 @@ schema 1 and are not imported by the profile.
 - If a material edit fails, read the inline message beside that Interior Set.
 - Use Debug mode to separate ORMS runtime problems from production-atlas
   content problems.
+- Full Warning-level research tracing is disabled by default. Set
+  `/persistent/exts/msp.orms.runtime/verboseDiagnostics` to `true` and restart
+  the runtime when a detailed phase or stage-load investigation is required.
+
+## Licensing
+
+The installed extension carries its complete licence map in `LICENSE.md`.
+Software is MIT-licensed, packaged debug atlases are CC BY 4.0, demo building
+and interior assets use the non-commercial MSP Asset Evaluation License 1.0,
+and the Poly Haven demo HDRI remains CC0 1.0. `THIRD_PARTY_NOTICES.md` records
+the HDRI provenance. These files are part of the package and must remain with
+redistributed copies.
 
 Technical architecture, authoring contracts, and validation evidence are kept
 in the project repository rather than this artist overview.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect USD notice filtering around runtime-owned and artist inputs."""
 
 from msp.orms.shared_room.changes import _is_relevant_change

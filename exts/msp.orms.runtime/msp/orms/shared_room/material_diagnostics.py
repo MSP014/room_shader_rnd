@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Capture composed USD material declarations across runtime boundaries."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect stage-scoped assignment inspection and override lifecycle."""
 
 from msp.orms.runtime.assignments.session import AssignmentSession

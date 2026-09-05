@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect depth-slice controls, atlas regions, and geometric ordering."""
 
 from pathlib import Path

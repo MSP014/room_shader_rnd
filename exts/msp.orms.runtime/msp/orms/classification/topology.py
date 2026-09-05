@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build deterministic aperture adjacency and partition linear room runs."""
 
 from __future__ import annotations

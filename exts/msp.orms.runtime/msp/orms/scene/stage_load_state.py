@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Track one observable asynchronous asset-loading batch at a time."""
 
 from __future__ import annotations

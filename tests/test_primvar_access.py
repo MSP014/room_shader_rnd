@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the Houdini-to-OpenUSD named float3 primvar lookup contract."""
 
 from pathlib import Path

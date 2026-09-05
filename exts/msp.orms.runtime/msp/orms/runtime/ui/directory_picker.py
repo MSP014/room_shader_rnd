@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own the standard Kit folder picker used by Interior Set atlas fields."""
 
 from __future__ import annotations

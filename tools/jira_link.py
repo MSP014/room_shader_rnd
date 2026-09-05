@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Provide the authenticated Jira CLI used to inspect and maintain KRM issues."""
 
 import argparse

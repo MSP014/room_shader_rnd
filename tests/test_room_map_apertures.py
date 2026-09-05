@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate physical aperture controls independently from virtual-room scale."""
 
 from pathlib import Path

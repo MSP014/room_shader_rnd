@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate the retained MDL state-function diagnostic scene and bindings."""
 
 from pathlib import Path

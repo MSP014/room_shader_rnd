@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate stable, timestamped ORMS diagnostic blocks and severity routing."""
 
 from pathlib import Path

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Reload and start the manual ORMS runtime from exact extension source."""
 
 from __future__ import annotations
@@ -57,19 +59,22 @@ _SHARED_ROOM_DEPENDENCY_ORDER = (
 
 def _load_runtime_stack(
     loader: RuntimeSourceLoader,
+    *,
+    verbose_diagnostics: bool,
 ) -> tuple[ModuleType, ModuleType, ModuleType, ModuleType, ModuleType]:
     """Load and validate the dependency graph around the active stage probe."""
 
     status = loader.load("status_log")
-    status.log_room_map_warning(
-        owner="SCENE LOAD PROBE",
-        process="RUNTIME LOADER",
-        state="LOADER_INVOKED",
-        details={
-            "classifier_contract": _CONTRACT_VERSION,
-            "coverage": "from_this_log_forward",
-        },
-    )
+    if verbose_diagnostics:
+        status.log_room_map_warning(
+            owner="SCENE LOAD PROBE",
+            process="RUNTIME LOADER",
+            state="LOADER_INVOKED",
+            details={
+                "classifier_contract": _CONTRACT_VERSION,
+                "coverage": "from_this_log_forward",
+            },
+        )
     loader.load("runtime_resource_metrics")
     resources = loader.load("runtime_resources")
     for module_name in _INTERIOR_SET_DEPENDENCY_ORDER:
@@ -77,7 +82,7 @@ def _load_runtime_stack(
     loader.load("runtime_stage_visibility")
     loader.load("stage_load_state")
     stage_probe = loader.load("stage_load_probe")
-    stage_probe.start()
+    stage_probe.start(enabled=verbose_diagnostics)
 
     for module_name in _ROOM_RUN_DEPENDENCY_ORDER:
         loader.load(module_name)
@@ -94,22 +99,28 @@ def _load_runtime_stack(
     loader.load("runtime_renderer_settings")
     shared = loader.load("shared_room_classifier")
     bridge = loader.load("camera_position_bridge")
-    shared.log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME SOURCE LOAD",
-        state="SOURCE_MODULES_LOADED",
-        details={
-            "classifier_contract": loaded_contract,
-            "room_run_classifier": core.__file__,
-            "shared_room_classifier": shared.__file__,
-            "camera_position_bridge": bridge.__file__,
-            "stage_load_probe": stage_probe.__file__,
-        },
-    )
+    if verbose_diagnostics:
+        shared.log_room_map_warning(
+            owner="SHARED ROOM CLASSIFIER",
+            process="RUNTIME SOURCE LOAD",
+            state="SOURCE_MODULES_LOADED",
+            details={
+                "classifier_contract": loaded_contract,
+                "room_run_classifier": core.__file__,
+                "shared_room_classifier": shared.__file__,
+                "camera_position_bridge": bridge.__file__,
+                "stage_load_probe": stage_probe.__file__,
+            },
+        )
     return stage_probe, core, shared, bridge, resources
 
 
-def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
+def _seed_initial_camera(
+    shared: ModuleType,
+    bridge: ModuleType,
+    *,
+    verbose_diagnostics: bool,
+):
     """Seed the inherited camera primvar before material realisation starts."""
 
     import omni.usd
@@ -131,23 +142,24 @@ def _seed_initial_camera(shared: ModuleType, bridge: ModuleType):
             stage,
             initial_camera_position,
         )
-        shared.log_room_map_warning(
-            owner="CAMERA POSITION BRIDGE",
-            process="INITIAL CAMERA POSITION SEED",
-            state="ACTIVE",
-            details={
-                "attribute_path": camera_primvar_path or "unavailable",
-                "world_position": initial_camera_position,
-                "before_classifier_start": True,
-                "preexisting_before_runtime": camera_primvar_preexisting,
-                "source_contract": (
-                    "predeclared"
-                    if camera_primvar_preexisting
-                    else "late_runtime_authored"
-                ),
-            },
-        )
-    else:
+        if verbose_diagnostics:
+            shared.log_room_map_warning(
+                owner="CAMERA POSITION BRIDGE",
+                process="INITIAL CAMERA POSITION SEED",
+                state="ACTIVE",
+                details={
+                    "attribute_path": camera_primvar_path or "unavailable",
+                    "world_position": initial_camera_position,
+                    "before_classifier_start": True,
+                    "preexisting_before_runtime": camera_primvar_preexisting,
+                    "source_contract": (
+                        "predeclared"
+                        if camera_primvar_preexisting
+                        else "late_runtime_authored"
+                    ),
+                },
+            )
+    elif verbose_diagnostics:
         shared.log_room_map_warning(
             owner="CAMERA POSITION BRIDGE",
             process="INITIAL CAMERA POSITION SEED",
@@ -169,6 +181,7 @@ def reload_and_start(
     atlas_families: tuple[tuple[int, str, int], ...] | None = None,
     interior_sets=None,
     interior_set_resources=None,
+    verbose_diagnostics: bool = False,
 ):
     """Replace cached ORMS modules with exact source and start the runtime."""
 
@@ -176,7 +189,8 @@ def reload_and_start(
     loader = RuntimeSourceLoader(root)
     loader.prepare()
     _stage_probe, _core, shared, bridge, resources = _load_runtime_stack(
-        loader
+        loader,
+        verbose_diagnostics=verbose_diagnostics,
     )
 
     runtime_resources = None
@@ -197,24 +211,36 @@ def reload_and_start(
             ),
         )
 
-    _seed_initial_camera(shared, bridge)
+    trace_log_warning = (
+        shared.log_room_map_warning if verbose_diagnostics else None
+    )
+    _seed_initial_camera(
+        shared,
+        bridge,
+        verbose_diagnostics=verbose_diagnostics,
+    )
     classifier = shared.start(
         root.parents[1],
         resources=runtime_resources,
         interior_sets=interior_sets,
         interior_set_resources=interior_set_resources,
+        trace_log_warning=trace_log_warning,
     )
-    corner_summaries = corner_box_summaries(classifier.last_classification)
-    shared.log_room_map_warning(
-        owner="SHARED ROOM CLASSIFIER",
-        process="RUNTIME SOURCE LOAD",
-        state="CORNER_BOXES_AUTHORED",
-        details={
-            "corner_count": len(corner_summaries),
-            "corners": "; ".join(corner_summaries),
-        },
+    if verbose_diagnostics:
+        corner_summaries = corner_box_summaries(classifier.last_classification)
+        shared.log_room_map_warning(
+            owner="SHARED ROOM CLASSIFIER",
+            process="RUNTIME SOURCE LOAD",
+            state="CORNER_BOXES_AUTHORED",
+            details={
+                "corner_count": len(corner_summaries),
+                "corners": "; ".join(corner_summaries),
+            },
+        )
+    camera_bridge = bridge.start(
+        classifier.camera_input_paths,
+        trace_log_warning=trace_log_warning,
     )
-    camera_bridge = bridge.start(classifier.camera_input_paths)
     return classifier, camera_bridge
 
 

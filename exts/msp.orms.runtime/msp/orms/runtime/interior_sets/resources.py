@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Resolve production and debug atlas families independently per Set."""
 
 from __future__ import annotations

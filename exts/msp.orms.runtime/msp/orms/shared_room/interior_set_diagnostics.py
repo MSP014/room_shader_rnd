@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Summarise Interior Set assignment, grouping, and runtime resources."""
 
 from __future__ import annotations

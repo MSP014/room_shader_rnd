@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.1
+
+- Establish an explicit mixed-licence distribution boundary: MIT software,
+  CC BY 4.0 debug atlases, evaluation-only demo assets, and the CC0 demo HDRI.
+- Include the licence map, licence references, and third-party notices in every
+  standalone extension package.
+
+## 0.1.28
+
+- Disable research phase traces and the per-update stage-load probe by
+  default, while retaining critical warnings and errors.
+- Preserve the complete Warning-level research trace behind the persistent
+  `verboseDiagnostics` Kit setting.
+
+## 0.1.27
+
+- Add the bundled Building 150 demo scene and eight-variant atlas with
+  one-click opening from the Interior Atlases tab.
+- Apply the demo profile automatically only over untouched factory settings,
+  while preserving existing configurations and prompting for unsaved stages.
+- Resolve relative atlas directories from their owning `.orms` profile and
+  include the complete demo content in standalone registry packages.
+
 ## 0.1.26
 
 - Organise the runtime package by ownership boundaries for assignments,

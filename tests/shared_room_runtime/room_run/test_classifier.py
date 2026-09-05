@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the public pure-classifier orchestration and fallback contract."""
 
 from dataclasses import replace

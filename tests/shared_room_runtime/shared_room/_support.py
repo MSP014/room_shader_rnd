@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build reusable in-memory OpenUSD stages for shared-room tests."""
 
 from pathlib import Path

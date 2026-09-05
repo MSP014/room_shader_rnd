@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect Jira worklog rounding and the supported description-to-ADF subset."""
 
 import importlib.util

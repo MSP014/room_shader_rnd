@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect user-facing labels at the Kit-to-runtime settings boundary."""
 
 import pytest

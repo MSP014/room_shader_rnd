@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect runtime tracing, USD change routing, pose refresh, and teardown."""
 
 import pytest

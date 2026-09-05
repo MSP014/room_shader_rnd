@@ -38,6 +38,8 @@ mov/
 *.usdc
 *.usdz
 # *.usda <-- Allowed for test scenes
+# Public ORMS demo layers are deliberately versioned.
+!assets/_demo/Moskovskiy_av_150/usd/*.usdc
 
 # Houdini
 *.hip
@@ -55,6 +57,8 @@ mov/
 *.ai
 *.exr
 *.hdr
+# Public ORMS demo lighting is deliberately versioned.
+!assets/_demo/hdri/*.exr
 
 # Knowledge Base - External Documentation (not for public repo)
 docs/knowledge_base/houdini/

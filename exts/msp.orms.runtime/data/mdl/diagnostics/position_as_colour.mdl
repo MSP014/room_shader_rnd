@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+// SPDX-License-Identifier: MIT
 mdl 1.7;
 
 // Visualise state::position() with explicit scale and offset diagnostics.

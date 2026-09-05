@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Coordinate portable `.orms` profile UI, validation, and local I/O."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Render the KRM Jira hierarchy as canonical implementation-plan Markdown."""
 
 import argparse

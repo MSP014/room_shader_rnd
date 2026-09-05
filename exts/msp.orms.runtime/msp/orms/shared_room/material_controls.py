@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Define the single persistent control set shared by all ORMS materials."""
 
 from __future__ import annotations

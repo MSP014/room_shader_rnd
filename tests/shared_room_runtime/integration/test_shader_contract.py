@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the shared-room runtime-to-MDL mapping and lookup budget."""
 
 from ..shared_room._support import MDL_PATH

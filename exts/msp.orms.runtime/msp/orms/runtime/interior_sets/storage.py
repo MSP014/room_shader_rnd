@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Serialise Interior Set snapshots into two persistent settings slots."""
 
 from __future__ import annotations

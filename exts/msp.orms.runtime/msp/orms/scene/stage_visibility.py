@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Keep extension-owned USD implementation prims out of the normal Stage UI."""
 
 from __future__ import annotations

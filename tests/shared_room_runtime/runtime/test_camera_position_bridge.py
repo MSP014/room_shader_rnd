@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the world-space camera bridge and its MDL input contract."""
 
 from pathlib import Path
@@ -77,6 +79,8 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "material_input_paths" in bridge_source
     assert "self._missing_input_paths" in bridge_source
     assert "self._reported_active_paths" in bridge_source
+    assert "self._trace_log_warning" in bridge_source
+    assert "trace_log_warning=trace_log_warning" in bridge_source
     assert "def set_material_input_paths(" in bridge_source
     assert "self._last_position = None" in bridge_source
     assert 'state="ACTIVE"' in bridge_source

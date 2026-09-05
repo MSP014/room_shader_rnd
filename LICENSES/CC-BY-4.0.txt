@@ -1,0 +1,17 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+The material identified as CC-BY-4.0 in this distribution is licensed under
+the Creative Commons Attribution 4.0 International Public License.
+
+You are free to share and adapt the material for any purpose, including
+commercial purposes, provided that you give appropriate credit, provide a
+link to the licence, and indicate whether changes were made. You may not apply
+legal terms or technological measures that legally restrict others from doing
+anything the licence permits.
+
+This notice is a readable summary and does not replace the licence. The full
+legal code is available at:
+
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+SPDX-License-Identifier: CC-BY-4.0

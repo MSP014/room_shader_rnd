@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Expose the ORMS runtime through the standard Kit extension lifecycle."""
 
 from __future__ import annotations

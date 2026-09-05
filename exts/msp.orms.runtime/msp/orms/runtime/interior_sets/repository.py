@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Persist complete Interior Set snapshots behind one active-slot pointer."""
 
 from __future__ import annotations

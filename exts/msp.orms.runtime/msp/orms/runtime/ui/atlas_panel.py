@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build staged Interior Set selectors, atlases, order, and Apply controls."""
 
 from __future__ import annotations
@@ -31,6 +33,10 @@ _PRODUCTION_HELP = (
 _DEFAULT_SET_HELP = (
     "Default is evaluated last and receives every compatible ORMS window not "
     "matched by a specific Interior Set."
+)
+_DEMO_SCENE_HELP = (
+    "Open the bundled ORMS building scene. Untouched factory settings use the "
+    "bundled demo atlas automatically; existing settings remain unchanged."
 )
 
 
@@ -146,6 +152,9 @@ def build_interior_set_atlas_panel(
     atlas_mode_collapsed_changed: Callable[[bool], None] | None = None,
     set_collapsed: Callable[[str], bool] | None = None,
     set_collapsed_changed: Callable[[str, bool], None] | None = None,
+    open_demo_scene: Callable[[], None] | None = None,
+    demo_scene_available: bool = False,
+    demo_scene_status: str = "",
 ) -> tuple[object, ...]:
     """Build structural fields that never mutate applied state directly."""
 
@@ -210,6 +219,28 @@ def build_interior_set_atlas_panel(
                         rebuild,
                     ),
                     tooltip=_ATLAS_MODE_HELP,
+                )
+                demo_button = ui.Button(
+                    "Open Demo Scene",
+                    width=150,
+                    enabled=(
+                        demo_scene_available and open_demo_scene is not None
+                    ),
+                    clicked_fn=open_demo_scene,
+                )
+                with_wrapped_tooltip(demo_button, _DEMO_SCENE_HELP)
+            if demo_scene_status:
+                ui.Label(
+                    demo_scene_status,
+                    word_wrap=True,
+                    height=0,
+                )
+            elif not demo_scene_available:
+                ui.Label(
+                    "Demo content is unavailable in this installation.",
+                    word_wrap=True,
+                    height=0,
+                    name="warning",
                 )
     _build_structural_actions(ui, controller, rebuild, apply)
     for item in controller.draft.sets:

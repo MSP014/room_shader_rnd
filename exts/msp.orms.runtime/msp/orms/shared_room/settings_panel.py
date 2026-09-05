@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build the tabbed artist controls embedded in the ORMS Kit window."""
 
 from __future__ import annotations

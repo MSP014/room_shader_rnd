@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Own stable Interior Set IDs and path-safe runtime tokens."""
 
 from __future__ import annotations

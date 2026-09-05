@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect packaged/debug and external/production atlas boundaries."""
 
 import json
@@ -104,6 +106,30 @@ def test_extension_owned_debug_resources_are_discovered(tmp_path):
     assert resources.mdl_root == mdl_root
     assert resources.debug_atlas(1).asset_path == debug_asset
     assert resources.debug_atlas(1).source == "packaged"
+
+
+def test_source_checkout_demo_resources_are_discovered(tmp_path):
+    workspace = tmp_path / "workspace"
+    extension_root = workspace / "exts" / "msp.orms.runtime"
+    module_file = extension_root / "msp" / "orms" / "runtime" / "resources.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.touch()
+    mdl_root = extension_root / "data" / "mdl"
+    mdl_root.mkdir(parents=True)
+    (mdl_root / "room_map.mdl").touch()
+    (mdl_root / "room_map_single.mdl").touch()
+    expected_root = workspace / "assets" / "_demo" / "Moskovskiy_av_150"
+    expected_usd = expected_root / "usd"
+    expected_usd.mkdir(parents=True)
+    stage = expected_usd / "Moskovskiy_av_150_HDRI.usd"
+    profile = expected_usd / "test_150.orms"
+    stage.touch()
+    profile.touch()
+
+    resources = ResourceLayout.discover(module_file)
+
+    assert resources.demo_stage == stage
+    assert resources.demo_profile == profile
 
 
 def test_production_atlas_is_discovered_from_family_directory(tmp_path):

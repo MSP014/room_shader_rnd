@@ -1,0 +1,99 @@
+{
+  "format": "msp.orms.scene-profile",
+  "schema_version": 1,
+  "scope": "interior_sets",
+  "atlas_mode": "production",
+  "interior_sets": [
+    {
+      "set_id": "00000000-0000-0000-0000-000000000000",
+      "name": "Rooms",
+      "selectors": [
+        "*/living_rooms"
+      ],
+      "atlases": {
+        "x1": "../../living_rooms",
+        "x2": "",
+        "x3": "",
+        "x4": ""
+      },
+      "material": {
+        "variation_seed": 0,
+        "room_depth": 1.029999976977706,
+        "room_uniform_scale": 1.0,
+        "window_shift": [
+          0.0,
+          0.0
+        ],
+        "window_aperture_scale": [
+          0.6399999856948853,
+          0.8100000023841858
+        ],
+        "window_aperture_offset": [
+          0.0,
+          0.0
+        ],
+        "enable_slice_1": true,
+        "enable_slice_2": true,
+        "enable_slice_3": true,
+        "enable_slice_4": true,
+        "slice_1_depth_percent": 8.0,
+        "slice_2_depth_percent": 40.0,
+        "slice_3_depth_percent": 60.0,
+        "slice_4_depth_percent": 80.0,
+        "slice_1_offset": [
+          0.0,
+          0.0
+        ],
+        "slice_2_offset": [
+          0.0,
+          0.0
+        ],
+        "slice_3_offset": [
+          0.0,
+          0.0
+        ],
+        "slice_4_offset": [
+          0.0,
+          0.0
+        ],
+        "slice_1_scale": [
+          1.0,
+          1.0
+        ],
+        "slice_2_scale": [
+          1.0,
+          1.0
+        ],
+        "slice_3_scale": [
+          1.0,
+          1.0
+        ],
+        "slice_4_scale": [
+          1.0,
+          1.0
+        ],
+        "glass_roughness": 0.1,
+        "glass_reflectivity": 0.04,
+        "glass_tint": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "glass_transmission": 1.0,
+        "fallback_colour": [
+          1.0,
+          0.0,
+          1.0
+        ],
+        "enable_emission": true,
+        "emission_slice_1": true,
+        "emission_slice_2": true,
+        "emission_slice_3": true,
+        "emission_slice_4": true,
+        "emission_strength": 3200.0,
+        "emission_threshold": 0.10000000149011612,
+        "emission_softness": 0.1
+      }
+    }
+  ]
+}

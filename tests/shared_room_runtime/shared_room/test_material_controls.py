@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the one-to-many ORMS-window-to-material control contract."""
 
 from msp.orms.shared_room.authoring import _SHARED_ARTIST_INPUT_NAMES

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Carry validated per-Set resources into the USD runtime."""
 
 from __future__ import annotations

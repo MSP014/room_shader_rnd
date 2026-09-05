@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Run progressively larger Room Map MDL graphs in isolated Kit processes.
 
 This is a compiler bisection, not a renderer readiness test.  Each stage uses a

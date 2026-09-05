@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Define the global staged atlas-selection policy for Interior Sets."""
 
 ATLAS_MODE_DEBUG = "debug"

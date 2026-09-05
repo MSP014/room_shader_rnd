@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect exact-source dependency loading and runtime start order."""
 
 import subprocess
@@ -57,7 +59,9 @@ def test_runtime_loader_targets_only_classified_window_material_inputs():
 
     assert "_RUNTIME_CAMERA_INPUT_PATHS" not in source
     assert "/World.primvars:ormsCameraPositionWorld" not in source
-    assert "bridge.start(classifier.camera_input_paths)" in source
+    assert "camera_bridge = bridge.start(" in source
+    assert "classifier.camera_input_paths," in source
+    assert "trace_log_warning=trace_log_warning" in source
 
 
 def test_runtime_loader_seeds_camera_before_classifier_and_bridge_start():
@@ -65,8 +69,17 @@ def test_runtime_loader_seeds_camera_before_classifier_and_bridge_start():
 
     seed_offset = source.index("shared.seed_camera_position_primvar(")
     classifier_offset = source.index("classifier = shared.start(")
-    bridge_offset = source.index(
-        "camera_bridge = bridge.start(classifier.camera_input_paths)"
-    )
+    bridge_offset = source.index("camera_bridge = bridge.start(")
 
     assert seed_offset < classifier_offset < bridge_offset
+
+
+def test_runtime_research_diagnostics_are_opt_in():
+    source = Path(reload_room_map_runtime.__file__).read_text(encoding="utf-8")
+
+    assert "verbose_diagnostics: bool = False" in source
+    assert "stage_probe.start(enabled=verbose_diagnostics)" in source
+    assert (
+        "shared.log_room_map_warning if verbose_diagnostics else None"
+        in source
+    )

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the installation-neutral ORMS runtime resource contract."""
 
 from pathlib import Path

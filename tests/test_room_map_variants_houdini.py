@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect roomID, room frames, and roomUV in the retained Houdini export."""
 
 from collections import Counter, defaultdict

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Collect low-rate host, Hydra, and renderer resource snapshots."""
 
 from __future__ import annotations

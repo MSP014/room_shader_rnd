@@ -15,6 +15,14 @@ Each debug family contains tiles `1001` through `1008` and reports eight
 variants. These textures are suitable for validation and examples, not as the
 production interior library.
 
+The packaged debug textures are licensed under Creative Commons Attribution
+4.0 International (`CC-BY-4.0`). Required attribution:
+
+> ORMS debug atlases © 2026 Maksim Pospelkov, licensed under CC BY 4.0.
+
+See `LICENSE.md` and `LICENSES/CC-BY-4.0.txt` in the packaged extension root
+for the complete distribution boundary and licence reference.
+
 Production Room Map atlases do not live in this extension-owned debug tree.
 The repository's `assets/_external/tex` tree is reserved for production
 content. Install an independently licensed asset pack and point each Interior

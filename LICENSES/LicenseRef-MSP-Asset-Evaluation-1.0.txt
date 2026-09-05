@@ -1,0 +1,96 @@
+MSP Asset Evaluation License 1.0
+
+Copyright (c) 2026 Maksim Pospelkov. All rights reserved except as expressly
+granted below.
+
+1. Scope
+
+This licence applies only to material expressly identified as covered by the
+MSP Asset Evaluation License 1.0 (the "Demo Assets"). It does not apply to
+software, public debug atlases, third-party material, or private production
+content governed by another notice.
+
+2. Non-commercial licence grant
+
+Subject to these terms, you may:
+
+a. download, store, reproduce, and use the Demo Assets, including locally
+modified copies, solely for non-commercial evaluation, demonstration,
+education, review, and personal portfolio purposes involving ORMS;
+
+b. create and publicly display rendered output, including still images and
+videos, for those purposes; and
+
+c. retain and redistribute unmodified Demo Assets only as an incidental part
+of a complete, non-commercial fork or archive of the ORMS repository, or an
+unmodified complete ORMS extension package, provided that all copyright,
+licence, and third-party notices remain intact and readily accessible.
+
+Personal portfolio use remains permitted even where the portfolio supports a
+job application or professional reputation, provided that the Demo Assets are
+not used in paid client work, a product or service offered for payment, or
+monetised content.
+
+3. Attribution
+
+Public rendered output and permitted redistributions must include the
+following attribution in a reasonably visible accompanying description,
+credits section, or notice file:
+
+"Building and ORMS demo assets © 2026 Maksim Pospelkov. Used under the MSP
+Asset Evaluation License 1.0."
+
+4. Restrictions
+
+Without a separate written licence from Maksim Pospelkov, you may not:
+
+a. use the Demo Assets in paid client work or in any commercial product,
+service, production, advertisement, asset library, or monetised content;
+
+b. sell, rent, sublicense, or otherwise commercially exploit the Demo Assets;
+
+c. redistribute, publish, upload, extract, or repackage the Demo Assets as
+standalone source assets, as part of another project or asset collection, or
+in a form intended to make the source assets available independently;
+
+d. redistribute modified versions of the source Demo Assets; or
+
+e. use the Demo Assets in a dataset or asset corpus distributed to third
+parties.
+
+The rights in Section 2(c) are a narrow exception to the redistribution
+restrictions and do not permit an asset-only mirror, repackaging, or commercial
+distribution.
+
+5. Ownership and reserved rights
+
+The Demo Assets are licensed, not sold. Maksim Pospelkov retains all ownership
+and rights not expressly granted. No licence is granted to any trade name,
+trade mark, project branding, or the identity of any depicted person or
+organisation. This licence covers copyright in the supplied digital files
+only and grants no rights in depicted real property, architecture, signs,
+marks, or other third-party subject matter. No endorsement is implied.
+
+6. Termination
+
+The licence terminates automatically if you breach these terms. Your rights
+are reinstated if you cure the breach within 30 days after discovering it,
+unless the rights holder has notified you otherwise in writing. Termination
+does not affect licences already granted to recipients of permitted rendered
+output or complete unmodified distributions that remain compliant.
+
+7. Disclaimer and limitation of liability
+
+THE DEMO ASSETS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW,
+THE RIGHTS HOLDER WILL NOT BE LIABLE FOR ANY CLAIM, DAMAGE, OR OTHER LIABILITY
+ARISING FROM THE DEMO ASSETS OR THEIR USE.
+
+8. Commercial permission
+
+Commercial rights, source-asset redistribution rights, or another exception
+may be available only under a separate written agreement with the repository
+owner.
+
+SPDX-License-Identifier: LicenseRef-MSP-Asset-Evaluation-1.0

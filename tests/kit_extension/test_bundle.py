@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the minimal installable Kit extension manifest and documentation."""
 
 import tomllib
@@ -11,7 +13,7 @@ def test_extension_manifest_declares_required_runtime_dependencies():
 
     package = manifest["package"]
     assert package["title"] == "Omniverse Room Map Shader"
-    assert package["version"] == "0.1.26"
+    assert package["version"] == "1.0.1"
     assert package["repository"] == (
         "https://github.com/MSP014/room_shader_rnd"
     )
@@ -24,6 +26,7 @@ def test_extension_manifest_declares_required_runtime_dependencies():
         "omni.kit.menu.utils",
         "omni.kit.window.file_importer",
         "omni.kit.window.file_exporter",
+        "omni.kit.window.file",
         "omni.kit.widget.settings",
     }
     assert manifest["python"]["module"] == [

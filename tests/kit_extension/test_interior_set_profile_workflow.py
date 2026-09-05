@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect direct profile actions from prerequisite path state."""
 
 from msp.orms.runtime.profiles.workflow import (

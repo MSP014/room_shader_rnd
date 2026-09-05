@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect the extension as the only canonical ORMS product source tree."""
 
 from pathlib import Path

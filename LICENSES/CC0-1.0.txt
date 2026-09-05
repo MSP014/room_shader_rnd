@@ -1,0 +1,13 @@
+Creative Commons CC0 1.0 Universal (CC0 1.0)
+
+The material identified as CC0-1.0 in this distribution has been dedicated to
+the public domain by its rights holder to the fullest extent permitted by law.
+It may be copied, modified, distributed, and used, including commercially,
+without asking permission.
+
+This notice is a readable summary and does not replace the legal instrument.
+The full legal code is available at:
+
+https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+SPDX-License-Identifier: CC0-1.0

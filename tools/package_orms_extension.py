@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build a standalone ORMS Kit extension from canonical repository sources."""
 
 from __future__ import annotations
@@ -17,6 +19,16 @@ DEBUG_FAMILY_NAMES = {
     4: "room_map_debug_x4",
 }
 MDL_FILES = ("room_map.mdl", "room_map_single.mdl")
+DEMO_STAGE = Path("Moskovskiy_av_150") / "usd" / "Moskovskiy_av_150_HDRI.usd"
+DEMO_PROFILE = Path("Moskovskiy_av_150") / "usd" / "test_150.orms"
+LICENSING_FILES = (
+    Path("LICENSE.md"),
+    Path("THIRD_PARTY_NOTICES.md"),
+    Path("LICENSES") / "MIT.txt",
+    Path("LICENSES") / "CC-BY-4.0.txt",
+    Path("LICENSES") / "CC0-1.0.txt",
+    Path("LICENSES") / "LicenseRef-MSP-Asset-Evaluation-1.0.txt",
+)
 
 
 def _required_debug_tiles(repository_root: Path) -> tuple[Path, ...]:
@@ -54,6 +66,9 @@ def _validate_sources(repository_root: Path, output_directory: Path) -> None:
         for filename in MDL_FILES
     )
     required.extend(_required_debug_tiles(repository_root))
+    demo_root = repository_root / "assets" / "_demo"
+    required.extend((demo_root / DEMO_STAGE, demo_root / DEMO_PROFILE))
+    required.extend(repository_root / path for path in LICENSING_FILES)
     missing = tuple(path for path in required if not path.is_file())
     if missing:
         missing_text = "\n".join(f"- {path}" for path in missing)
@@ -81,8 +96,19 @@ def _write_manifest(output_directory: Path) -> None:
     )
     manifest = {
         "extension": EXTENSION_NAME,
-        "source_policy": "canonical extension tree with packaged debug atlases",
+        "source_policy": (
+            "canonical extension tree with debug atlases and demo content"
+        ),
         "production_atlases_included": False,
+        "demo_content_included": True,
+        "licensing": {
+            "software": "MIT",
+            "debug_atlases": "CC-BY-4.0",
+            "demo_assets": "LicenseRef-MSP-Asset-Evaluation-1.0",
+            "demo_hdri": "CC0-1.0",
+            "map": "LICENSE.md",
+            "third_party_notices": "THIRD_PARTY_NOTICES.md",
+        },
         "files": [
             {
                 "path": path.relative_to(output_directory).as_posix(),
@@ -110,6 +136,13 @@ def build_extension(repository_root: Path, output_directory: Path) -> Path:
         output,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
+    shutil.copytree(root / "assets" / "_demo", output / "data" / "demo")
+    shutil.copy2(root / "LICENSE.md", output / "LICENSE.md")
+    shutil.copy2(
+        root / "THIRD_PARTY_NOTICES.md",
+        output / "THIRD_PARTY_NOTICES.md",
+    )
+    shutil.copytree(root / "LICENSES", output / "LICENSES")
     _write_manifest(output)
     return output
 

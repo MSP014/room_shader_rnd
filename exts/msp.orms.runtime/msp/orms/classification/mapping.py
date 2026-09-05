@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Map accepted straight and corner aperture groups into shared room space."""
 
 from __future__ import annotations

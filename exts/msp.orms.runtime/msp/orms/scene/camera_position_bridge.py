@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Synchronise an MDL camera-position input with the active Kit viewport.
 
 Run this module inside USD Composer's Script Editor. The value is authored in
@@ -6,7 +8,7 @@ the USD session layer, so camera updates do not modify the opened stage file.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import carb.eventdispatcher
 import omni.kit.app
@@ -51,6 +53,8 @@ class CameraPositionBridge:
     def __init__(
         self,
         material_input_paths: str | Sequence[str] | None = None,
+        *,
+        trace_log_warning: Callable[..., None] | None = (log_room_map_warning),
     ):
         self._auto_discover = material_input_paths is None
         if isinstance(material_input_paths, str):
@@ -63,6 +67,7 @@ class CameraPositionBridge:
         self._reported_active_paths: set[Sdf.Path] = set()
         self._warned_no_inputs = False
         self._last_position: tuple[float, float, float] | None = None
+        self._trace_log_warning = trace_log_warning
         self._subscription = None
         self.resume()
 
@@ -185,15 +190,16 @@ class CameraPositionBridge:
                 material_input.Set(Gf.Vec3f(*position))
                 self._missing_input_paths.discard(material_input_path)
                 if material_input_path not in self._reported_active_paths:
-                    log_room_map_warning(
-                        owner="CAMERA POSITION BRIDGE",
-                        process="CAMERA POSITION ATTRIBUTE UPDATE",
-                        state="ACTIVE",
-                        details={
-                            "attribute_path": material_input_path,
-                            "world_position": position,
-                        },
-                    )
+                    if self._trace_log_warning is not None:
+                        self._trace_log_warning(
+                            owner="CAMERA POSITION BRIDGE",
+                            process="CAMERA POSITION ATTRIBUTE UPDATE",
+                            state="ACTIVE",
+                            details={
+                                "attribute_path": material_input_path,
+                                "world_position": position,
+                            },
+                        )
                     self._reported_active_paths.add(material_input_path)
         self._last_position = position
 
@@ -216,6 +222,8 @@ _bridge: CameraPositionBridge | None = None
 
 def start(
     material_input_paths: str | Sequence[str] | None = None,
+    *,
+    trace_log_warning: Callable[..., None] | None = log_room_map_warning,
 ) -> CameraPositionBridge:
     """Start the singleton bridge and return it for interactive inspection.
 
@@ -225,7 +233,10 @@ def start(
     """
     global _bridge
     stop()
-    _bridge = CameraPositionBridge(material_input_paths)
+    _bridge = CameraPositionBridge(
+        material_input_paths,
+        trace_log_warning=trace_log_warning,
+    )
     return _bridge
 
 

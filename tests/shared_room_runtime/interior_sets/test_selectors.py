@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect deterministic path-level Interior Set selection."""
 
 from msp.orms.classification.contracts import ApertureDescriptor

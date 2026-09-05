@@ -1,6 +1,6 @@
 [package]
 title = "Omniverse Room Map Shader"
-version = "0.1.26"
+version = "1.0.1"
 description = "Register and run ORMS materials on compatible OpenUSD assets."
 category = "Rendering"
 support_level = "Sample"
@@ -19,6 +19,7 @@ repository = "https://github.com/MSP014/room_shader_rnd"
 "omni.kit.widget.settings" = {}
 "omni.kit.window.file_importer" = {}
 "omni.kit.window.file_exporter" = {}
+"omni.kit.window.file" = {}
 
 [[python.module]]
 name = "msp.orms.runtime.extension"

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+// SPDX-License-Identifier: MIT
 mdl 1.7;
 
 // Production ORMS material for runtime-classified shared rooms. The material

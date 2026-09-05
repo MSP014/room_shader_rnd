@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Retain transient ORMS presentation state across UI rebuilds."""
 
 from __future__ import annotations

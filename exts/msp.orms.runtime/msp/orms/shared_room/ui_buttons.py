@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Build selection controls with an explicit ORMS active-state contrast."""
 
 from __future__ import annotations

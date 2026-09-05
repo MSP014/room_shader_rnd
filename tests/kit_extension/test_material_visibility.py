@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect reversible ORMS visibility in restricted material menus."""
 
 from msp.orms.runtime.materials.visibility import MaterialVisibilityOwner

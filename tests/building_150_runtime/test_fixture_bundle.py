@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Validate the isolated Building 150 Kit fixture contract."""
 
 import ast
@@ -267,15 +269,8 @@ def test_building_150_runtime_is_published_in_one_live_stage_change(
         .Get()
         .path.endswith("assets/_external/tex/room_maps/room_map.<UDIM>.png")
     )
-    for tile_number in range(1001, 1057):
-        assert (
-            REPOSITORY_ROOT
-            / "assets"
-            / "_external"
-            / "tex"
-            / "room_maps"
-            / f"room_map.{tile_number}.png"
-        ).is_file()
+    # Production atlas tiles are intentionally outside the public repository
+    # contract; the authored external path above remains part of the fixture.
     for room_size in range(2, 5):
         family_shader = UsdShade.Shader(
             stage.GetPrimAtPath(

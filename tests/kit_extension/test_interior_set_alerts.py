@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect concise selector-conflict warnings outside diagnostics UI."""
 
 from msp.orms.runtime.interior_sets.alerts import selector_conflict_alerts

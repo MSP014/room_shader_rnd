@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Maksim Pospelkov
+# SPDX-License-Identifier: MIT
 """Protect pure asset-batch timing and terminal-state summaries."""
 
 from msp.orms.scene.stage_load_state import AssetBatchTracker
