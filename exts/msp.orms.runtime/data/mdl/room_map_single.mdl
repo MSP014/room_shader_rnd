@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 mdl 1.7;
 
-// Minimal five-face ORMS reference material. It proves the authored room frame,
-// camera bridge, analytic ray-box hit, cross-atlas mapping, and deterministic
-// UDIM selection without shared-room or layered-depth complexity.
+// Native-preserving x1 ORMS material. It consumes the authored room frame,
+// camera bridge, analytic ray-box hit, deterministic UDIM selection, and the
+// same four depth-slice regions used by the classified room_map material.
 
 import ::df::*;
 import ::math::*;
@@ -132,6 +132,210 @@ float2 cross_atlas_coordinate(
     ? float2(middle_u, tile_size * (3.0 - depth_coordinate))
     : float2(middle_u, tile_size * depth_coordinate);
 
+// Slice controls operate after projection into the normalised x1 room so an
+// artist can reposition content without changing the source window frame.
+float2 transform_slice_coordinate(
+    float2 hit_coordinate,
+    float2 offset,
+    float2 scale
+)
+{
+    return float2(
+        hit_coordinate.x * scale.x + offset.x,
+        hit_coordinate.y * scale.y + offset.y
+    );
+}
+
+// The four alpha-slice tiles occupy the unused corners of the 3x3 cross.
+float2 slice_atlas_coordinate(
+    float2 local_coordinate,
+    float2 tile_origin
+)
+{
+    float tile_size = 1.0 / 3.0;
+
+    return tile_origin + local_coordinate * tile_size;
+}
+
+bool point_is_in_unit_room(float3 point)
+{
+    return point.x >= 0.0
+        && point.x <= 1.0
+        && point.y >= 0.0
+        && point.y <= 1.0;
+}
+
+bool coordinate_is_in_unit_tile(float2 coordinate)
+{
+    return coordinate.x >= 0.0
+        && coordinate.x <= 1.0
+        && coordinate.y >= 0.0
+        && coordinate.y <= 1.0;
+}
+
+float slice_opacity(
+    float4 sample,
+    bool enabled,
+    bool is_visible
+)
+{
+    return enabled && is_visible ? saturate(sample.w) : 0.0;
+}
+
+// Emission eligibility is independent from alpha and colour composition. A
+// disabled emissive slice still occludes luminous surfaces behind it.
+struct room_emission_controls
+{
+    bool enabled;
+    bool slice_1_enabled;
+    bool slice_2_enabled;
+    bool slice_3_enabled;
+    bool slice_4_enabled;
+    float threshold;
+    float softness;
+};
+
+struct room_slice_composite
+{
+    color colour;
+    color emission_colour;
+    float room_transmittance;
+};
+
+// Four slice samples plus the later room-face sample keep native x1 bounded to
+// the same five atlas lookups as the classified material.
+room_slice_composite composite_room_slices(
+    uniform texture_2d room_atlas,
+    int variant_index,
+    float2 slice_1_coordinate,
+    float2 slice_2_coordinate,
+    float2 slice_3_coordinate,
+    float2 slice_4_coordinate,
+    bool enable_slice_1,
+    bool enable_slice_2,
+    bool enable_slice_3,
+    bool enable_slice_4,
+    room_emission_controls emission,
+    bool slice_1_is_visible,
+    bool slice_2_is_visible,
+    bool slice_3_is_visible,
+    bool slice_4_is_visible
+) = let {
+    float4 slice_1 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_1_coordinate, float2(0.0, 0.0)),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_2 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_2_coordinate,
+                float2(0.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_3 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(
+                slice_3_coordinate,
+                float2(2.0 / 3.0, 2.0 / 3.0)
+            ),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float4 slice_4 = tex::lookup_float4(
+        room_atlas,
+        udim_atlas_coordinate(
+            slice_atlas_coordinate(slice_4_coordinate, float2(2.0 / 3.0, 0.0)),
+            variant_index
+        ),
+        tex::wrap_clip,
+        tex::wrap_clip
+    );
+    float slice_1_opacity = slice_opacity(
+        slice_1,
+        enable_slice_1,
+        slice_1_is_visible
+    );
+    float slice_2_opacity = slice_opacity(
+        slice_2,
+        enable_slice_2,
+        slice_2_is_visible
+    );
+    float slice_3_opacity = slice_opacity(
+        slice_3,
+        enable_slice_3,
+        slice_3_is_visible
+    );
+    float slice_4_opacity = slice_opacity(
+        slice_4,
+        enable_slice_4,
+        slice_4_is_visible
+    );
+    float slice_2_transmittance = 1.0 - slice_1_opacity;
+    float slice_3_transmittance = slice_2_transmittance
+        * (1.0 - slice_2_opacity);
+    float slice_4_transmittance = slice_3_transmittance
+        * (1.0 - slice_3_opacity);
+    float room_transmittance = slice_4_transmittance
+        * (1.0 - slice_4_opacity);
+    color slice_1_colour = color(slice_1.x, slice_1.y, slice_1.z);
+    color slice_2_colour = color(slice_2.x, slice_2.y, slice_2.z);
+    color slice_3_colour = color(slice_3.x, slice_3.y, slice_3.z);
+    color slice_4_colour = color(slice_4.x, slice_4.y, slice_4.z);
+    color composited_colour = slice_1_colour * slice_1_opacity
+        + slice_2_colour * slice_2_opacity * slice_2_transmittance
+        + slice_3_colour * slice_3_opacity * slice_3_transmittance
+        + slice_4_colour * slice_4_opacity * slice_4_transmittance;
+    float slice_1_emission_mask = room_emission_mask(
+        slice_1_colour,
+        emission.enabled && emission.slice_1_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_2_emission_mask = room_emission_mask(
+        slice_2_colour,
+        emission.enabled && emission.slice_2_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_3_emission_mask = room_emission_mask(
+        slice_3_colour,
+        emission.enabled && emission.slice_3_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    float slice_4_emission_mask = room_emission_mask(
+        slice_4_colour,
+        emission.enabled && emission.slice_4_enabled,
+        emission.threshold,
+        emission.softness
+    );
+    color composited_emission_colour =
+        slice_1_colour * slice_1_opacity * slice_1_emission_mask
+        + slice_2_colour * slice_2_opacity * slice_2_transmittance
+            * slice_2_emission_mask
+        + slice_3_colour * slice_3_opacity * slice_3_transmittance
+            * slice_3_emission_mask
+        + slice_4_colour * slice_4_opacity * slice_4_transmittance
+            * slice_4_emission_mask;
+} in room_slice_composite(
+    composited_colour,
+    composited_emission_colour,
+    room_transmittance
+);
+
 // Public baseline material. Source geometry provides roomP, tangentu, tangentv,
 // roomUV, and roomID; the runtime bridge provides the camera world position.
 export material room_map_single(
@@ -140,12 +344,32 @@ export material room_map_single(
     uniform int variation_seed = 0,
     float3 camera_position_world = float3(0.0),
     float room_depth = 1.0,
+    bool enable_slice_1 = true,
+    bool enable_slice_2 = true,
+    bool enable_slice_3 = true,
+    bool enable_slice_4 = true,
+    float slice_1_depth_percent = 20.0,
+    float slice_2_depth_percent = 40.0,
+    float slice_3_depth_percent = 60.0,
+    float slice_4_depth_percent = 80.0,
+    float2 slice_1_offset = float2(0.0),
+    float2 slice_2_offset = float2(0.0),
+    float2 slice_3_offset = float2(0.0),
+    float2 slice_4_offset = float2(0.0),
+    float2 slice_1_scale = float2(1.0),
+    float2 slice_2_scale = float2(1.0),
+    float2 slice_3_scale = float2(1.0),
+    float2 slice_4_scale = float2(1.0),
     float glass_roughness = 0.1,
     float glass_reflectivity = 0.04,
     color glass_tint = color(1.0),
     float glass_transmission = 1.0,
     color fallback_colour = color(1.0, 0.0, 1.0),
     bool enable_emission = false,
+    bool emission_slice_1 = true,
+    bool emission_slice_2 = true,
+    bool emission_slice_3 = true,
+    bool emission_slice_4 = true,
     float emission_strength = 1.0,
     float emission_threshold = 0.8,
     float emission_softness = 0.1
@@ -306,6 +530,117 @@ export material room_map_single(
         atlas_sample.z
     );
     color room_colour = frame_is_valid ? sampled_colour : fallback_colour;
+    // Intersect all four alpha planes with the same x1 ray. The final room-face
+    // distance clips slices that project beyond the visible analytic box.
+    float slice_1_depth = room_depth
+        * saturate(slice_1_depth_percent / 100.0);
+    float slice_2_depth = room_depth
+        * saturate(slice_2_depth_percent / 100.0);
+    float slice_3_depth = room_depth
+        * saturate(slice_3_depth_percent / 100.0);
+    float slice_4_depth = room_depth
+        * saturate(slice_4_depth_percent / 100.0);
+    float slice_1_distance = slice_1_depth <= room_map_epsilon()
+        ? 0.0
+        : positive_plane_distance(
+            -slice_1_depth,
+            ray_origin.z,
+            ray_direction.z
+        );
+    float slice_2_distance = slice_2_depth <= room_map_epsilon()
+        ? 0.0
+        : positive_plane_distance(
+            -slice_2_depth,
+            ray_origin.z,
+            ray_direction.z
+        );
+    float slice_3_distance = slice_3_depth <= room_map_epsilon()
+        ? 0.0
+        : positive_plane_distance(
+            -slice_3_depth,
+            ray_origin.z,
+            ray_direction.z
+        );
+    float slice_4_distance = slice_4_depth <= room_map_epsilon()
+        ? 0.0
+        : positive_plane_distance(
+            -slice_4_depth,
+            ray_origin.z,
+            ray_direction.z
+        );
+    float3 slice_1_hit_point =
+        ray_origin + slice_1_distance * ray_direction;
+    float3 slice_2_hit_point =
+        ray_origin + slice_2_distance * ray_direction;
+    float3 slice_3_hit_point =
+        ray_origin + slice_3_distance * ray_direction;
+    float3 slice_4_hit_point =
+        ray_origin + slice_4_distance * ray_direction;
+    float2 slice_1_local_coordinate = transform_slice_coordinate(
+        float2(slice_1_hit_point.x, slice_1_hit_point.y),
+        slice_1_offset,
+        slice_1_scale
+    );
+    float2 slice_2_local_coordinate = transform_slice_coordinate(
+        float2(slice_2_hit_point.x, slice_2_hit_point.y),
+        slice_2_offset,
+        slice_2_scale
+    );
+    float2 slice_3_local_coordinate = transform_slice_coordinate(
+        float2(slice_3_hit_point.x, slice_3_hit_point.y),
+        slice_3_offset,
+        slice_3_scale
+    );
+    float2 slice_4_local_coordinate = transform_slice_coordinate(
+        float2(slice_4_hit_point.x, slice_4_hit_point.y),
+        slice_4_offset,
+        slice_4_scale
+    );
+    bool slice_1_is_visible = frame_is_valid
+        && slice_1_distance <= hit_distance
+        && point_is_in_unit_room(slice_1_hit_point)
+        && coordinate_is_in_unit_tile(slice_1_local_coordinate);
+    bool slice_2_is_visible = frame_is_valid
+        && slice_2_distance <= hit_distance
+        && point_is_in_unit_room(slice_2_hit_point)
+        && coordinate_is_in_unit_tile(slice_2_local_coordinate);
+    bool slice_3_is_visible = frame_is_valid
+        && slice_3_distance <= hit_distance
+        && point_is_in_unit_room(slice_3_hit_point)
+        && coordinate_is_in_unit_tile(slice_3_local_coordinate);
+    bool slice_4_is_visible = frame_is_valid
+        && slice_4_distance <= hit_distance
+        && point_is_in_unit_room(slice_4_hit_point)
+        && coordinate_is_in_unit_tile(slice_4_local_coordinate);
+    room_emission_controls emission_controls = room_emission_controls(
+        enable_emission,
+        emission_slice_1,
+        emission_slice_2,
+        emission_slice_3,
+        emission_slice_4,
+        emission_threshold,
+        emission_softness
+    );
+    room_slice_composite slice_composite = composite_room_slices(
+        room_atlas,
+        variant_index,
+        slice_1_local_coordinate,
+        slice_2_local_coordinate,
+        slice_3_local_coordinate,
+        slice_4_local_coordinate,
+        enable_slice_1,
+        enable_slice_2,
+        enable_slice_3,
+        enable_slice_4,
+        emission_controls,
+        slice_1_is_visible,
+        slice_2_is_visible,
+        slice_3_is_visible,
+        slice_4_is_visible
+    );
+    color composited_room_colour =
+        room_colour * slice_composite.room_transmittance
+        + slice_composite.colour;
     // Keep the analytic room visible on its proxy while adding the front-glass
     // response. True refraction would reveal absent geometry behind the quad.
     float safe_glass_roughness = saturate(glass_roughness);
@@ -313,7 +648,7 @@ export material room_map_single(
         safe_glass_roughness * safe_glass_roughness;
     float safe_glass_reflectivity = saturate(glass_reflectivity);
     float safe_glass_transmission = saturate(glass_transmission);
-    color tinted_room_colour = room_colour * glass_tint;
+    color tinted_room_colour = composited_room_colour * glass_tint;
     color glass_base_colour =
         glass_tint * (1.0 - safe_glass_transmission)
         + tinted_room_colour * safe_glass_transmission;
@@ -340,16 +675,20 @@ export material room_map_single(
     );
     // The baseline atlas contains no front-face lookup: every valid colour is
     // sampled from Back, Left, Right, Ceiling, or Floor.
-    float luminous_room_mask = frame_is_valid
-        ? room_emission_mask(
-            room_colour,
-            enable_emission,
-            emission_threshold,
-            emission_softness
-        )
-        : 0.0;
-    color visible_room_emission =
-        tinted_room_colour * safe_glass_transmission * luminous_room_mask;
+    color room_face_emission_colour = room_colour * room_emission_mask(
+        room_colour,
+        emission_controls.enabled,
+        emission_controls.threshold,
+        emission_controls.softness
+    );
+    color composited_emission_colour =
+        room_face_emission_colour * slice_composite.room_transmittance
+        + slice_composite.emission_colour;
+    color visible_room_emission = frame_is_valid
+        ? composited_emission_colour
+            * glass_tint
+            * safe_glass_transmission
+        : color(0.0);
 } in material(
     surface: material_surface(
         scattering: room_behind_glass,

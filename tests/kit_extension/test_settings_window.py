@@ -300,6 +300,68 @@ def test_stopped_runtime_keeps_assignment_inspection_read_only():
     assert not snapshot.editable
 
 
+def test_stop_freezes_runtime_without_removing_automatic_assignments(
+    monkeypatch,
+):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    events = []
+
+    class Lifecycle:
+        @staticmethod
+        def stop():
+            events.append("stop")
+            return True
+
+    class AssignmentSession:
+        @staticmethod
+        def stop_assignments():
+            raise AssertionError("Stop must retain the frozen assignments")
+
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._lifecycle = Lifecycle()
+    service._assignment_session = AssignmentSession()
+    monkeypatch.setattr(
+        service_module, "_log_verbose_info", lambda _message: None
+    )
+
+    service.stop_runtime()
+
+    assert events == ["stop"]
+
+
+def test_restart_from_stop_resumes_without_recycling_renderer_prims(
+    monkeypatch,
+):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    events = []
+
+    class Lifecycle:
+        @staticmethod
+        def resume():
+            events.append("resume")
+            return True
+
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._lifecycle = Lifecycle()
+    service._apply_classifier_settings = lambda: events.append("classifier")
+    service._apply_material_settings = lambda: events.append("materials")
+    service._record_phase5_sample = events.append
+    service._activate_current_stage = lambda **_kwargs: events.append(
+        "rebuild"
+    )
+    monkeypatch.setattr(
+        service_module, "_log_verbose_info", lambda _message: None
+    )
+
+    service.restart_runtime()
+
+    assert events == ["resume", "classifier", "materials", "RESTARTED"]
+
+
 def test_interior_set_ui_is_split_into_staged_and_live_modules():
     runtime_root = (
         Path(__file__).resolve().parents[2]

@@ -243,12 +243,36 @@ def _hydra_memory_snapshot() -> dict[str, object]:
             "gpu_device": device.get("description", "unavailable"),
             "gpu_memory_fields": memory_fields or "unavailable",
         }
+        try:
+            memory_stats = engine_stats.get_mem_stats(detailed=True)
+        except TypeError:
+            memory_stats = engine_stats.get_mem_stats()
         total_fields = {
             str(item.get("category", "unknown")): item.get("size")
-            for item in engine_stats.get_mem_stats()
+            for item in memory_stats
             if "total" in str(item.get("category", "")).lower()
         }
         details["hydra_total_memory_fields"] = total_fields or "unavailable"
+        structure_tokens = (
+            "prototype",
+            "unique mesh",
+            "instance",
+            "acceleration structure",
+            "material",
+        )
+        structure_fields = {
+            str(item.get("category", "unknown")): item.get("size")
+            for item in memory_stats
+            if any(
+                token in str(item.get("category", "")).casefold()
+                for token in structure_tokens
+            )
+        }
+        details["renderer_structure_memory_fields"] = (
+            structure_fields or "unavailable"
+        )
+        details["renderer_prototype_count_observable"] = False
+        details["renderer_prototype_count"] = "unavailable_public_api"
         return details
     except Exception as error:
         return {"gpu_memory_metrics": f"unavailable: {error!r}"}

@@ -12,6 +12,10 @@ from msp.orms.scene.assignment import (
 from msp.orms.scene.assignment_overrides import (
     AssignmentOverrideOwner,
 )
+from msp.orms.scene.source_integrity import (
+    capture_stage_source_state,
+    source_integrity_details,
+)
 from msp.orms.scene.traversal import iter_composed_prims
 from msp.orms.shared_room import controller as controller_module
 from msp.orms.shared_room.authoring import (
@@ -747,6 +751,7 @@ def test_city_native_runtime_bridges_only_class_local_camera_inputs(
         lambda _diagnostic: None,
     )
     stage = Usd.Stage.Open(str(CITY_STAGE_PATH))
+    source_state_before = capture_stage_source_state(stage)
     source_bindings = _mesh_material_paths(stage)
     owner = AutoAssignmentOwner(
         stage,
@@ -777,7 +782,9 @@ def test_city_native_runtime_bridges_only_class_local_camera_inputs(
         "ormsCameraPositionWorld"
     )
     bindings_before_camera_update = _mesh_material_paths(stage)
-    with Usd.EditContext(stage, classifier.runtime_layer):
+    camera_runtime_layer = classifier.runtime_layer or owner.runtime_layer
+    assert camera_runtime_layer is not None
+    with Usd.EditContext(stage, camera_runtime_layer):
         for camera_input_path in camera_input_paths:
             stage.GetAttributeAtPath(camera_input_path).Set(
                 Gf.Vec3f(100.0, 200.0, 300.0)
@@ -788,6 +795,17 @@ def test_city_native_runtime_bridges_only_class_local_camera_inputs(
     owner.stop()
 
     assert _mesh_material_paths(stage) == source_bindings
+    source_state_after = capture_stage_source_state(stage)
+    integrity = source_integrity_details(
+        source_state_before,
+        source_state_after,
+    )
+    assert integrity["source_integrity_passed"] is True, integrity
+    assert integrity["source_file_count"] == 37
+    assert integrity["source_file_bytes_unchanged"] is True
+    assert integrity["source_layer_structure_unchanged"] is True
+    assert integrity["material_bindings_restored"] is True
+    assert integrity["new_sidecar_or_adapter_entries"] == "<none>"
 
 
 def test_preserved_instance_material_updates_supported_x1_controls():
@@ -799,7 +817,12 @@ def test_preserved_instance_material_updates_supported_x1_controls():
         atlas_asset_path="debug/x1/room_map_debug.<UDIM>.png",
         atlas_variant_count=8,
         material_input_values={
+            "enable_slice_1": False,
+            "slice_2_depth_percent": 37.0,
+            "slice_3_offset": (0.1, -0.2),
+            "slice_4_scale": (0.8, 1.2),
             "enable_emission": True,
+            "emission_slice_2": False,
             "emission_strength": 32000.0,
         },
     )
@@ -814,17 +837,32 @@ def test_preserved_instance_material_updates_supported_x1_controls():
         stage.GetPrimAtPath("/__class__/Building/mtl/ORMSRoomMapSingle/Shader")
     )
     assert shader.GetInput("emission_strength").Get() == 32000.0
+    assert shader.GetInput("enable_slice_1").Get() is False
+    assert shader.GetInput("slice_2_depth_percent").Get() == 37.0
+    assert shader.GetInput("slice_3_offset").Get() == Gf.Vec2f(0.1, -0.2)
+    assert shader.GetInput("slice_4_scale").Get() == Gf.Vec2f(0.8, 1.2)
+    assert shader.GetInput("emission_slice_2").Get() is False
     assert not shader.GetInput("enable_opacity")
 
     updated_count = owner.set_material_input_values(
         {
+            "enable_slice_1": True,
+            "slice_2_depth_percent": 63.0,
+            "slice_3_offset": (-0.3, 0.4),
+            "slice_4_scale": (1.1, 0.7),
             "emission_strength": 64000.0,
+            "emission_slice_2": True,
             "glass_reflectivity": 0.2,
         }
     )
 
-    assert updated_count == 2
+    assert updated_count == 7
+    assert shader.GetInput("enable_slice_1").Get() is True
+    assert shader.GetInput("slice_2_depth_percent").Get() == 63.0
+    assert shader.GetInput("slice_3_offset").Get() == Gf.Vec2f(-0.3, 0.4)
+    assert shader.GetInput("slice_4_scale").Get() == Gf.Vec2f(1.1, 0.7)
     assert shader.GetInput("emission_strength").Get() == 64000.0
+    assert shader.GetInput("emission_slice_2").Get() is True
     assert abs(shader.GetInput("glass_reflectivity").Get() - 0.2) < 1e-6
     assert instance.IsInstance()
     owner.stop()

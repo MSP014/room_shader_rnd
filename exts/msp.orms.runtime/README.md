@@ -25,9 +25,12 @@ Native instances remain shared. ORMS overlays the source class already
 inherited by each compatible building without adding an inherit arc to the
 instance root. The overlay composes a direct binding only at the selected
 relative window path and uses the lightweight `room_map_single` x1 material;
-it never binds the building root. Native camera updates target only the
-class-local ORMS shader input. Stop or Restore removes the runtime layer and
-reveals every original binding without reopening the stage.
+the x1 room still consumes all four layered-depth atlas regions. It never
+binds the building root. Native camera updates target only the
+class-local ORMS shader input. Stop retains the runtime layer, disables its one
+camera observer, and freezes the last camera value. Start or Restart re-enables
+that observer; Restore removes the layer and reveals every original binding
+without reopening the stage.
 
 ## ORMS Classifier
 
@@ -45,9 +48,10 @@ disable, or stage replacement removes them.
 
 The lifecycle actions have distinct effects:
 
-- **Start** activates ORMS for the current stage;
-- **Stop** removes the current visual result while retaining UI settings;
-- **Restart** removes and rebuilds ORMS state from the current settings;
+- **Start** activates ORMS or resumes its frozen camera updates;
+- **Stop** freezes the current visual result and retains UI settings;
+- **Restart** resumes a stopped result, or rebuilds a running result from the
+  current settings;
 - **Restore Original Asset** removes all ORMS-owned Session Layer opinions.
 
 x1 rooms are always available. Disabling x2, x3, or x4 reclassifies affected

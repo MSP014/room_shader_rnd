@@ -10,6 +10,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, TypedDict
 
+from msp.orms.scene.traversal import iter_composed_prims
 from pxr import Sdf, Usd, UsdShade
 
 _RUNTIME_MATERIAL_ROOT = Sdf.Path("/__ORMSRuntime/Looks")
@@ -93,9 +94,14 @@ def _surface_source(
 def _binding_records(
     stage: Usd.Stage,
     type_name: str,
+    *,
+    include_instance_proxies: bool = False,
 ) -> tuple[tuple[str, str], ...]:
     records = []
-    for prim in stage.Traverse():
+    for prim in iter_composed_prims(
+        stage,
+        include_instance_proxies=include_instance_proxies,
+    ):
         if prim.GetTypeName() != type_name:
             continue
         material, _relationship = UsdShade.MaterialBindingAPI(
@@ -113,9 +119,14 @@ def _binding_records(
 def _binding_opinion_records(
     stage: Usd.Stage,
     type_name: str,
+    *,
+    include_instance_proxies: bool = False,
 ) -> tuple[tuple[str, ...], ...]:
     records = []
-    for prim in stage.Traverse():
+    for prim in iter_composed_prims(
+        stage,
+        include_instance_proxies=include_instance_proxies,
+    ):
         if prim.GetTypeName() != type_name:
             continue
         for relationship in prim.GetRelationships():
@@ -209,12 +220,26 @@ def _material_records(
 def capture_material_state(
     stage: Usd.Stage,
     source_material_paths: tuple[str, ...] | None = None,
+    *,
+    include_instance_proxies: bool = False,
 ) -> MaterialStateSnapshot:
     """Return a stable snapshot of source materials and effective bindings."""
 
-    mesh_bindings = _binding_records(stage, "Mesh")
-    mesh_binding_opinions = _binding_opinion_records(stage, "Mesh")
-    subset_bindings = _binding_records(stage, "GeomSubset")
+    mesh_bindings = _binding_records(
+        stage,
+        "Mesh",
+        include_instance_proxies=include_instance_proxies,
+    )
+    mesh_binding_opinions = _binding_opinion_records(
+        stage,
+        "Mesh",
+        include_instance_proxies=include_instance_proxies,
+    )
+    subset_bindings = _binding_records(
+        stage,
+        "GeomSubset",
+        include_instance_proxies=include_instance_proxies,
+    )
     if source_material_paths is None:
         source_material_paths = tuple(
             sorted(

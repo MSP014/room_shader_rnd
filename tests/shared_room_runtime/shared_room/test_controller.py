@@ -283,18 +283,22 @@ def test_pause_preserves_runtime_layer_and_resume_reuses_it(monkeypatch):
     classification = classifier.start()
     runtime_layer_identifier = classifier._layer_owner.layer.identifier
 
+    assert classifier.owned_subscription_count == 2
+
     classifier.pause()
 
     assert classifier.last_classification is classification
     assert runtime_layer_identifier in stage.GetSessionLayer().subLayerPaths
     assert classifier._notice_key is None
     assert classifier._first_frame_subscription is None
+    assert classifier.owned_subscription_count == 0
     assert first_frame_subscription.reset_count == 1
 
     classifier.resume()
 
     assert classifier.last_classification is classification
     assert classifier._notice_key is not None
+    assert classifier.owned_subscription_count == 1
     assert runtime_layer_identifier in stage.GetSessionLayer().subLayerPaths
 
     classifier.stop()

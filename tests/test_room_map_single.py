@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Maksim Pospelkov
 # SPDX-License-Identifier: MIT
-"""Protect the single-window five-face analytic parallax baseline."""
+"""Protect native x1 parallax and its layered cross-atlas contract."""
 
 from pathlib import Path
 
@@ -99,7 +99,7 @@ def test_single_room_stage_binds_the_mdl_material_and_debug_atlas():
     assert shader.GetInput("room_depth").Get() == 1.0
 
 
-def test_single_room_module_uses_the_frame_camera_and_five_face_atlas_contract():
+def test_single_room_module_uses_frame_camera_and_layered_atlas_contract():
     source = MDL_PATH.read_text(encoding="utf-8")
 
     assert 'data_lookup_float3(\n        "roomP"' in source
@@ -127,8 +127,8 @@ def test_single_room_module_uses_the_frame_camera_and_five_face_atlas_contract()
     assert "float3(source_colour)" in source
     assert "math::smoothstep(" in source
     assert (
-        "tinted_room_colour * safe_glass_transmission * luminous_room_mask"
-        in source
+        "room_face_emission_colour * slice_composite.room_transmittance"
+        in (source)
     )
     assert "bsdf room_behind_glass = df::custom_curve_layer(" in source
     assert "normal_reflectivity: safe_glass_reflectivity" in source
@@ -156,6 +156,22 @@ def test_single_room_module_uses_the_frame_camera_and_five_face_atlas_contract()
     )
     assert "state::direction()" not in source
     assert "state::texture_coordinate(0)" in source
-    assert "tex::lookup_float4(" in source
+    assert source.count("tex::lookup_float4(") == 5
     assert "-room_depth" in source
-    assert "slice" not in source.lower()
+    assert "bool enable_slice_1 = true" in source
+    assert "bool enable_slice_4 = true" in source
+    assert "slice_1_depth_percent = 20.0" in source
+    assert "slice_4_depth_percent = 80.0" in source
+    assert "float2 slice_1_offset = float2(0.0)" in source
+    assert "float2 slice_4_scale = float2(1.0)" in source
+    assert "bool emission_slice_1 = true" in source
+    assert "bool emission_slice_4 = true" in source
+    assert "float2(0.0, 0.0)" in source
+    assert "float2(0.0, 2.0 / 3.0)" in source
+    assert "float2(2.0 / 3.0, 2.0 / 3.0)" in source
+    assert "float2(2.0 / 3.0, 0.0)" in source
+    assert "slice_1_distance <= hit_distance" in source
+    assert "slice_4_distance <= hit_distance" in source
+    assert "room_colour * slice_composite.room_transmittance" in source
+    assert "slice_composite.emission_colour" in source
+    assert '"ormsRoomParameters"' not in source

@@ -549,7 +549,11 @@ projection:
 6. Convert the hit point into the corresponding cross-atlas region.
 7. Sample that region with `tex::lookup_float4()`.
 
-This baseline uses one atlas lookup and has no depth-slice composition.
+The historical baseline used one atlas lookup and had no depth-slice
+composition. The current native `Preserve/x1` runtime keeps this same
+single-room grouping and analytic trace, then adds the four bounded S1-S4
+lookups described below. `x1` describes room grouping; it does not disable
+layered depth.
 
 ---
 
@@ -926,6 +930,10 @@ Your support funds:
   extension-owned Python and MDL source tree; followed through `1.0.1` with
   the bundled Building 150 demo, relative demo-profile resources, quiet
   production diagnostics, and an explicit mixed-licence distribution boundary.
+  Recovered the ordinary-USD and preserved-native x1 production paths through
+  `1.0.16`, including window-only class-local materials, resumable frozen
+  camera updates, source-integrity and resource auditing, and native S1-S4
+  depth slices without de-instancing, sidecars, or source-layer rewrites.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

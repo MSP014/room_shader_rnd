@@ -32,6 +32,7 @@ from .interior_sets.repository import InteriorSetSettingsRepository
 from .interior_sets.transaction import InteriorSetRollbackError
 from .lifecycle import RuntimeLifecycleController, RuntimeState
 from .materials.library import MaterialLibraryRegistration
+from .phase5_audit import Phase5RuntimeAudit
 from .resources import (
     DEBUG_ASSET_SETTING,
     MATERIAL_SOURCE_ASSET,
@@ -108,6 +109,7 @@ class OrmsRuntimeService:
         self._settings_window: Any | None = None
         self._interior_sets: InteriorSetController | None = None
         self._demo_open_task: asyncio.Task[None] | None = None
+        self._phase5_audit: Phase5RuntimeAudit | None = None
 
     @classmethod
     def discover(
@@ -328,6 +330,7 @@ class OrmsRuntimeService:
         self,
         *,
         preserve_assignment_overrides: bool = False,
+        audit_event: str = "STARTED",
     ) -> None:
         import carb
         import carb.settings
@@ -342,6 +345,7 @@ class OrmsRuntimeService:
             preserve_assignment_overrides,
         )
         settings = _kit_settings()
+        self._ensure_phase5_audit(stage, settings)
         if self._interior_sets is None:
             raise RuntimeError("Interior Set configuration is unavailable")
         collection = self._interior_sets.applied
@@ -394,6 +398,7 @@ class OrmsRuntimeService:
             stop_runtime()
             raise
         self._lifecycle.attach(classifier, camera_bridge, stop_runtime)
+        self._record_phase5_sample(audit_event)
         self._refresh_settings_window()
 
     def _prepare_assignment_session(
@@ -511,38 +516,56 @@ class OrmsRuntimeService:
         """Start an inactive stage or resume its frozen runtime session."""
 
         try:
-            if self._lifecycle.resume():
-                self._apply_classifier_settings()
-                self._apply_material_settings()
+            if self._resume_frozen_runtime("RESUMED"):
                 _log_verbose_info("[ORMS] Runtime resumed")
                 return
             if self._lifecycle.state is RuntimeState.RUNNING:
                 return
-            self._activate_current_stage(preserve_assignment_overrides=True)
+            self._activate_current_stage(
+                preserve_assignment_overrides=True,
+                audit_event="STARTED",
+            )
             if self._lifecycle.state is RuntimeState.RUNNING:
                 _log_verbose_info("[ORMS] Runtime started by user")
         except Exception as error:
             self._handle_lifecycle_failure("Start", error)
 
     def restart_runtime(self) -> None:
-        """Remove the current runtime result and rebuild it from settings."""
+        """Resume a stopped result, otherwise rebuild it from settings."""
 
         try:
-            self._activate_current_stage(preserve_assignment_overrides=True)
+            if self._resume_frozen_runtime("RESTARTED"):
+                _log_verbose_info("[ORMS] Frozen runtime resumed by Restart")
+                return
+            self._activate_current_stage(
+                preserve_assignment_overrides=True,
+                audit_event="RESTARTED",
+            )
             if self._lifecycle.state is RuntimeState.RUNNING:
                 _log_verbose_info("[ORMS] Runtime restarted by user")
         except Exception as error:
             self._handle_lifecycle_failure("Restart", error)
 
+    def _resume_frozen_runtime(self, audit_event: str) -> bool:
+        """Resume one stopped session without recycling its renderer prims."""
+
+        if not self._lifecycle.resume():
+            return False
+        self._apply_classifier_settings()
+        self._apply_material_settings()
+        self._record_phase5_sample(audit_event)
+        return True
+
     def stop_runtime(self) -> None:
-        """Remove the current ORMS result while retaining UI configuration."""
+        """Freeze the current ORMS result while retaining UI configuration."""
 
         try:
-            stopped = self._lifecycle.stop()
-            if self._assignment_session is not None:
-                self._assignment_session.stop_assignments()
-            if stopped:
-                _log_verbose_info("[ORMS] Runtime stopped and detached")
+            paused = self._lifecycle.stop()
+            if paused:
+                self._record_phase5_sample("STOPPED")
+                _log_verbose_info(
+                    "[ORMS] Runtime stopped with parallax frozen"
+                )
         except Exception as error:
             self._handle_lifecycle_failure("Stop", error)
 
@@ -550,7 +573,7 @@ class OrmsRuntimeService:
         """Remove every ORMS-owned layer and reveal source asset bindings."""
 
         try:
-            self._deactivate_stage()
+            self._deactivate_stage(audit_event="RESTORED")
         except Exception as error:
             self._handle_lifecycle_failure("Restore Original Asset", error)
             return
@@ -751,7 +774,56 @@ class OrmsRuntimeService:
             ),
         )
 
-    def _deactivate_stage(self) -> None:
+    def _phase5_ownership_details(self) -> dict[str, object]:
+        details: dict[str, object] = self._lifecycle.ownership_details()
+        classifier = self._lifecycle.classifier
+        details.update(
+            {
+                "assignment_session_count": int(
+                    self._assignment_session is not None
+                ),
+                "camera_target_count": len(
+                    tuple(getattr(classifier, "camera_input_paths", ()))
+                ),
+                "service_stage_subscription_count": len(
+                    getattr(self, "_stage_subscriptions", ())
+                ),
+            }
+        )
+        return details
+
+    def _ensure_phase5_audit(self, stage: Any, settings: Any) -> None:
+        if not _verbose_diagnostics_enabled(settings):
+            return
+        audit = getattr(self, "_phase5_audit", None)
+        if audit is not None and audit.owns_stage(stage):
+            return
+        try:
+            self._phase5_audit = Phase5RuntimeAudit(stage)
+        except Exception as error:
+            self._phase5_audit = None
+            log_room_map_warning(
+                owner="ORMS PHASE 5 AUDIT",
+                process="SOURCE AND RESOURCE BASELINE",
+                state="UNAVAILABLE",
+                details={"error": repr(error)},
+            )
+
+    def _record_phase5_sample(self, event: str) -> None:
+        audit = getattr(self, "_phase5_audit", None)
+        if audit is None:
+            return
+        try:
+            audit.sample(event, self._phase5_ownership_details())
+        except Exception as error:
+            log_room_map_warning(
+                owner="ORMS PHASE 5 AUDIT",
+                process="LIFECYCLE RESOURCE SAMPLE",
+                state="UNAVAILABLE",
+                details={"event": event, "error": repr(error)},
+            )
+
+    def _deactivate_stage(self, *, audit_event: str = "DEACTIVATED") -> None:
         cleanup_errors: list[Exception] = []
         try:
             self._lifecycle.teardown()
@@ -764,6 +836,12 @@ class OrmsRuntimeService:
         if assignment_session is not None:
             try:
                 assignment_session.stop()
+            except Exception as error:
+                cleanup_errors.append(error)
+        audit, self._phase5_audit = getattr(self, "_phase5_audit", None), None
+        if audit is not None:
+            try:
+                audit.finish(audit_event, self._phase5_ownership_details())
             except Exception as error:
                 cleanup_errors.append(error)
         if cleanup_errors:

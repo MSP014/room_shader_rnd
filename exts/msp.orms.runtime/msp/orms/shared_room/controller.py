@@ -670,6 +670,14 @@ class SharedRoomClassifier:
         self._first_frame_subscription: object | None = None
 
     @property
+    def owned_subscription_count(self) -> int:
+        """Return the number of live USD and first-frame subscriptions."""
+
+        return int(self._notice_key is not None) + int(
+            self._first_frame_subscription is not None
+        )
+
+    @property
     def last_classification(self) -> StageClassification | None:
         """Expose the last immutable inspection result, if classification ran."""
 

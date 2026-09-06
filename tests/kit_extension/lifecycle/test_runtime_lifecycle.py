@@ -28,6 +28,17 @@ class _RuntimePart:
     def set_runtime_layer(self, runtime_layer) -> None:
         self.runtime_layer = runtime_layer
 
+    @property
+    def owned_subscription_count(self) -> int:
+        return int(self.resume_count > self.pause_count)
+
+    @property
+    def registered_observer_count(self) -> int:
+        return 1
+
+    update_callback_count = 0
+    successful_update_count = 0
+
 
 def test_stop_and_start_freeze_and_resume_one_owned_session():
     states = []
@@ -43,7 +54,7 @@ def test_stop_and_start_freeze_and_resume_one_owned_session():
 
     assert lifecycle.state is RuntimeState.RUNNING
     assert lifecycle.classifier is classifier
-    assert lifecycle.pause() is True
+    assert lifecycle.stop() is True
     assert lifecycle.state is RuntimeState.STOPPED
     assert classifier.pause_count == 1
     assert camera_bridge.pause_count == 1
@@ -59,6 +70,54 @@ def test_stop_and_start_freeze_and_resume_one_owned_session():
         RuntimeState.STOPPED,
         RuntimeState.RUNNING,
     ]
+
+
+def test_ownership_counts_follow_pause_resume_and_restore():
+    lifecycle = RuntimeLifecycleController()
+    classifier = _RuntimePart()
+    camera_bridge = _RuntimePart()
+    classifier.resume()
+    camera_bridge.resume()
+    lifecycle.attach(classifier, camera_bridge, lambda: None)
+
+    assert lifecycle.ownership_details() == {
+        "runtime_session_count": 1,
+        "classifier_subscription_count": 1,
+        "camera_subscription_count": 1,
+        "camera_registered_observer_count": 1,
+        "camera_update_callback_count": 0,
+        "camera_successful_update_count": 0,
+    }
+
+    lifecycle.pause()
+    assert lifecycle.ownership_details() == {
+        "runtime_session_count": 1,
+        "classifier_subscription_count": 0,
+        "camera_subscription_count": 0,
+        "camera_registered_observer_count": 1,
+        "camera_update_callback_count": 0,
+        "camera_successful_update_count": 0,
+    }
+
+    lifecycle.resume()
+    assert lifecycle.ownership_details() == {
+        "runtime_session_count": 1,
+        "classifier_subscription_count": 1,
+        "camera_subscription_count": 1,
+        "camera_registered_observer_count": 1,
+        "camera_update_callback_count": 0,
+        "camera_successful_update_count": 0,
+    }
+
+    lifecycle.teardown()
+    assert lifecycle.ownership_details() == {
+        "runtime_session_count": 0,
+        "classifier_subscription_count": 0,
+        "camera_subscription_count": 0,
+        "camera_registered_observer_count": 0,
+        "camera_update_callback_count": 0,
+        "camera_successful_update_count": 0,
+    }
 
 
 def test_restore_tears_down_once_and_returns_to_inactive():

@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.0.16
+
+- Restore the four S1-S4 depth slices in the preserved-native x1 material.
+  Version 1.0.15 correctly saved and displayed those controls, but its
+  `room_map_single` shader never consumed them, so both Debug and Production
+  atlases rendered only the five room faces.
+- Keep native room grouping at x1 while giving that room the same bounded
+  four-slice composition and per-slice emission controls as the ordinary
+  material. The native material now performs four slice lookups plus one room
+  lookup; the accepted ordinary classifier, binding, shader, and camera paths
+  are unchanged.
+- Add a dedicated native-x1 MDL compile probe and focused material-assignment
+  coverage for slice enable, depth, offset, scale, and emission updates.
+
+## 1.0.15
+
+- Reject 1.0.14 after the installed lifecycle check showed that Stop froze the
+  correct image but Start did not restore live camera updates. Stop now retains
+  one disabled Kit update observer, Start re-enables that exact observer and
+  forces a current-camera write, while Restore alone permanently releases it.
+- When Restart is pressed from the stopped state, resume the retained runtime
+  instead of destroying and immediately recreating MDL prims at the same paths.
+  Restart from a running state keeps its existing rebuild behaviour.
+- Extend Phase-5 diagnostics with retained-observer, delivered-callback, and
+  successful-camera-write counts plus one explicit confirmation after resume.
+
+## 1.0.14
+
+- Supersede the unvalidated 1.0.13 Registry package after archive inspection
+  found that its bundled artist README still described the old destructive
+  Stop behaviour. The runtime implementation is unchanged from 1.0.13; the
+  packaged overview now states that Stop freezes ORMS and only Restore removes
+  its temporary layers.
+
+## 1.0.13
+
+- Correct Stop so it retains the current ORMS materials and last camera value
+  while releasing live classifier and camera subscriptions. Start resumes that
+  frozen session, Restart rebuilds it, and Restore remains the destructive
+  removal operation.
+- Add a Phase-5 source-integrity audit that hashes every loaded file-backed USD
+  layer before activation and compares source bytes, layer structure, material
+  networks and bindings, native-instance structure, point-instancer targets,
+  stage identity, and new sidecar entries after Restore.
+- Record bounded lifecycle resource samples for temporary layers, material
+  specs, owned callbacks, camera targets, USD prototypes, RAM, VRAM, and public
+  Hydra memory categories. Exact renderer-prototype counts remain a manual RTX
+  Statistics measurement because the installed public Python API does not
+  expose that counter.
+- Leave the accepted ordinary-USD classification, material, binding, and camera
+  paths unchanged while extending the production-city native recovery test
+  with the complete before-Start/after-Restore source comparison.
+
 ## 1.0.12
 
 - Reject 1.0.11 after the production-city RTX check: moving the camera could

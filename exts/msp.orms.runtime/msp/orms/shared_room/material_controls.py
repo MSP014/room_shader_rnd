@@ -185,18 +185,38 @@ MATERIAL_INPUT_TYPES = {
     for control in MATERIAL_CONTROLS
 }
 
-# Preserve-mode instance proxies use the intentionally lightweight x1 shader.
-# It keeps one atlas lookup and therefore has no depth-slice inputs.
+# Preserve-mode instance proxies keep x1 room grouping, but each x1 room still
+# consumes the four layered-depth regions of the shared cross atlas.
 SINGLE_MATERIAL_INPUT_NAMES = frozenset(
     {
         "variation_seed",
         "room_depth",
+        "enable_slice_1",
+        "enable_slice_2",
+        "enable_slice_3",
+        "enable_slice_4",
+        "slice_1_depth_percent",
+        "slice_2_depth_percent",
+        "slice_3_depth_percent",
+        "slice_4_depth_percent",
+        "slice_1_offset",
+        "slice_2_offset",
+        "slice_3_offset",
+        "slice_4_offset",
+        "slice_1_scale",
+        "slice_2_scale",
+        "slice_3_scale",
+        "slice_4_scale",
         "glass_roughness",
         "glass_reflectivity",
         "glass_tint",
         "glass_transmission",
         "fallback_colour",
         "enable_emission",
+        "emission_slice_1",
+        "emission_slice_2",
+        "emission_slice_3",
+        "emission_slice_4",
         "emission_strength",
         "emission_threshold",
         "emission_softness",

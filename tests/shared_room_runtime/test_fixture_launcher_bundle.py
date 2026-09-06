@@ -43,6 +43,7 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
         "one_slice_lookup",
         "five_lookups",
         "full_composition",
+        "native_x1_full",
     ):
         assert f'"{phase}"' in runner
     assert "SHADER_NODE_BEGIN" in observer
@@ -52,7 +53,10 @@ def test_mdl_compile_bisection_has_bounded_phase_markers():
     assert '"MDLC   comp error:"' in runner
     assert '"Unable to find SdrShaderNode"' in runner
     assert 'terminal = "COMPILE_ERROR"' in runner
-    assert 'sourceAsset:subIdentifier = "room_map"' in runner
+    assert (
+        'subidentifier = "room_map_single" if native_x1 else "room_map"'
+        in (runner)
+    )
     assert '_TINT_EXPRESSION = "tint: glass_base_colour"' in runner
     assert (
         '_EMISSION_EXPRESSION = "intensity: visible_room_emission '

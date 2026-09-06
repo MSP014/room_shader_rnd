@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Protect the world-space camera bridge and its MDL input contract."""
 
+import importlib.util
+import sys
 from pathlib import Path
+from types import ModuleType
 
 from pxr import Sdf, Usd, UsdShade
 
@@ -100,7 +103,209 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "omni.kit.app.GLOBAL_EVENT_UPDATE" in bridge_source
     assert "def pause(self) -> None:" in bridge_source
     assert "def resume(self) -> None:" in bridge_source
+    assert "def owned_subscription_count(self) -> int:" in bridge_source
+    assert "def registered_observer_count(self) -> int:" in bridge_source
+    assert "def update_callback_count(self) -> int:" in bridge_source
+    assert "def successful_update_count(self) -> int:" in bridge_source
+    assert "subscription.enabled = False" in bridge_source
+    assert "subscription.enabled = True" in bridge_source
+    assert 'process="CAMERA UPDATE RESUME"' in bridge_source
     assert "self.resume()" in bridge_source
-    assert "self.pause()" in bridge_source
+    assert "subscription, self._subscription" in bridge_source
     assert "get_update_event_stream" not in bridge_source
     assert "carb.log_warn(" not in bridge_source
+
+
+class _ObserverGuard:
+    def __init__(self) -> None:
+        self.enabled = True
+        self.reset_count = 0
+
+    def reset(self) -> None:
+        self.enabled = False
+        self.reset_count += 1
+
+
+class _ResetOnlyObserverGuard:
+    __slots__ = ("reset_count",)
+
+    def __init__(self) -> None:
+        self.reset_count = 0
+
+    def reset(self) -> None:
+        self.reset_count += 1
+
+
+class _EventDispatcher:
+    def __init__(self, guard_type=_ObserverGuard) -> None:
+        self.guard_type = guard_type
+        self.observe_calls = []
+
+    def observe_event(self, **kwargs):
+        guard = self.guard_type()
+        self.observe_calls.append((kwargs, guard))
+        return guard
+
+
+def _load_bridge_with_kit_stubs(monkeypatch, guard_type=_ObserverGuard):
+    dispatcher = _EventDispatcher(guard_type)
+    carb = ModuleType("carb")
+    carb.__path__ = []
+    eventdispatcher = ModuleType("carb.eventdispatcher")
+    eventdispatcher.get_eventdispatcher = lambda: dispatcher
+    carb.eventdispatcher = eventdispatcher
+
+    omni = ModuleType("omni")
+    omni.__path__ = []
+    kit = ModuleType("omni.kit")
+    kit.__path__ = []
+    app = ModuleType("omni.kit.app")
+    app.GLOBAL_EVENT_UPDATE = "kit_update"
+    viewport = ModuleType("omni.kit.viewport")
+    viewport.__path__ = []
+    viewport_utility = ModuleType("omni.kit.viewport.utility")
+    viewport_utility.get_active_viewport = lambda: None
+    usd = ModuleType("omni.usd")
+    usd.get_context = lambda: None
+    omni.kit = kit
+    omni.usd = usd
+    kit.app = app
+    kit.viewport = viewport
+    viewport.utility = viewport_utility
+
+    package_name = "_orms_camera_bridge_test"
+    package = ModuleType(package_name)
+    package.__path__ = []
+    status_log = ModuleType(f"{package_name}.status_log")
+    status_log.log_room_map_warning = lambda **_record: None
+    modules = {
+        "carb": carb,
+        "carb.eventdispatcher": eventdispatcher,
+        "omni": omni,
+        "omni.kit": kit,
+        "omni.kit.app": app,
+        "omni.kit.viewport": viewport,
+        "omni.kit.viewport.utility": viewport_utility,
+        "omni.usd": usd,
+        package_name: package,
+        f"{package_name}.status_log": status_log,
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+
+    module_name = f"{package_name}.camera_position_bridge"
+    spec = importlib.util.spec_from_file_location(module_name, BRIDGE_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, module)
+    spec.loader.exec_module(module)
+    return module, dispatcher
+
+
+def test_pause_disables_and_resume_reuses_the_same_observer(monkeypatch):
+    module, dispatcher = _load_bridge_with_kit_stubs(monkeypatch)
+    bridge = module.CameraPositionBridge(("/Looks/Shader.inputs:camera",))
+    guard = dispatcher.observe_calls[0][1]
+    bridge._last_position = (1.0, 2.0, 3.0)
+
+    bridge.pause()
+
+    assert not guard.enabled
+    assert guard.reset_count == 0
+    assert bridge.owned_subscription_count == 0
+    assert bridge.registered_observer_count == 1
+
+    bridge.resume()
+
+    assert guard.enabled
+    assert guard.reset_count == 0
+    assert len(dispatcher.observe_calls) == 1
+    assert bridge.owned_subscription_count == 1
+    assert bridge.registered_observer_count == 1
+    assert bridge._last_position is None
+
+
+def test_repeated_resume_does_not_duplicate_the_observer(monkeypatch):
+    module, dispatcher = _load_bridge_with_kit_stubs(monkeypatch)
+    bridge = module.CameraPositionBridge(("/Looks/Shader.inputs:camera",))
+
+    bridge.resume()
+    bridge.pause()
+    bridge.resume()
+    bridge.resume()
+
+    assert len(dispatcher.observe_calls) == 1
+    assert bridge.registered_observer_count == 1
+    assert bridge.owned_subscription_count == 1
+
+
+def test_stop_permanently_resets_the_retained_observer(monkeypatch):
+    module, dispatcher = _load_bridge_with_kit_stubs(monkeypatch)
+    bridge = module.CameraPositionBridge(("/Looks/Shader.inputs:camera",))
+    guard = dispatcher.observe_calls[0][1]
+    bridge.pause()
+
+    bridge.stop()
+
+    assert guard.reset_count == 1
+    assert bridge.registered_observer_count == 0
+    assert bridge.owned_subscription_count == 0
+
+
+def test_legacy_guard_falls_back_to_reset_and_fresh_registration(monkeypatch):
+    module, dispatcher = _load_bridge_with_kit_stubs(
+        monkeypatch,
+        _ResetOnlyObserverGuard,
+    )
+    bridge = module.CameraPositionBridge(("/Looks/Shader.inputs:camera",))
+    first_guard = dispatcher.observe_calls[0][1]
+
+    bridge.pause()
+    bridge.resume()
+
+    assert first_guard.reset_count == 1
+    assert len(dispatcher.observe_calls) == 2
+    assert bridge.registered_observer_count == 1
+
+
+def test_first_resumed_frame_forces_write_and_emits_confirmation(monkeypatch):
+    module, _dispatcher = _load_bridge_with_kit_stubs(monkeypatch)
+    stage = Usd.Stage.CreateInMemory()
+    stage.DefinePrim("/Looks/Shader").CreateAttribute(
+        "inputs:camera",
+        Sdf.ValueTypeNames.Float3,
+    )
+
+    class _Context:
+        @staticmethod
+        def get_stage():
+            return stage
+
+    positions = [(1.0, 2.0, 3.0), (8.0, 9.0, 10.0)]
+    trace_records = []
+    module.omni.usd.get_context = lambda: _Context()
+    module.active_camera_world_position = lambda _stage: positions[0]
+    bridge = module.CameraPositionBridge(
+        ("/Looks/Shader.inputs:camera",),
+        runtime_layer=stage.GetSessionLayer(),
+        trace_log_warning=lambda **record: trace_records.append(record),
+    )
+    bridge._on_update(None)
+    bridge.pause()
+    module.active_camera_world_position = lambda _stage: positions[1]
+
+    bridge.resume()
+    bridge._on_update(None)
+
+    value = stage.GetAttributeAtPath("/Looks/Shader.inputs:camera").Get()
+    assert tuple(value) == positions[1]
+    assert bridge.update_callback_count == 2
+    assert bridge.successful_update_count == 2
+    resume_records = [
+        record
+        for record in trace_records
+        if record["process"] == "CAMERA UPDATE RESUME"
+    ]
+    assert len(resume_records) == 1
+    assert resume_records[0]["state"] == "ACTIVE"
+    assert resume_records[0]["details"]["updated_input_count"] == 1

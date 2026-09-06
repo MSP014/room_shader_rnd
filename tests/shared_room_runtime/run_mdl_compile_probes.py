@@ -84,6 +84,7 @@ _PROBE_EXPRESSIONS = {
     "full_emission_only": "composited_room_colour",
     "full_diffuse_only": "composited_room_colour",
     "full_composition": "composited_room_colour",
+    "native_x1_full": "composited_room_colour",
 }
 
 
@@ -118,13 +119,15 @@ def _write_probe_assets(
     probe_name: str,
     repository_root: Path,
 ) -> tuple[Path, Path]:
+    native_x1 = probe_name == "native_x1_full"
+    source_filename = "room_map_single.mdl" if native_x1 else "room_map.mdl"
     mdl_source = (
         repository_root
         / "exts"
         / "msp.orms.runtime"
         / "data"
         / "mdl"
-        / "room_map.mdl"
+        / source_filename
     ).read_text(encoding="utf-8")
     expression = _PROBE_EXPRESSIONS[probe_name]
     if expression is None:
@@ -153,8 +156,11 @@ def _write_probe_assets(
     fixture_path = (
         repository_root
         / "tests"
-        / "shared_room_runtime"
-        / "test_room_map_shared_rooms_omniverse.usda"
+        / (
+            "test_room_map_single.usda"
+            if native_x1
+            else "shared_room_runtime/test_room_map_shared_rooms_omniverse.usda"
+        )
     )
     stage_source = fixture_path.read_text(encoding="utf-8")
     source_asset = mdl_path.resolve().as_posix()
@@ -167,8 +173,10 @@ def _write_probe_assets(
         raise RuntimeError(
             "Fixture MDL sourceAsset was not replaced exactly once"
         )
+    subidentifier = "room_map_single" if native_x1 else "room_map"
     stage_source, replacement_count = _SOURCE_SUB_IDENTIFIER_PATTERN.subn(
-        'uniform token info:mdl:sourceAsset:subIdentifier = "room_map"',
+        "uniform token info:mdl:sourceAsset:subIdentifier = "
+        f'"{subidentifier}"',
         stage_source,
         count=1,
     )

@@ -72,20 +72,96 @@ class CameraPositionBridge:
         self._last_position: tuple[float, float, float] | None = None
         self._trace_log_warning = trace_log_warning
         self._subscription = None
+        self._observer_generation = 0
+        self._update_callback_count = 0
+        self._successful_update_count = 0
+        self._resume_confirmation_pending = False
         self.resume()
 
-    def resume(self) -> None:
-        """Resume viewport-camera updates without changing the last value."""
+    @property
+    def owned_subscription_count(self) -> int:
+        """Return the number of enabled update callbacks owned by the bridge."""
 
-        if self._subscription is not None:
-            return
+        subscription = self._subscription
+        if subscription is None:
+            return 0
+        try:
+            return int(bool(subscription.enabled))
+        except (AttributeError, RuntimeError):
+            return 1
+
+    @property
+    def registered_observer_count(self) -> int:
+        """Return the retained observer guard count, enabled or paused."""
+
+        return int(self._subscription is not None)
+
+    @property
+    def update_callback_count(self) -> int:
+        """Return how many Kit update callbacks reached this bridge."""
+
+        return self._update_callback_count
+
+    @property
+    def successful_update_count(self) -> int:
+        """Return how many callbacks authored at least one camera input."""
+
+        return self._successful_update_count
+
+    def resume(self) -> None:
+        """Enable the retained observer and force one current-camera write."""
+
+        subscription = self._subscription
+        if subscription is not None:
+            try:
+                subscription.enabled = True
+            except (AttributeError, RuntimeError):
+                reset = getattr(subscription, "reset", None)
+                if callable(reset):
+                    reset()
+                self._subscription = None
+            else:
+                self._last_position = None
+                self._resume_confirmation_pending = True
+                return
+
+        resuming = self._observer_generation > 0
         self._subscription = (
             carb.eventdispatcher.get_eventdispatcher().observe_event(
                 event_name=omni.kit.app.GLOBAL_EVENT_UPDATE,
                 on_event=self._on_update,
-                observer_name="orms.camera_position_bridge.update",
+                observer_name=(
+                    "orms.camera_position_bridge.update."
+                    f"{self._observer_generation + 1}"
+                ),
             )
         )
+        self._observer_generation += 1
+        if resuming:
+            self._last_position = None
+            self._resume_confirmation_pending = True
+
+    def _confirm_resumed_update(
+        self,
+        position: tuple[float, float, float],
+        updated_input_count: int,
+    ) -> None:
+        """Emit one proof that a resumed observer delivered a writable frame."""
+
+        if not self._resume_confirmation_pending:
+            return
+        self._resume_confirmation_pending = False
+        if self._trace_log_warning is not None:
+            self._trace_log_warning(
+                owner="CAMERA POSITION BRIDGE",
+                process="CAMERA UPDATE RESUME",
+                state="ACTIVE",
+                details={
+                    "observer_generation": self._observer_generation,
+                    "updated_input_count": updated_input_count,
+                    "world_position": position,
+                },
+            )
 
     def set_material_input_paths(
         self,
@@ -157,6 +233,7 @@ class CameraPositionBridge:
         self._last_position = None
 
     def _on_update(self, _event) -> None:
+        self._update_callback_count += 1
         stage = omni.usd.get_context().get_stage()
         if not stage:
             return
@@ -196,6 +273,7 @@ class CameraPositionBridge:
                 self._warned_detached_layer = True
             return
 
+        updated_input_count = 0
         with Usd.EditContext(
             stage,
             self._runtime_layer or stage.GetSessionLayer(),
@@ -225,6 +303,7 @@ class CameraPositionBridge:
                     continue
 
                 material_input.Set(Gf.Vec3f(*position))
+                updated_input_count += 1
                 self._missing_input_paths.discard(material_input_path)
                 if material_input_path not in self._reported_active_paths:
                     if self._trace_log_warning is not None:
@@ -238,20 +317,34 @@ class CameraPositionBridge:
                             },
                         )
                     self._reported_active_paths.add(material_input_path)
+        if updated_input_count:
+            self._successful_update_count += 1
+            self._confirm_resumed_update(position, updated_input_count)
         self._last_position = position
 
     def pause(self) -> None:
-        """Freeze the last authored camera value and release live updates."""
+        """Freeze the last value by disabling, but retaining, the observer."""
 
-        reset = getattr(self._subscription, "reset", None)
-        if callable(reset):
-            reset()
-        self._subscription = None
+        subscription = self._subscription
+        if subscription is None:
+            return
+        try:
+            subscription.enabled = False
+        except (AttributeError, RuntimeError):
+            reset = getattr(subscription, "reset", None)
+            if callable(reset):
+                reset()
+            self._subscription = None
+        self._resume_confirmation_pending = False
 
     def stop(self) -> None:
-        """Release the per-frame update subscription owned by this bridge."""
+        """Release the observer permanently during Restore or shutdown."""
 
-        self.pause()
+        subscription, self._subscription = self._subscription, None
+        reset = getattr(subscription, "reset", None)
+        if callable(reset):
+            reset()
+        self._resume_confirmation_pending = False
 
 
 _bridge: CameraPositionBridge | None = None

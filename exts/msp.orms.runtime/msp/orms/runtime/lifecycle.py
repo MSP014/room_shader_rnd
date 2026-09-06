@@ -49,6 +49,53 @@ class RuntimeLifecycleController:
 
         return self._session.classifier if self._session is not None else None
 
+    def ownership_details(self) -> dict[str, int]:
+        """Expose bounded owner counts for lifecycle leak diagnostics."""
+
+        if self._session is None:
+            return {
+                "runtime_session_count": 0,
+                "classifier_subscription_count": 0,
+                "camera_subscription_count": 0,
+                "camera_registered_observer_count": 0,
+                "camera_update_callback_count": 0,
+                "camera_successful_update_count": 0,
+            }
+        return {
+            "runtime_session_count": 1,
+            "classifier_subscription_count": int(
+                getattr(
+                    self._session.classifier, "owned_subscription_count", 0
+                )
+            ),
+            "camera_subscription_count": int(
+                getattr(
+                    self._session.camera_bridge, "owned_subscription_count", 0
+                )
+            ),
+            "camera_registered_observer_count": int(
+                getattr(
+                    self._session.camera_bridge,
+                    "registered_observer_count",
+                    0,
+                )
+            ),
+            "camera_update_callback_count": int(
+                getattr(
+                    self._session.camera_bridge,
+                    "update_callback_count",
+                    0,
+                )
+            ),
+            "camera_successful_update_count": int(
+                getattr(
+                    self._session.camera_bridge,
+                    "successful_update_count",
+                    0,
+                )
+            ),
+        }
+
     def attach(
         self,
         classifier: Any,
@@ -75,6 +122,11 @@ class RuntimeLifecycleController:
         self._set_state(RuntimeState.STOPPED)
         return True
 
+    def stop(self) -> bool:
+        """Freeze the active result using the artist-facing Stop semantics."""
+
+        return self.pause()
+
     def resume(self) -> bool:
         """Resume a frozen session without reclassifying its current result."""
 
@@ -84,17 +136,6 @@ class RuntimeLifecycleController:
         self._session.camera_bridge.resume()
         self._set_state(RuntimeState.RUNNING)
         return True
-
-    def stop(self) -> bool:
-        """Remove the active runtime session and expose a restartable state."""
-
-        session, self._session = self._session, None
-        try:
-            if session is not None:
-                session.teardown()
-        finally:
-            self._set_state(RuntimeState.STOPPED)
-        return session is not None
 
     def set_camera_input_paths(
         self,

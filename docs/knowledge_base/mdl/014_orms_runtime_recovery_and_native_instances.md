@@ -9,7 +9,7 @@
 | Accepted native-instance evidence | `009_shared_multi_window_rooms.md` |
 | Implementation target | `exts/msp.orms.runtime/` |
 | Validation assets | `assets/_demo/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd`; `assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd`; `assets/_external/usd/room_map_city.usd` |
-| State | In progress — 1.0.12 passed native camera and material-preservation checks in both RTX modes; Stop semantics remain to be corrected |
+| State | In progress — installed 1.0.16 has initial native S1-S4 visual acceptance and clean runtime evidence; the remaining Phase-5 matrix is still open |
 | Last reviewed | 6 September 2026 |
 
 ## Purpose
@@ -117,8 +117,8 @@ The accepted ordinary-Mesh path provides:
 Record 009 already accepted the following `Preserve` path:
 
 - native instances remain instanceable;
-- eligible instance-proxy windows receive the lightweight
-  `room_map_single` x1 material;
+- eligible instance-proxy windows receive the native
+  `room_map_single` x1 material, including four layered-depth slices;
 - the accepted fixture supplies a direct material binding on the window inside
   the composed prototype;
 - non-window descendants retain their Houdini-exported material bindings;
@@ -173,7 +173,7 @@ Record 009 retains:
 - two referenced instanceable buildings;
 - exact `Preserve` and `Session de-instance` reproduction steps;
 - source-layer immutability checks;
-- a lightweight x1 material contract;
+- an x1 room-grouping material contract with four layered-depth slices;
 - stable per-room x1 variation;
 - camera-bridge behaviour; and
 - renderer acceptance in RTX Real-Time and RTX Interactive Path Tracing.
@@ -342,9 +342,10 @@ Controls that only select or scale x2–x4 families are not silently applied to
 the native x1 route. The UI and diagnostics explicitly report that native
 `Preserve` is x1-only in the recovery build.
 
-The five-atlas-lookup budget of the classified shader and the lightweight x1
-contract remain unchanged unless a later MDL record supplies new renderer
-evidence.
+Both the classified shader and the native x1 shader use a bounded five-lookup
+budget: four S1-S4 depth slices plus the visible room face. The native route
+remains x1-only because room grouping and depth layering are independent
+contracts. Full native x2-x4 grouping remains Phase 6 work.
 
 ### Camera bridge contract
 
@@ -485,6 +486,13 @@ gate remains reserved for an explicitly requested commit.
 
 ### Delivery sequence
 
+#### Phase transition record
+
+After every phase is completed, rejected, or blocked, update this record's
+iteration ledger and current-status table before starting the next phase.
+State what was completed or rejected, the latest confirmed finding, the next
+unfinished action, and any experiments that must not be repeated.
+
 #### Phase 0 — recover the implementation baseline
 
 - Keep records 009, 011, and 012 at their accepted committed content.
@@ -558,6 +566,28 @@ Max validates the installed Registry package on:
 4. day and night lighting sufficient to inspect glass and emission;
 5. camera movement after Start and Restart; and
 6. Stop and Restore without reopening the stage.
+
+The final recovery-candidate acceptance run must additionally record:
+
+- direct demo Building 150 in RTX Real-Time and RTX Interactive;
+- direct external Building 150 in RTX Real-Time and RTX Interactive;
+- glass, emission, and moving-camera parallax in both day and night lighting;
+- the sequence `Start -> Stop -> move camera -> Start -> move camera ->
+  Restart -> Stop -> Restore`, proving that Stop retains the ORMS image and
+  freezes it while only Restore reveals the source material;
+- at least three repeated lifecycle cycles, followed by Restore, with no
+  accumulated ORMS layers, materials, camera targets, or callbacks;
+- process RAM and GPU/VRAM values from the `ORMS PHASE 5 AUDIT` baseline,
+  lifecycle samples, and restored comparison; and
+- renderer prototype, unique-mesh, and instance counts from the RTX Statistics
+  panel before Start, after repeated lifecycle cycles, and after Restore.
+
+The installed `omni.hydra.engine.stats` Python surface provides device and
+memory statistics but no exact renderer-prototype counter. ORMS therefore logs
+the exact composed USD prototype count and any public renderer structure-memory
+categories it receives, while the exact RTX renderer count remains an explicit
+manual Statistics-panel observation. A USD prototype count must not be reported
+as though it were the renderer count.
 
 After manual acceptance:
 
@@ -736,17 +766,26 @@ regressions remain mandatory before publishing any native candidate.
 | 1.0.12 native camera isolation | Preserve the window-only class overlay while removing camera motion from the complete `/World` hierarchy | The global inherited camera channel was shared by every native building and was rewritten every camera update | A production-city integration regression requires exactly nine class-local ORMS shader targets and zero `/World.*` camera targets, changes every target, and verifies that no Mesh binding changes. The installed Registry build was then checked in RTX Real-Time while the camera moved | Each native `room_map_single` material owns `Shader.inputs:camera_position_world`; the bridge updates only those source-class attributes. Ordinary `room_map`, ordinary assignment, and the ordinary camera route remain frozen. Automated evidence passed, and the manual viewport check confirmed moving-camera parallax with unchanged non-window appearance |
 | 1.0.12 lifecycle validation | Validate Restart, Stop, and Restore on the installed native city rather than accepting unit coverage alone | Restart preserves the recovered result and Restore returns the source appearance, but Stop currently detaches the native ORMS assignment instead of freezing the current parallax state | Manual checks in both RTX renderer modes plus the complete-diagnostics lifecycle log | Restart and Restore are accepted for this candidate. Stop is safe and reversible but does not meet the intended frozen-result contract; record it as follow-up work and do not silently redefine Stop as Restore |
 | Final fixture alignment | Keep the ordinary x1–x4 regression independent from mutable production exports | The retained Building 150 wrapper referenced `_external`, whose current consolidated `Windows_Glass` layout no longer matched the five-mesh fixture contract and made the complete suite fail despite the runtime recovery passing | The complete pre-commit suite failed six Building 150 expectations; a direct composed-stage check confirmed the versioned `_demo` component still contains the original five window meshes and 232-aperture x1–x4 contract | Point the retained wrapper at the versioned demo component and preserve every original count and grouping assertion. Do not weaken the test to accept 232 independent x1 rooms; production-city native validation remains a separate manual and integration path |
+| 1.0.13 Phase-5 implementation | Correct Stop and add formal source/runtime evidence without changing the accepted ordinary route | The previous Stop called destructive runtime and assignment teardown, so it behaved like a partial Restore. The existing diagnostics proved in-memory source state during publication but did not compare exact source files, stage identity, instance structure, or resource ownership after Restore | Focused lifecycle tests exercise Stop, repeated Stop, Start-after-Stop, Restore-after-Stop, and inactive Stop. Source-integrity tests deliberately mutate source bytes, reopen the stage, de-instance an asset, and create a sidecar. The production-city test compares the complete baseline after teardown | Stop now pauses classifier and camera subscriptions while retaining the ORMS runtime and assignment layers. Restore alone performs teardown. The Phase-5 audit hashes all loaded file-backed USD layers and compares layers, bindings, materials, instances, prototypes, sidecars, callbacks, RAM, VRAM, and runtime structure. The ordinary classifier, material, binding, and camera paths were not changed |
+| 1.0.13 package inspection | Inspect the actual Registry archive before asking for manual validation | The functional code was correct, but the bundled artist README still claimed that Stop removed the visual result | Archive content inspection after publication | Do not manually validate 1.0.13. It is superseded by 1.0.14, which changes only the packaged Stop description |
+| 1.0.14 installed Stop/resume check | Verify the complete frozen-session transition rather than accepting owner counts from the unit model | Stop retained the correct ORMS image and froze parallax, but Start created a nominal camera subscription without restoring live parallax. Restart from the stopped state destroyed and recreated the same runtime material paths; RTX then reported destruction of the old MDL nodes after the replacement had already been published. Restore followed by a fresh Start worked | Manual direct-external Building 150 viewport sequence and the complete 6 September 2026 17:12–17:19 log | Reject 1.0.14. A non-null observer guard is not evidence that update callbacks are being delivered, and a stopped-session Restart must not recycle renderer prim paths merely to resume camera motion |
+| 1.0.15 stopped-session correction | Resume the exact frozen runtime without touching the accepted ordinary classifier, bindings, material graph, or camera-coordinate algorithm | `CameraPositionBridge.pause()` used `ObserverGuard.reset()` and `resume()` registered a replacement observer from the UI lifecycle transition. The audit counted the returned guard but did not count delivered callbacks or successful writes | The installed SDK documents `ObserverGuard.enabled` as the supported pause control. Five focused bridge cases cover disable/enable reuse, repeated resume, permanent Restore reset, legacy reset fallback, and a forced first resumed write. Service coverage proves Restart from Stopped does not invoke the destructive rebuild path. The complete changed contour passes 51 tests | Stop now disables and retains one observer; Start re-enables it and clears the cached camera position so the next frame must write. Restart from Stopped uses the same resume path and therefore avoids same-path MDL destruction. Restore/shutdown alone call `reset()`. The audit now reports retained observers, delivered update callbacks, successful camera writes, and a one-shot `CAMERA UPDATE RESUME / ACTIVE` confirmation |
+| 1.0.15 Registry publication | Package the stopped-session correction as a new immutable candidate | A published version must not be overwritten, and source tests do not prove archive content | Kit publisher verification passed. The 195-entry archive reports version 1.0.15, contains the corrected bridge, lifecycle audit, service resume branch, and current artist README, and contains no city sidecar, adapter, or native-preparation artefact | Published to the local Kit Registry for the narrow Stop -> Start and Stop -> Restart viewport retest before the remaining Phase-5 matrix continues |
+| 1.0.15 installed lifecycle acceptance | Retest the previously failing stopped-session transitions in both supported renderers | The 1.0.14 observer replacement did not deliver updates after Stop, while Restore followed by Start did | Manual `Stop -> Start` and `Stop -> Restart` camera-movement checks in RTX Real-Time and RTX Interactive | Both transitions resume live parallax in both renderer modes. The lifecycle correction is accepted and must not be reopened while repairing the separate slice regression |
+| 1.0.15 native depth-slice rejection | Verify that saved material controls affect the native x1 material in Debug and Production atlas modes | Slice toggles, depth, offset, scale, and per-slice emission were present in MaterialState and the UI, but `SINGLE_MATERIAL_INPUT_NAMES` filtered them out and `room_map_single.mdl` performed only the final room-face lookup | Manual Debug and Production checks failed in RTX Real-Time and RTX Interactive. The log confirms native assignments use `room_map_single.mdl`; source inspection confirms one lookup and no slice inputs. A 34-test focused contour covers the restored controls and five-lookup contract, and the dedicated `native_x1_full` Kit probe completed MDL compilation | Reject 1.0.15 as the final recovery baseline. In 1.0.16 the native x1 shader receives S1-S4 enable, depth, offset, scale, and emission inputs and composites four bounded slice samples over the room face. Ordinary `room_map`, ordinary classification/binding, and both camera routes remain unchanged |
+| 1.0.16 Registry publication | Deliver the native depth-slice correction without reopening accepted ordinary or lifecycle code | The defect is renderer-visible and cannot be accepted from source assertions alone | The 34-test native contour and six package/Registry tests pass. Kit publisher verification reports `OK`. Archive inspection confirms version 1.0.16, 195 entries, five texture lookups and the new slice inputs in `room_map_single.mdl`, the corresponding material allow-list entries, and no city, sidecar, adapter, or preparation artefact | Published to the local Kit Registry for the narrow native Debug/Production slice retest in both RTX modes |
+| 1.0.16 installed initial slice check | Verify that the published package, rather than source checkout or 1.0.15, is rendering the recovered native city | Kit initially autoloaded 1.0.15, then Extension Manager downloaded, installed, and started 1.0.16 from the local Registry before the city run | Max reports that the slices now appear. The 21:00-21:08 local log identifies the active package and Python modules as 1.0.16, opens its packaged `room_map_single.mdl`, assigns all nine eligible `Windows_Glass` meshes, authors nine native material specs, retains nine native instances and nine USD prototypes, and updates nine class-local camera inputs through one observer. No ORMS/MDLC compile error occurs. The only MDLC warnings are unrelated unused MaterialX transmission parameters | Initial native S1-S4 result accepted. The city Start record also reports an unchanged source USD digest, no changed Mesh bindings, and valid runtime binding scope. The log does not encode rendered S1-S4 pixels or include a post-Restore city comparison, so Debug/Production, both-renderer, control-by-control, and Restore claims remain limited to explicit manual observations |
 
 ### Current status against the delivery sequence
 
-| Phase | Recorded status after 1.0.12 publication |
+| Phase | Recorded status for the 1.0.16 candidate |
 | --- | --- |
 | Phase 0 — recover the implementation baseline | Implemented for the recovery candidate: sidecar generation, preparation UI, stage reopen, reference substitution, automatic de-instancing, and ancestor-wide fallback bindings are absent |
 | Phase 1 — restore ordinary USD | Runtime route restored and reported working in the ordinary manual check. The accidental mandatory native argument was corrected. Complete direct-demo/direct-external validation in both required RTX modes remains part of final acceptance |
 | Phase 2 — restore native Preserve/x1 | 1.0.11 was rejected because its global camera channel invalidated the city on camera movement. 1.0.12 retains the exact window overlay but isolates live camera writes to nine class-local ORMS shader inputs. OpenUSD production-city regression coverage passes; camera movement now preserves parallax and the original non-window appearance in both installed RTX modes |
-| Phase 3 — prove material and lifecycle parity | The focused assignment, material, camera, classifier, and lifecycle contour passes. Manual Start, camera movement, Restart, and Restore pass in the production city. Stop safely restores the native source appearance but fails the intended frozen-result semantics and remains follow-up work; explicit source-layer/prototype measurements also remain pending |
-| Phase 4 — build the recovery candidate | Completed for `msp.orms.runtime-1.0.12`: 60 focused functional tests and 10 package/Registry tests passed. The 193-file archive was published and inspected for diagnostic capture, class-local camera targets, and absence of the rejected assignment-side global camera channel |
-| Phase 5 — manual Registry acceptance and baseline freeze | The installed 1.0.12 Registry build passed the production-city visual recovery checks in RTX Real-Time and RTX Interactive: moving-camera parallax, non-window material preservation, Restart, and Restore. Stop is reversible but restores the native source appearance instead of freezing ORMS, so the complete lifecycle gate remains open together with explicit source-integrity and resource-count checks |
+| Phase 3 — prove material and lifecycle parity | Lifecycle parity is accepted: installed 1.0.15 passes Stop freeze plus Start/Restart resume in RTX Real-Time and RTX Interactive. Material parity remains open because that build exposed but did not consume S1-S4 controls in the native x1 material. Version 1.0.16 restores only that native slice boundary; the accepted lifecycle and ordinary paths remain frozen |
+| Phase 4 — build the recovery candidate | Completed for `msp.orms.runtime-1.0.16`: 34 focused native tests and six package/Registry tests pass, the dedicated Kit `native_x1_full` probe compiles, Kit verification reports `OK`, and the inspected 195-entry archive contains the restored slice graph and no forbidden scene artefacts |
+| Phase 5 — manual Registry acceptance and baseline freeze | Installed 1.0.15 accepts the complete stopped-session lifecycle transition in both renderer modes but is rejected as the final baseline because native depth slices are absent. Installed 1.0.16 has initial visual confirmation that S1-S4 returned, and its log confirms the correct package, nine window-only native materials, preserved instance/prototype counts, active class-local camera delivery, and unchanged source USD state at Start. The exact Debug/Production, both-renderer, per-control and post-Restore scope still depends on explicit manual observations; the remaining direct-asset, lighting, source-integrity, repeated-cycle, and renderer-resource matrix also remains open |
 | Phase 6 — investigate preserved native x2–x4 | Not started and remains prohibited until Phase 5 is accepted |
 
 ## Validation record
@@ -839,9 +878,150 @@ does not reproduce material corruption, damage the source stage, or invalidate
 the accepted Start/Restart/Restore result, but it remains explicit follow-up
 work. No Stop implementation change is part of 1.0.12.
 
-The complete Phase-5 gate therefore remains open for the Stop semantic
-correction, explicit source-file/layer comparison, and renderer-prototype and
-RAM/VRAM measurements. Native x2–x4 research remains gated behind that work.
+The 1.0.13/1.0.14 implementation attempted to correct that defect without
+changing the accepted ordinary-USD route. Stop kept both temporary ORMS layers
+attached, retained the last material state and camera value, and removed the
+classifier and camera subscriptions. The unit model reported that Start could
+register replacement owners, while Restart rebuilt the runtime and Restore
+remained the only artist action that removed ORMS materials and assignments.
+Coverage included Stop from Running, repeated Stop, Start after Stop, Restore
+after Stop, and Stop without an active runtime. The installed 1.0.14 check later
+proved that this ownership model was insufficient.
+
+The same change adds a formal Phase-5 audit. Before assignment it records the
+exact stage object and root-layer identity, SHA-256 digest, byte size, and
+modification time of every file-backed layer returned by `GetUsedLayers()`,
+the source-layer structure and dirty state, source material networks and
+effective Mesh/GeomSubset bindings including instance proxies, native-instance
+paths, stable USD prototype structure, PointInstancer prototype targets, and a
+sidecar/adapter directory inventory. After Restore it repeats that capture and
+emits one explicit pass/fail comparison. The production-city integration test
+covers all 37 loaded file-backed USD layers and proves exact source restoration
+after the native assignment, classifier, and camera bridge are removed.
+
+Each verbose Phase-5 run also records a resource baseline and lifecycle samples
+for Start, Restart, resumed Start, Stop, and Restore. The record includes ORMS
+runtime layer/spec/material counts, assignment and runtime owners, enabled
+camera callbacks, retained observer guards, delivered update callbacks,
+successful camera writes, camera targets, native instances, composed USD
+prototype count, process working set and private commit, GPU device/VRAM
+fields, public Hydra memory categories, and renderer/material settings. This
+data is diagnostic evidence rather than a synthetic pass based on an arbitrary
+memory threshold. Exact renderer-prototype count is not exposed by the
+installed public Python API and must be copied from the RTX Statistics panel;
+the automatically reported USD prototype count is a separate composition
+metric.
+
+The 1.0.13/1.0.14 functional plus package contour passed 93 tests. The initial
+1.0.13 archive passed Kit verification but was superseded before manual testing
+because archive inspection found the obsolete Stop description in its bundled
+README. Version 1.0.14 contained the same runtime plus corrected artist
+documentation. Its 195-entry archive passed Kit verification and contained no
+city sidecar, adapter, or native-instance preparation artefact.
+
+The installed 1.0.14 run accepted only the first half of the new Stop contract:
+the current ORMS image stayed visible and stopped following camera movement.
+After Start, the audit reported one camera subscription, but moving the camera
+did not resume parallax. Restart from the stopped state also failed to restore
+continuous motion. The log recorded asynchronous RTX destruction of the old
+`MdlShadeNode` objects at the same material paths immediately after the
+replacement runtime had been published. By contrast, Restore Original Asset
+followed by a fresh Start worked. Version 1.0.14 is therefore rejected; guard
+existence is not callback-delivery evidence.
+
+The same log contains both passing and failing source comparisons. In the
+failing records, source file inventory, bytes and timestamps, stage/root
+identity, material bindings, material networks, instance signatures,
+prototypes, PointInstancer targets, sidecar inventory, and runtime cleanup all
+pass; only the combined source-layer structure/dirty-state comparison fails.
+That record does not identify which of identifier, sublayers, ORMS-named specs,
+or the ordinary USD dirty flag changed, so it is diagnostic evidence requiring
+a clean no-user-edit repeat, not evidence that ORMS rewrote a source file.
+
+Version 1.0.15 changes only the lifecycle subscription boundary and its
+diagnostics. `ObserverGuard.enabled` from the installed Kit API now suspends and
+resumes the same registered camera observer. The first resumed frame clears the
+cached camera position, authors the current value, and emits
+`CAMERA UPDATE RESUME / ACTIVE`. Restore and shutdown still permanently reset
+the guard. Restart from Stopped uses that same non-destructive resume path,
+avoiding immediate reuse of removed material paths; Restart from Running keeps
+the existing rebuild path. Five camera-observer edge cases and the stopped
+Restart service branch are covered in a 51-test focused lifecycle/package run.
+Kit verification passed, and the resulting 195-entry 1.0.15 archive was
+published to the local Registry.
+
+The installed 1.0.15 check subsequently confirmed both
+`Stop -> Start -> move camera` and `Stop -> Restart -> move camera` in RTX
+Real-Time and RTX Interactive. Stop retains the ORMS image and freezes camera
+updates; either resume action restores continuous parallax. The lifecycle
+correction is therefore accepted in both renderer modes.
+
+That same candidate exposed a separate material-parity regression. All four
+depth slices were enabled in the Material Parameters UI and stored in the
+Interior Set, yet neither Debug nor Production atlases displayed S1-S4 in
+either renderer. The runtime log showed that native city windows were assigned
+`room_map_single.mdl`; source inspection then proved that this native shader
+had only the final room-face texture lookup and no slice parameters. The public
+MaterialState still contained every slice control, but
+`SINGLE_MATERIAL_INPUT_NAMES` deliberately filtered them from native
+materials. The failure was therefore neither an atlas-loading defect nor a
+profile-persistence defect: the selected native shader never consumed the
+saved controls.
+
+This was an incorrect interpretation of the record-009 x1 contract. `x1`
+means one independently varied room per eligible window; it does not mean that
+the room loses its layered S1-S4 depth planes. Version 1.0.16 corrects only
+this native material boundary. `room_map_single.mdl` now intersects the same
+x1 view ray with four configurable depth planes, clips them to the analytic
+room and visible room-face distance, samples the four documented atlas corner
+tiles, alpha-composites them over the five-face result, and applies per-slice
+emission. Its bounded cost is five atlas lookups. Native material assignment
+now forwards slice enable, depth, offset, scale, and emission values. No change
+was made to ordinary `room_map`, ordinary classification or binding, the
+accepted camera bridges, or lifecycle ownership.
+
+The focused native contour passes 34 tests. It includes static S1-S4 shader
+contract assertions, initial and live native material-input authoring, source
+integrity and preserved-instance checks, and compile-probe launcher coverage.
+The dedicated `native_x1_full` Kit probe completed shader-node construction in
+17.219 seconds and the fixture completed in 20.609 seconds. This proves that
+the restored MDL graph compiles; visible Debug/Production slice behaviour still
+requires the installed 1.0.16 Registry check.
+
+Version 1.0.16 passed six focused package/Registry tests and Kit publisher
+verification, then was published to the local Registry. The inspected archive
+contains 195 entries and reports version 1.0.16. Its packaged native shader has
+four slice lookups plus the room-face lookup and exposes the restored slice
+inputs; its packaged native material allow-list includes those inputs. No city
+asset, sidecar, adapter, or native-preparation artefact is present.
+
+The first installed 1.0.16 run provides matching runtime evidence. The app
+initially autoloaded 1.0.15, then Extension Manager downloaded, installed, and
+started 1.0.16 from the local Registry before the city was activated. All
+reported ORMS module paths and the loaded native MDL resolve below the installed
+1.0.16 directory. Automatic assignment selected exactly nine of nine eligible
+`Windows_Glass` meshes. The Phase-5 sample records 443 runtime specs, nine
+native material specs, nine native instances, nine composed USD prototypes,
+nine class-local camera targets, and one camera observer. The next update
+delivered the camera value to all nine class-local shader inputs. There is no
+ORMs or MDLC compile error; the only MDLC warnings concern unused parameters in
+Kit's generated MaterialX module.
+
+Max's viewport observation reports that the missing native slices are now
+visible. The city Start diagnostic also reports an unchanged source USD state
+digest, no changed Mesh bindings, no unexpected authored path, and a valid
+runtime binding scope. The generic classifier's `material_count=0` and resource
+diagnostic's `runtime_material_count=0` refer to the ordinary classified
+material collection; native class-local ownership is recorded separately by
+`runtime_material_spec_count=9` and is not absent. This log contains no
+post-Restore comparison for the city and cannot encode rendered slice pixels,
+so it does not by itself close the full Debug/Production, renderer, individual
+control, Restore, or resource matrix.
+
+The remaining Phase-5 gate is therefore the narrow native slice retest plus
+the already documented direct-asset, lighting, repeated-cycle,
+source-integrity, and resource observations. Native x2–x4 research remains
+gated behind that acceptance.
 
 Accepted historical evidence:
 
