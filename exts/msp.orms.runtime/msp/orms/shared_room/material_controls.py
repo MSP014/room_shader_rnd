@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from pxr import Gf
+from pxr import Gf, Sdf
 
 MATERIAL_SETTINGS_ROOT = "/persistent/exts/orms/material"
 
@@ -171,6 +171,36 @@ MATERIAL_CONTROLS = (
         0.0,
         1.0,
     ),
+)
+
+_MATERIAL_INPUT_TYPES_BY_KIND = {
+    "bool": Sdf.ValueTypeNames.Bool,
+    "int": Sdf.ValueTypeNames.Int,
+    "float": Sdf.ValueTypeNames.Float,
+    "float2": Sdf.ValueTypeNames.Float2,
+    "colour3": Sdf.ValueTypeNames.Color3f,
+}
+MATERIAL_INPUT_TYPES = {
+    control.name: _MATERIAL_INPUT_TYPES_BY_KIND[control.kind]
+    for control in MATERIAL_CONTROLS
+}
+
+# Preserve-mode instance proxies use the intentionally lightweight x1 shader.
+# It keeps one atlas lookup and therefore has no depth-slice inputs.
+SINGLE_MATERIAL_INPUT_NAMES = frozenset(
+    {
+        "variation_seed",
+        "room_depth",
+        "glass_roughness",
+        "glass_reflectivity",
+        "glass_tint",
+        "glass_transmission",
+        "fallback_colour",
+        "enable_emission",
+        "emission_strength",
+        "emission_threshold",
+        "emission_softness",
+    }
 )
 
 

@@ -216,10 +216,10 @@ class _SettingsPanelBuilder:
             "classifier:usd_composition",
         ):
             with ui.VStack():
-                self._combo_row(
-                    "Instance policy",
-                    classifier_setting_path("instance_policy"),
-                    ["Preserve", "Session de-instance"],
+                ui.Label(
+                    "Native instances: Preserve (x1)",
+                    word_wrap=True,
+                    height=0,
                 )
                 self._combo_row(
                     "Stage metrics",

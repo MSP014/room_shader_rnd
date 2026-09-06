@@ -11,7 +11,7 @@ from ..interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
 Vector3 = tuple[float, float, float]
 Float4 = tuple[float, float, float, float]
 
-CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v48"
+CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v49"
 
 _EPSILON = 1.0e-8
 _DERIVED_ID_LIMIT = 2_147_483_647

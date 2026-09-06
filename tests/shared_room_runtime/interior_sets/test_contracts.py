@@ -22,6 +22,7 @@ def test_add_inherits_default_materials_but_not_structure():
 
     kitchens = configured.by_id(KITCHENS_ID)
 
+    assert configured.default.selectors == ("Windows_Glass",)
     assert kitchens.material_values == (("glass_roughness", 0.25),)
     assert kitchens.selectors == ()
     assert kitchens.atlas_directories == ("", "", "", "")

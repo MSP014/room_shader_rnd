@@ -28,6 +28,53 @@ from pxr import Gf, Sdf, Tf, Usd, UsdGeom, UsdShade, Vt
 from ._support import REPOSITORY_ROOT, _window_stage
 
 
+def test_material_update_is_safe_when_classification_publishes_no_layer():
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.y)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    resources = RuntimeResources.from_repository(REPOSITORY_ROOT)
+    classifier = SharedRoomClassifier(
+        stage,
+        resources,
+        RuntimeClassifierSettings(),
+    )
+    classifier.start()
+
+    updated_count = classifier.set_interior_set_material_values(
+        DEFAULT_INTERIOR_SET_ID,
+        {"emission_strength": 32000.0},
+    )
+
+    assert updated_count == 0
+    assert classifier._layer_owner.layer.identifier not in (
+        stage.GetSessionLayer().subLayerPaths
+    )
+    assert classifier.runtime_layer is None
+    classifier.stop()
+
+
+def test_camera_targets_include_inherited_root_primvar_for_instances():
+    stage, _mesh = _window_stage((1, 1))
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        UsdGeom.PrimvarsAPI(stage.GetPrimAtPath("/World")).CreatePrimvar(
+            "ormsCameraPositionWorld",
+            Sdf.ValueTypeNames.Float3,
+            UsdGeom.Tokens.constant,
+        ).Set(Gf.Vec3f(8.0, 3.0, 5.0))
+    classifier = SharedRoomClassifier(
+        stage,
+        REPOSITORY_ROOT,
+        RuntimeClassifierSettings(),
+    )
+
+    classifier.start()
+
+    assert "/World.primvars:ormsCameraPositionWorld" in (
+        classifier.camera_input_paths
+    )
+    classifier.stop()
+
+
 def test_live_material_change_updates_only_its_interior_set(monkeypatch):
     stage, _mesh = _window_stage((7, 7))
     root_layer = stage.GetRootLayer()

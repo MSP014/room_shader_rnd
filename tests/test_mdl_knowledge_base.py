@@ -55,12 +55,14 @@ def test_mdl_records_use_the_indexed_heading_contract():
     index = INDEX_PATH.read_text(encoding="utf-8")
 
     assert [path.name[:3] for path in records] == [
-        f"{number:03d}" for number in range(1, 14)
+        f"{number:03d}" for number in range(1, 15)
     ]
     for path in records:
         source = path.read_text(encoding="utf-8")
         record = source.partition("## Purpose")[0]
         if "| State | Planned" in record:
+            headings = PLANNED_HEADINGS
+        elif "## Accepted starting point" in source:
             headings = PLANNED_HEADINGS
         elif "| State | In progress" in record:
             headings = ACTIVE_PLAN_HEADINGS

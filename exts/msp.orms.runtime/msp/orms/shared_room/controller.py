@@ -48,6 +48,7 @@ from .authoring import (
     author_family_materials,
     camera_position_primvar_exists,
     camera_position_primvar_required,
+    instance_source_camera_input_paths,
     seed_camera_position_primvar,
 )
 from .changes import (
@@ -174,7 +175,7 @@ _TRACE_DIAGNOSTIC_CODE = "ORMS-RUNTIME-TRACE"
 _TRACE_RUN_IDS = count(1)
 _TRACE_PATH_LIMIT = 16
 _FIRST_FRAME_SIGNAL = "StageRenderingEventType.NEW_FRAME"
-_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v48"
+_EXPECTED_CLASSIFIER_CONTRACT_VERSION = "shared_room_runtime_v49"
 _UNAVAILABLE_TRANSITION_VALUE = "<unavailable>"
 _RUNTIME_INPUT_LOG_DEBOUNCE_SECONDS = 0.2
 
@@ -675,12 +676,24 @@ class SharedRoomClassifier:
         return self._last
 
     @property
+    def runtime_layer(self) -> Sdf.Layer | None:
+        """Expose the owned edit target only while it is attached."""
+
+        return self._layer_owner.layer if self._layer_owner.attached else None
+
+    @property
     def camera_input_paths(self) -> tuple[str, ...]:
-        """Return camera inputs owned by classified window materials only."""
+        """Return every live camera target used by the active runtime."""
 
         if self._last is None:
             return ()
         paths = set()
+        if camera_position_primvar_exists(self._stage):
+            paths.add(str(CAMERA_POSITION_PRIMVAR_PATH))
+        paths.update(
+            str(path)
+            for path in instance_source_camera_input_paths(self._stage)
+        )
         for item in self._interior_sets.sets:
             for attribute_path in _interior_set_input_paths(
                 item.set_id,
@@ -718,7 +731,7 @@ class SharedRoomClassifier:
             for name, value in values.items()
             if name in _SHARED_RUNTIME_INPUT_NAMES
         }
-        if self._last is None:
+        if self._last is None or not self._layer_owner.attached:
             return 0
         updated_count = 0
         self._is_authoring = True
@@ -760,6 +773,8 @@ class SharedRoomClassifier:
         )
         self._interior_sets = self._interior_sets.replace(updated_item)
         shader_values = material_input_values_from_mapping(stored_values)
+        if not self._layer_owner.attached:
+            return 0
         updated_count = 0
         self._is_authoring = True
         try:
@@ -782,6 +797,8 @@ class SharedRoomClassifier:
 
         item = self._interior_sets.by_id(set_id)
         self._interior_sets = self._interior_sets.replace(item.renamed(name))
+        if not self._layer_owner.attached:
+            return 0
         label = self._interior_sets.label_for(set_id)
         updated_count = 0
         self._is_authoring = True

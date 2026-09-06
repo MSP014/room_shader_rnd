@@ -27,7 +27,7 @@ class _RuntimeSession:
 
 
 class RuntimeLifecycleController:
-    """Pause live updates independently from removing ORMS-owned USD state."""
+    """Own runtime callbacks and removable ORMS state transitions."""
 
     def __init__(
         self,
@@ -85,11 +85,28 @@ class RuntimeLifecycleController:
         self._set_state(RuntimeState.RUNNING)
         return True
 
-    def set_camera_input_paths(self, paths: Sequence[str]) -> bool:
-        """Retarget the live camera bridge after material-family changes."""
+    def stop(self) -> bool:
+        """Remove the active runtime session and expose a restartable state."""
+
+        session, self._session = self._session, None
+        try:
+            if session is not None:
+                session.teardown()
+        finally:
+            self._set_state(RuntimeState.STOPPED)
+        return session is not None
+
+    def set_camera_input_paths(
+        self,
+        paths: Sequence[str],
+        *,
+        runtime_layer: Any | None = None,
+    ) -> bool:
+        """Retarget camera paths and their live owned edit layer together."""
 
         if self._session is None or self._state is not RuntimeState.RUNNING:
             return False
+        self._session.camera_bridge.set_runtime_layer(runtime_layer)
         self._session.camera_bridge.set_material_input_paths(paths)
         return True
 

@@ -24,6 +24,7 @@ proof.
 | [011 — ORMS Kit Extension Integration](011_orms_kit_extension.md) | KRM-91 | Installable Kit boundary, portable MDL registration, Material Library entry, and reversible Windows Glass assignment | Installed `0.1.5` foundation accepted in both RTX modes and superseded by the `0.1.20` workflow in 012 |
 | [012 — ORMS UI and Artist Workflow](012_orms_ui_and_artist_workflow.md) | KRM-92 | One classifier with Interior Set assignment, per-Set x1–x4 resources and materials, staged structural editing, and artist-facing controls | Installed `0.1.20` accepted in both RTX modes; KRM-92 complete |
 | [013 — Geometry Rooms versus ORMS VRAM Benchmark](013_geometry_vs_orms_vram_benchmark.md) | Follow-up to KRM-92 | Like-for-like analytical VRAM comparison and reproducible geometry-versus-ORMS benchmark plan | Unverified calculated hypothesis; empirical measurements pending |
+| [014 — ORMS Runtime Recovery and Native Instances](014_orms_runtime_recovery_and_native_instances.md) | Follow-up to KRM-91, KRM-92, KRM-93, and KRM-98 | Restore ordinary x1–x4 and accepted native Preserve/x1 first; investigate preserved native x2–x4 only after Registry acceptance | In progress — 1.0.12 passed native visual recovery in both RTX modes; Stop freeze semantics remain follow-up work |
 
 ## Record contract
 

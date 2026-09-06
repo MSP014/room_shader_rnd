@@ -51,7 +51,7 @@ def test_runtime_contract_versions_are_synchronised():
         classifier_module._EXPECTED_CLASSIFIER_CONTRACT_VERSION,
         reload_room_map_runtime._CONTRACT_VERSION,
     }
-    assert versions == {"shared_room_runtime_v48"}
+    assert versions == {"shared_room_runtime_v49"}
 
 
 def test_runtime_loader_targets_only_classified_window_material_inputs():
@@ -67,11 +67,35 @@ def test_runtime_loader_targets_only_classified_window_material_inputs():
 def test_runtime_loader_seeds_camera_before_classifier_and_bridge_start():
     source = Path(reload_room_map_runtime.__file__).read_text(encoding="utf-8")
 
-    seed_offset = source.index("shared.seed_camera_position_primvar(")
-    classifier_offset = source.index("classifier = shared.start(")
-    bridge_offset = source.index("camera_bridge = bridge.start(")
+    seed_offset = source.rindex("_seed_initial_camera(")
+    classifier_offset = source.rindex("classifier = shared.start(")
+    bridge_offset = source.rindex("camera_bridge = bridge.start(")
 
     assert seed_offset < classifier_offset < bridge_offset
+    assert "runtime_layer=camera_seed_layer" in source
+    assert "runtime_layer=_select_camera_runtime_layer(" in source
+
+
+def test_camera_layer_selection_uses_only_live_classifier_ownership():
+    class Classifier:
+        runtime_layer = "classifier-layer"
+
+    assert (
+        reload_room_map_runtime._select_camera_runtime_layer(
+            Classifier(),
+            "assignment-layer",
+        )
+        == "classifier-layer"
+    )
+
+    Classifier.runtime_layer = None
+    assert (
+        reload_room_map_runtime._select_camera_runtime_layer(
+            Classifier(),
+            "assignment-layer",
+        )
+        == "assignment-layer"
+    )
 
 
 def test_runtime_research_diagnostics_are_opt_in():

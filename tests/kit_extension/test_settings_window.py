@@ -71,7 +71,7 @@ def test_service_owns_window_lifecycle_outside_stage_lifecycle():
     assert "self._settings_window.start(" in source
     assert "settings_window.stop()" in source
     assert "classifier.set_settings(settings_from_kit())" in source
-    assert "self._lifecycle.pause()" in source
+    assert "self._lifecycle.stop()" in source
     assert "self._lifecycle.resume()" in source
     assert "self._lifecycle.teardown()" in source
     assert "Preferences" not in source
@@ -95,32 +95,186 @@ def test_service_skips_runtime_without_a_room_map_source_mesh():
     assert "Stage activation skipped" in source
 
 
-def test_structural_apply_retargets_camera_bridge_after_rebuild():
+def test_structural_apply_rebuilds_assignment_and_retargets_camera_bridge(
+    monkeypatch,
+):
+    from msp.orms.runtime import service as service_module
     from msp.orms.runtime.service import OrmsRuntimeService
 
     events = []
 
     class Classifier:
         camera_input_paths = ("/Looks/New/Shader.inputs:camera",)
+        runtime_layer = None
+
+        def pause(self):
+            events.append("pause")
 
         def apply_interior_sets(self, collection, resources):
             events.append(("rebuild", collection, resources))
 
+        def resume(self):
+            events.append("resume")
+
     class Lifecycle:
         classifier = Classifier()
 
-        def set_camera_input_paths(self, paths):
-            events.append(("camera", tuple(paths)))
+        def set_camera_input_paths(self, paths, *, runtime_layer=None):
+            events.append(("camera", tuple(paths), runtime_layer))
+
+    class AssignmentSession:
+        runtime_layer = "assignment-layer"
 
     service = OrmsRuntimeService.__new__(OrmsRuntimeService)
     service._lifecycle = Lifecycle()
-
+    service._assignment_session = AssignmentSession()
+    service._apply_automatic_assignments = (
+        lambda session, collection, resources, settings: events.append(
+            (
+                "assignments",
+                session,
+                collection,
+                resources,
+            )
+        )
+    )
+    monkeypatch.setattr(
+        service_module,
+        "_kit_settings",
+        lambda: "settings",
+    )
     service._apply_interior_sets_to_runtime("sets", "resources")
 
     assert events == [
+        "pause",
+        (
+            "assignments",
+            service._assignment_session,
+            "sets",
+            "resources",
+        ),
         ("rebuild", "sets", "resources"),
-        ("camera", ("/Looks/New/Shader.inputs:camera",)),
+        "resume",
+        (
+            "camera",
+            ("/Looks/New/Shader.inputs:camera",),
+            "assignment-layer",
+        ),
     ]
+
+
+def test_default_profile_updates_runtime_and_preserve_fallback_together():
+    from msp.orms.interior_sets.contracts import DEFAULT_INTERIOR_SET_ID
+    from msp.orms.runtime.lifecycle import RuntimeState
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    events = []
+
+    class Classifier:
+        @staticmethod
+        def set_interior_set_material_values(set_id, values):
+            events.append(("runtime", set_id, dict(values)))
+            return 4
+
+    class Lifecycle:
+        state = RuntimeState.RUNNING
+        classifier = Classifier()
+
+    class AssignmentSession:
+        @staticmethod
+        def set_material_input_values(values):
+            events.append(("fallback", dict(values)))
+            return 1
+
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._lifecycle = Lifecycle()
+    service._assignment_session = AssignmentSession()
+
+    updated_count = service._apply_live_material_values(
+        DEFAULT_INTERIOR_SET_ID,
+        {"emission_strength": 32000.0},
+    )
+
+    assert updated_count == 5
+    assert events == [
+        (
+            "runtime",
+            DEFAULT_INTERIOR_SET_ID,
+            {"emission_strength": 32000.0},
+        ),
+        ("fallback", {"emission_strength": 32000.0}),
+    ]
+
+
+def test_automatic_assignment_receives_every_interior_set_mesh_selector():
+    from msp.orms.interior_sets.contracts import InteriorSetCollection
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    collection = InteriorSetCollection.default_only().add(
+        set_id="11111111-1111-1111-1111-111111111111"
+    )
+    specific = collection.sets[1]
+    collection = collection.replace(
+        type(specific)(
+            set_id=specific.set_id,
+            selectors=("*/Lobby_Panes",),
+        )
+    )
+    calls = []
+
+    class Settings:
+        @staticmethod
+        def get(path):
+            return path == service_module._AUTO_ASSIGN_SETTING
+
+    class Atlas:
+        asset_path = "debug/x1/room_map_debug.<UDIM>.png"
+        variant_count = 8
+
+    class Resources:
+        @staticmethod
+        def atlas_family(room_size):
+            assert room_size == 1
+            return Atlas()
+
+    class Snapshot:
+        @staticmethod
+        def by_id(set_id):
+            assert set_id == collection.default.set_id
+            return type("RuntimeSet", (), {"resources": Resources()})()
+
+    class Session:
+        @staticmethod
+        def apply(**kwargs):
+            calls.append(kwargs)
+            result_type = type(
+                "Result",
+                (),
+                {"decisions": (), "assigned_prim_paths": ()},
+            )
+            return result_type()
+
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._resources = type(
+        "Layout",
+        (),
+        {
+            "mdl_root": Path(__file__).resolve().parents[2]
+            / "exts/msp.orms.runtime/data/mdl"
+        },
+    )()
+    service._apply_automatic_assignments(
+        Session(),
+        collection,
+        Snapshot(),
+        Settings(),
+    )
+
+    assert calls[0]["candidate_selectors"] == (
+        "Windows_Glass",
+        "*/Lobby_Panes",
+    )
 
 
 def test_stopped_runtime_keeps_assignment_inspection_read_only():
@@ -175,6 +329,7 @@ def test_interior_set_ui_is_split_into_staged_and_live_modules():
     assert "build_interior_set_material_panel" in window_source
     assert '"Apply Interior Sets"' in atlas_source
     assert '"Revert unapplied changes"' in atlas_source
+    assert '"Window mesh names / paths"' in atlas_source
     assert '"+ Add Interior Set"' in atlas_source
     assert '"Duplicate"' in atlas_source
     assert '"Browse..."' in atlas_source

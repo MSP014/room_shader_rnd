@@ -27,8 +27,7 @@ STAGE_PATH = FIXTURE_ROOT / "test_room_map_building_150.usda"
 SOURCE_STAGE_PATH = (
     REPOSITORY_ROOT
     / "assets"
-    / "_external"
-    / "usd"
+    / "_demo"
     / "Moskovskiy_av_150"
     / "usd"
     / "Moskovskiy_av_150.usd"

@@ -32,7 +32,9 @@ _PRODUCTION_HELP = (
 )
 _DEFAULT_SET_HELP = (
     "Default is evaluated last and receives every compatible ORMS window not "
-    "matched by a specific Interior Set."
+    "matched by a specific Interior Set. Its selectors also identify source "
+    "meshes for automatic ORMS assignment. A mask without '/' matches a mesh "
+    "name; a mask containing '/' matches the complete composed prim path."
 )
 _DEMO_SCENE_HELP = (
     "Open the bundled ORMS building scene. Untouched factory settings use the "
@@ -283,20 +285,26 @@ def build_interior_set_atlas_panel(
                             ),
                         )
                     )
-                if not item.is_default:
-                    ui.Label("Target paths / masks", name="title")
-                    models.extend(
-                        string_field(
-                            "\n".join(item.selectors),
-                            lambda value, set_id=item.set_id: (
-                                controller.stage_selectors(
-                                    set_id,
-                                    tuple(value.splitlines()),
-                                )
-                            ),
-                            multiline=True,
-                        )
+                ui.Label(
+                    (
+                        "Window mesh names / paths"
+                        if item.is_default
+                        else "Target paths / masks"
+                    ),
+                    name="title",
+                )
+                models.extend(
+                    string_field(
+                        "\n".join(item.selectors),
+                        lambda value, set_id=item.set_id: (
+                            controller.stage_selectors(
+                                set_id,
+                                tuple(value.splitlines()),
+                            )
+                        ),
+                        multiline=True,
                     )
+                )
                 directories = list(item.atlas_directories)
                 for room_size in range(1, 5):
                     with ui.HStack(height=24):

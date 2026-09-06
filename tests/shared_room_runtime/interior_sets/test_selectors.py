@@ -50,6 +50,25 @@ def test_mask_matches_multiple_buildings_and_multiple_masks_use_or():
     assert second.set_id == KITCHENS_ID
 
 
+def test_bare_mask_matches_the_mesh_name_at_any_hierarchy_depth():
+    configured = _configured_sets()
+    kitchens = configured.by_id(KITCHENS_ID)
+    configured = configured.replace(
+        InteriorSetConfig(
+            set_id=kitchens.set_id,
+            name=kitchens.name,
+            selectors=("Kitchens_Windows",),
+        )
+    )
+
+    resolution = resolve_selector(
+        "/World/Block/Building/Kitchens_Windows",
+        configured,
+    )
+
+    assert resolution.set_id == KITCHENS_ID
+
+
 def test_specific_priority_beats_default_and_reports_conflict():
     resolution = resolve_selector(
         "/World/Building/Kitchens_Windows",

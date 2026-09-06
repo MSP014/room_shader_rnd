@@ -60,6 +60,21 @@ def test_runtime_source_gate_ignores_an_empty_stage():
     assert stage_has_room_map_source_mesh(room_map_stage)
 
 
+def test_runtime_source_gate_finds_room_map_mesh_in_instance_proxy():
+    source_stage, _ = _window_stage((1,))
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World")
+    instance = UsdGeom.Xform.Define(stage, "/World/BuildingA").GetPrim()
+    instance.GetReferences().AddReference(
+        source_stage.GetRootLayer().identifier,
+        "/World/Building",
+    )
+    instance.SetInstanceable(True)
+
+    assert instance.IsInstance()
+    assert stage_has_room_map_source_mesh(stage)
+
+
 def test_extraction_converts_stage_units_to_metres():
     stage, _ = _window_stage((1,))
     UsdGeom.SetStageMetersPerUnit(stage, 0.01)

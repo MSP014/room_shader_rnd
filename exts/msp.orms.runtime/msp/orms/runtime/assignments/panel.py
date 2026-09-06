@@ -57,12 +57,15 @@ def build_assignment_panel(
                 word_wrap=True,
                 height=0,
             )
+            if not item.override_editable:
+                continue
             with ui.HStack(height=28, spacing=4):
+                override_editable = snapshot.editable
                 selection_button(
                     ui,
                     "Use source rule",
                     selected=item.override is None,
-                    enabled=snapshot.editable,
+                    enabled=override_editable,
                     clicked=lambda path=item.prim_path: changed(path, None),
                     tooltip=_SOURCE_RULE_HELP,
                 )
@@ -70,7 +73,7 @@ def build_assignment_panel(
                     ui,
                     "Allow ORMS",
                     selected=item.override is True,
-                    enabled=snapshot.editable,
+                    enabled=override_editable,
                     clicked=lambda path=item.prim_path: changed(path, True),
                     tooltip=_ALLOW_HELP,
                 )
@@ -78,7 +81,7 @@ def build_assignment_panel(
                     ui,
                     "Exclude / restore source",
                     selected=item.override is False,
-                    enabled=snapshot.editable,
+                    enabled=override_editable,
                     clicked=lambda path=item.prim_path: changed(path, False),
                     tooltip=_EXCLUDE_HELP,
                 )

@@ -21,6 +21,14 @@ A compatible window mesh has quad topology and the `roomID`, `roomP`,
 `Windows_Glass` meshes, semantic mesh prims below a `windows` container, and
 meshes explicitly opted in with `orms:autoAssign=true`.
 
+Native instances remain shared. ORMS overlays the source class already
+inherited by each compatible building without adding an inherit arc to the
+instance root. The overlay composes a direct binding only at the selected
+relative window path and uses the lightweight `room_map_single` x1 material;
+it never binds the building root. Native camera updates target only the
+class-local ORMS shader input. Stop or Restore removes the runtime layer and
+reveals every original binding without reopening the stage.
+
 ## ORMS Classifier
 
 The classifier tab controls room grouping for the complete scene. It also
@@ -37,8 +45,8 @@ disable, or stage replacement removes them.
 
 The lifecycle actions have distinct effects:
 
-- **Start** activates ORMS, or resumes a stopped result;
-- **Stop** freezes the current visual result and releases live updates;
+- **Start** activates ORMS for the current stage;
+- **Stop** removes the current visual result while retaining UI settings;
 - **Restart** removes and rebuilds ORMS state from the current settings;
 - **Restore Original Asset** removes all ORMS-owned Session Layer opinions.
 
@@ -72,9 +80,12 @@ resources are independent of per-Set production configuration.
 Interior Set selectors use simple glob-style composed prim paths, for example
 `*/Kitchens_Windows`. Specific Sets are evaluated from top to bottom; the first
 match wins. The mandatory Default Set is evaluated last and receives every
-remaining compatible window. One composed mesh path resolves to exactly one
-Interior Set; assigning different Sets to faces or subsets of one mesh is
-outside the 0.1.20 contract.
+remaining compatible window. Its editable window-mesh selector defaults to
+`Windows_Glass`; a mask without `/` matches a mesh name, while a mask containing
+`/` matches the complete composed path. Selectors from every Set also opt
+matching source meshes into automatic assignment. One composed mesh path
+resolves to exactly one Interior Set; assigning different Sets to faces or
+subsets of one mesh is outside the current contract.
 
 Selectors, debug and production paths, order, Add, Duplicate, Remove, atlas
 mode, and atlas resets are staged edits. Press **Apply Interior Sets** once to

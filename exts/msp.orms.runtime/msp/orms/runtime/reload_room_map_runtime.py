@@ -29,7 +29,7 @@ else:
         stop_runtime_modules,
     )
 
-_CONTRACT_VERSION = "shared_room_runtime_v48"
+_CONTRACT_VERSION = "shared_room_runtime_v49"
 _INTERIOR_SET_DEPENDENCY_ORDER = (
     "interior_set_atlas_mode",
     "interior_set_identity",
@@ -119,6 +119,7 @@ def _seed_initial_camera(
     shared: ModuleType,
     bridge: ModuleType,
     *,
+    runtime_layer=None,
     verbose_diagnostics: bool,
 ):
     """Seed the inherited camera primvar before material realisation starts."""
@@ -141,6 +142,7 @@ def _seed_initial_camera(
         camera_primvar_path = shared.seed_camera_position_primvar(
             stage,
             initial_camera_position,
+            runtime_layer,
         )
         if verbose_diagnostics:
             shared.log_room_map_warning(
@@ -174,6 +176,15 @@ def _seed_initial_camera(
         )
 
 
+def _select_camera_runtime_layer(classifier, camera_seed_layer):
+    """Use only an attached classifier layer, otherwise its seed owner."""
+
+    classifier_layer = classifier.runtime_layer
+    return (
+        classifier_layer if classifier_layer is not None else camera_seed_layer
+    )
+
+
 def reload_and_start(
     extension_root: str | Path,
     *,
@@ -181,6 +192,7 @@ def reload_and_start(
     atlas_families: tuple[tuple[int, str, int], ...] | None = None,
     interior_sets=None,
     interior_set_resources=None,
+    camera_seed_layer=None,
     verbose_diagnostics: bool = False,
 ):
     """Replace cached ORMS modules with exact source and start the runtime."""
@@ -217,6 +229,7 @@ def reload_and_start(
     _seed_initial_camera(
         shared,
         bridge,
+        runtime_layer=camera_seed_layer,
         verbose_diagnostics=verbose_diagnostics,
     )
     classifier = shared.start(
@@ -239,6 +252,10 @@ def reload_and_start(
         )
     camera_bridge = bridge.start(
         classifier.camera_input_paths,
+        runtime_layer=_select_camera_runtime_layer(
+            classifier,
+            camera_seed_layer,
+        ),
         trace_log_warning=trace_log_warning,
     )
     return classifier, camera_bridge

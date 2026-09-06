@@ -4,13 +4,13 @@
 
 import pytest
 from msp.orms.shared_room.contracts import (
-    INSTANCE_POLICY_SESSION_DEINSTANCE,
+    INSTANCE_POLICY_PRESERVE,
     METRICS_MODE_LOCAL_OVERRIDE,
 )
 from msp.orms.shared_room.settings import settings_from_mapping
 
 
-def test_preferences_labels_resolve_to_runtime_policy_tokens():
+def test_removed_deinstance_preference_is_normalised_to_preserve():
     settings = settings_from_mapping(
         {
             "instance_policy": "Session de-instance",
@@ -23,7 +23,7 @@ def test_preferences_labels_resolve_to_runtime_policy_tokens():
         }
     )
 
-    assert settings.instance_policy == INSTANCE_POLICY_SESSION_DEINSTANCE
+    assert settings.instance_policy == INSTANCE_POLICY_PRESERVE
     assert settings.metrics_mode == METRICS_MODE_LOCAL_OVERRIDE
     assert settings.local_up_axis == "Z"
     assert settings.local_meters_per_unit == pytest.approx(0.01)

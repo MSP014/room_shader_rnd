@@ -4,8 +4,10 @@
 
 # --- Internal Procedures ---
 # --- Internal Protocols & Planning (STRICT PRIVACY) ---
+AGENTS.md
 protocols/
 .codex/
+CODEX_CHECKPOINT.md
 omniverse_kit_app/
 docs/plans/rnd - implementation.md
 

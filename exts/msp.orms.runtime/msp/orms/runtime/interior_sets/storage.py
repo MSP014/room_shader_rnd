@@ -10,6 +10,7 @@ from typing import Any
 
 from msp.orms.interior_sets.atlas_mode import normalise_atlas_mode
 from msp.orms.interior_sets.contracts import (
+    DEFAULT_WINDOW_SELECTOR,
     ROOM_SIZES,
     InteriorSetCollection,
     InteriorSetConfig,
@@ -42,6 +43,8 @@ def normalise_collection(
             normalised = validate_selector(mask)
             if normalised and normalised not in selectors:
                 selectors.append(normalised)
+        if item.is_default and not selectors:
+            selectors.append(DEFAULT_WINDOW_SELECTOR)
         material_values = defaults.copy()
         material_values.update(item.material_mapping())
         normalised_sets.append(

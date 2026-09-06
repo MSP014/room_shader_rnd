@@ -57,6 +57,7 @@ def test_legacy_globals_migrate_into_one_default_set_idempotently():
     assert not second.migrated
     assert first.collection == second.collection
     assert first.collection.default.set_id == DEFAULT_INTERIOR_SET_ID
+    assert first.collection.default.selectors == ("Windows_Glass",)
     assert first.collection.default.atlas_directory(2) == "k:/x2"
     assert first.atlas_mode == ATLAS_MODE_PRODUCTION
     assert second.atlas_mode == ATLAS_MODE_PRODUCTION

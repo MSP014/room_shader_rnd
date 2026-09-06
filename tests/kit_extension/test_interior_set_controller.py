@@ -123,6 +123,30 @@ def test_structural_edits_wait_for_one_explicit_apply():
     assert len(runtime_calls) == 1
 
 
+def test_default_window_mesh_selector_is_editable_and_staged():
+    controller = _controller()
+    applied = controller.applied
+
+    controller.stage_selectors(
+        DEFAULT_INTERIOR_SET_ID,
+        ("Lobby_Panes", "*/Special_Glass"),
+    )
+
+    assert controller.dirty
+    assert controller.applied == applied
+    assert controller.draft.default.selectors == (
+        "Lobby_Panes",
+        "*/Special_Glass",
+    )
+
+    controller.apply()
+
+    assert controller.applied.default.selectors == (
+        "Lobby_Panes",
+        "*/Special_Glass",
+    )
+
+
 def test_atlas_mode_is_staged_and_committed_with_the_same_apply():
     controller, settings = _controller_with_settings()
     runtime_calls = []

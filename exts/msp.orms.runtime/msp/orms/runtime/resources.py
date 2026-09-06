@@ -17,6 +17,7 @@ from .materials.atlas_manifest import (
 )
 
 MATERIAL_SOURCE_ASSET = "room_map.mdl"
+PRESERVED_INSTANCE_MATERIAL_SOURCE_ASSET = "room_map_single.mdl"
 MATERIAL_SUBIDENTIFIER = "room_map"
 DEBUG_VARIANT_COUNT = 8
 PRODUCTION_DIRECTORY_SETTING = (

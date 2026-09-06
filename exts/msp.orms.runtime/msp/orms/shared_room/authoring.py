@@ -63,7 +63,7 @@ from .contracts import (
 from .stage import (
     _face_vertex_indices,
     _has_room_map_material_binding,
-    _has_source_authored_x1_material_binding,
+    _has_x1_material_binding,
     _room_map_mesh_orientation,
 )
 
@@ -153,6 +153,16 @@ class RuntimeLayerOwner:
         self.layer = Sdf.Layer.CreateAnonymous("orms_shared_rooms.usda")
         self._attached = False
 
+    @property
+    def attached(self) -> bool:
+        """Return whether the layer is currently in the live local stack."""
+
+        return (
+            self._attached
+            and self.layer.identifier
+            in self.stage.GetSessionLayer().subLayerPaths
+        )
+
     def prepare_replacement(self) -> tuple[Usd.Stage, Sdf.Layer]:
         """Create an isolated stage and an empty candidate runtime layer."""
 
@@ -187,7 +197,7 @@ class RuntimeLayerOwner:
     def publish(self, candidate: Sdf.Layer) -> Sdf.Layer:
         """Atomically replace the live layer content with a finished draft."""
 
-        if candidate.empty and not self._attached:
+        if candidate.empty and not self.attached:
             return self.layer
         session_layer = self.stage.GetSessionLayer()
         sublayers = list(session_layer.subLayerPaths)
@@ -195,7 +205,7 @@ class RuntimeLayerOwner:
             sublayers.insert(0, self.layer.identifier)
         with Sdf.ChangeBlock():
             self.layer.TransferContent(candidate)
-            if not self._attached:
+            if not self.attached:
                 session_layer.subLayerPaths = sublayers
         self._attached = True
         return self.layer
@@ -203,7 +213,7 @@ class RuntimeLayerOwner:
     def attach(self) -> Sdf.Layer:
         """Attach the owned layer strongest beneath the existing Session Layer."""
 
-        if self._attached:
+        if self.attached:
             return self.layer
         session_layer = self.stage.GetSessionLayer()
         sublayers = list(session_layer.subLayerPaths)
@@ -216,7 +226,9 @@ class RuntimeLayerOwner:
     def detach(self) -> None:
         """Remove only the owned sublayer and preserve unrelated session edits."""
 
-        if not self._attached:
+        if not self._attached and self.layer.identifier not in (
+            self.stage.GetSessionLayer().subLayerPaths
+        ):
             return
         session_layer = self.stage.GetSessionLayer()
         session_layer.subLayerPaths = [
@@ -683,8 +695,10 @@ def _refresh_pose_primvars(
     return updated_faces
 
 
-def _prototype_has_room_map_mesh(prototype: Usd.Prim) -> bool:
-    for prim in Usd.PrimRange(prototype):
+def _instance_has_room_map_mesh(instance: Usd.Prim) -> bool:
+    """Inspect composed proxies so instance-local collection bindings count."""
+
+    for prim in Usd.PrimRange(instance, Usd.TraverseInstanceProxies()):
         if not prim.IsA(UsdGeom.Mesh):
             continue
         primvars = UsdGeom.PrimvarsAPI(prim)
@@ -695,15 +709,66 @@ def _prototype_has_room_map_mesh(prototype: Usd.Prim) -> bool:
     return False
 
 
+def _source_camera_input_paths_for_instance(
+    instance: Usd.Prim,
+) -> tuple[Sdf.Path, ...]:
+    """Return authorable class-local camera inputs used by one instance."""
+
+    paths = set()
+    class_paths = tuple(instance.GetInherits().GetAllDirectInherits())
+    if not class_paths:
+        return ()
+    for prim in Usd.PrimRange(instance, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Mesh) or not _has_room_map_material_binding(
+            prim
+        ):
+            continue
+        material, relationship = UsdShade.MaterialBindingAPI(
+            prim
+        ).ComputeBoundMaterial()
+        if not relationship or not material:
+            continue
+        relative_material_path = material.GetPath().MakeRelativePath(
+            instance.GetPath()
+        )
+        for class_path in class_paths:
+            source_material = instance.GetStage().GetPrimAtPath(
+                class_path.AppendPath(relative_material_path)
+            )
+            if not source_material:
+                continue
+            source_shader = instance.GetStage().GetPrimAtPath(
+                source_material.GetPath().AppendPath("Shader")
+            )
+            attribute = source_shader.GetAttribute(
+                "inputs:camera_position_world"
+            )
+            if attribute and not source_shader.IsInstanceProxy():
+                paths.add(attribute.GetPath())
+    return tuple(sorted(paths))
+
+
+def instance_source_camera_input_paths(
+    stage: Usd.Stage,
+) -> tuple[Sdf.Path, ...]:
+    """Return class-local native x1 camera targets for the complete stage."""
+
+    paths = set()
+    for prim in stage.Traverse():
+        if prim.IsInstance():
+            paths.update(_source_camera_input_paths_for_instance(prim))
+    return tuple(sorted(paths))
+
+
 def camera_position_primvar_required(stage: Usd.Stage) -> bool:
     """Return whether preserved instances need an inherited camera channel."""
 
-    return any(
-        prim.IsInstance()
-        and prim.GetPrototype()
-        and _prototype_has_room_map_mesh(prim.GetPrototype())
-        for prim in stage.Traverse()
-    )
+    for prim in stage.Traverse():
+        if not prim.IsInstance() or not _instance_has_room_map_mesh(prim):
+            continue
+        if not _source_camera_input_paths_for_instance(prim):
+            return True
+    return False
 
 
 def author_camera_position_primvar(
@@ -732,13 +797,14 @@ def author_camera_position_primvar(
 def seed_camera_position_primvar(
     stage: Usd.Stage,
     world_position: Sequence[float],
+    runtime_layer: Sdf.Layer | None = None,
 ) -> Sdf.Path | None:
-    """Seed the inherited camera channel before the first material sync."""
+    """Seed the inherited camera channel in an owned removable layer."""
 
     world = stage.GetPrimAtPath("/World")
     if not world:
         return None
-    with Usd.EditContext(stage, stage.GetSessionLayer()):
+    with Usd.EditContext(stage, runtime_layer or stage.GetSessionLayer()):
         primvar = UsdGeom.PrimvarsAPI(world).CreatePrimvar(
             CAMERA_POSITION_PRIMVAR_NAME,
             Sdf.ValueTypeNames.Float3,
@@ -780,7 +846,7 @@ def _preserved_instance_diagnostic(prim: Usd.Prim) -> ClassifierDiagnostic:
             UsdGeom.PrimvarsAPI(proxy).GetPrimvar(name)
             for name in _REQUIRED_SOURCE_PRIMVARS
         )
-        and _has_source_authored_x1_material_binding(proxy)
+        and _has_x1_material_binding(proxy)
     )
     camera_primvars = tuple(
         UsdGeom.PrimvarsAPI(proxy).FindPrimvarWithInheritance(
@@ -830,10 +896,10 @@ def _preserved_instance_diagnostic(prim: Usd.Prim) -> ClassifierDiagnostic:
         ),
         str(prim.GetPath()),
         fallback_render_path=(
-            "source_authored_x1_binding" if has_x1_fallback else "unavailable"
+            "window_scoped_x1_binding" if has_x1_fallback else "unavailable"
         ),
         instance_policy=INSTANCE_POLICY_PRESERVE,
-        requirement="prototype-bound room_map_single material",
+        requirement="window-scoped room_map_single material",
         source_x1_proxy_count=len(proxy_meshes),
         source_x1_proxy_paths=",".join(
             str(proxy.GetPath()) for proxy in proxy_meshes
@@ -856,10 +922,7 @@ def apply_instance_policy(
 
     instances = tuple(prim for prim in stage.Traverse() if prim.IsInstance())
     affected = tuple(
-        prim
-        for prim in instances
-        if prim.GetPrototype()
-        and _prototype_has_room_map_mesh(prim.GetPrototype())
+        prim for prim in instances if _instance_has_room_map_mesh(prim)
     )
     if settings.instance_policy == INSTANCE_POLICY_PRESERVE:
         return tuple(_preserved_instance_diagnostic(prim) for prim in affected)

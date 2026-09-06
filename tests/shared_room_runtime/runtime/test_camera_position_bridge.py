@@ -73,6 +73,11 @@ def test_camera_direction_module_and_bridge_share_the_runtime_contract():
     assert "ComputeLocalToWorldTransform" in bridge_source
     assert "ExtractTranslation" in bridge_source
     assert "stage.GetSessionLayer()" in bridge_source
+    assert "self._runtime_layer or stage.GetSessionLayer()" in bridge_source
+    assert "runtime_layer=runtime_layer" in bridge_source
+    assert "def set_runtime_layer(" in bridge_source
+    assert "def _runtime_layer_is_attached(" in bridge_source
+    assert 'state="RUNTIME_LAYER_DETACHED"' in bridge_source
     assert "camera_position_world" in bridge_source
     assert "stage.Traverse()" in bridge_source
     assert "inputs:camera_position_world" in bridge_source

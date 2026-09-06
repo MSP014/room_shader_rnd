@@ -8,7 +8,6 @@ from collections.abc import Mapping
 
 from .contracts import (
     INSTANCE_POLICY_PRESERVE,
-    INSTANCE_POLICY_SESSION_DEINSTANCE,
     KIT_SETTINGS_ROOT,
     METRICS_MODE_AUTO,
     METRICS_MODE_LOCAL_OVERRIDE,
@@ -58,14 +57,6 @@ def settings_from_mapping(
     for size in (2, 3, 4):
         if bool(values.get(f"enable_x{size}", True)):
             enabled_sizes.add(size)
-    instance_policy_value = str(
-        values.get("instance_policy", INSTANCE_POLICY_PRESERVE)
-    )
-    instance_policy = {
-        "preserve": INSTANCE_POLICY_PRESERVE,
-        "session de-instance": INSTANCE_POLICY_SESSION_DEINSTANCE,
-        "session_deinstance": INSTANCE_POLICY_SESSION_DEINSTANCE,
-    }.get(instance_policy_value.strip().lower(), INSTANCE_POLICY_PRESERVE)
     metrics_mode_value = str(values.get("metrics_mode", METRICS_MODE_AUTO))
     metrics_mode = {
         "auto": METRICS_MODE_AUTO,
@@ -76,7 +67,7 @@ def settings_from_mapping(
     return RuntimeClassifierSettings(
         enabled_room_sizes=frozenset(enabled_sizes),
         partition_seed=int(values.get("partition_seed", 0)),
-        instance_policy=instance_policy,
+        instance_policy=INSTANCE_POLICY_PRESERVE,
         metrics_mode=metrics_mode,
         local_up_axis=str(values.get("local_up_axis", "Y")),
         local_meters_per_unit=float(values.get("local_meters_per_unit", 1.0)),

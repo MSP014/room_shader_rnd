@@ -54,6 +54,7 @@ class CameraPositionBridge:
         self,
         material_input_paths: str | Sequence[str] | None = None,
         *,
+        runtime_layer: Sdf.Layer | None = None,
         trace_log_warning: Callable[..., None] | None = (log_room_map_warning),
     ):
         self._auto_discover = material_input_paths is None
@@ -62,10 +63,12 @@ class CameraPositionBridge:
         self._material_input_paths = tuple(
             Sdf.Path(path) for path in (material_input_paths or ())
         )
+        self._runtime_layer = runtime_layer
         self._stage_identifier: str | None = None
         self._missing_input_paths: set[Sdf.Path] = set()
         self._reported_active_paths: set[Sdf.Path] = set()
         self._warned_no_inputs = False
+        self._warned_detached_layer = False
         self._last_position: tuple[float, float, float] | None = None
         self._trace_log_warning = trace_log_warning
         self._subscription = None
@@ -108,6 +111,24 @@ class CameraPositionBridge:
         self._reported_active_paths.intersection_update(paths)
         self._warned_no_inputs = False
         self._last_position = None
+
+    def set_runtime_layer(self, runtime_layer: Sdf.Layer | None) -> None:
+        """Retarget writes after a transactional runtime-layer replacement."""
+
+        self._runtime_layer = runtime_layer
+        self._warned_detached_layer = False
+        self._last_position = None
+
+    def _runtime_layer_is_attached(self, stage: Usd.Stage) -> bool:
+        """Return whether the explicit edit layer belongs to this stage."""
+
+        if self._runtime_layer is None:
+            return True
+        if self._runtime_layer is stage.GetSessionLayer():
+            return True
+        return self._runtime_layer.identifier in (
+            stage.GetSessionLayer().subLayerPaths
+        )
 
     def _discover_material_input_paths(
         self, stage: Usd.Stage
@@ -162,7 +183,23 @@ class CameraPositionBridge:
         if position == self._last_position and not self._missing_input_paths:
             return
 
-        with Usd.EditContext(stage, stage.GetSessionLayer()):
+        if not self._runtime_layer_is_attached(stage):
+            if not self._warned_detached_layer:
+                log_room_map_warning(
+                    owner="CAMERA POSITION BRIDGE",
+                    process="MATERIAL INPUT UPDATE",
+                    state="RUNTIME_LAYER_DETACHED",
+                    details={
+                        "runtime_layer": self._runtime_layer.identifier,
+                    },
+                )
+                self._warned_detached_layer = True
+            return
+
+        with Usd.EditContext(
+            stage,
+            self._runtime_layer or stage.GetSessionLayer(),
+        ):
             for material_input_path in self._material_input_paths:
                 material_input = stage.GetAttributeAtPath(material_input_path)
                 if not material_input:
@@ -223,6 +260,7 @@ _bridge: CameraPositionBridge | None = None
 def start(
     material_input_paths: str | Sequence[str] | None = None,
     *,
+    runtime_layer: Sdf.Layer | None = None,
     trace_log_warning: Callable[..., None] | None = log_room_map_warning,
 ) -> CameraPositionBridge:
     """Start the singleton bridge and return it for interactive inspection.
@@ -235,6 +273,7 @@ def start(
     stop()
     _bridge = CameraPositionBridge(
         material_input_paths,
+        runtime_layer=runtime_layer,
         trace_log_warning=trace_log_warning,
     )
     return _bridge

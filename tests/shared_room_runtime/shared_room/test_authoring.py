@@ -123,6 +123,34 @@ def test_seeded_camera_primvar_survives_runtime_primvar_authoring():
     assert tuple(primvar.Get()) == expected
 
 
+def test_camera_seed_in_runtime_layer_is_removed_with_its_owner():
+    stage, _mesh = _window_stage((1,))
+    session_before = stage.GetSessionLayer().ExportToString()
+    owner = RuntimeLayerOwner(stage)
+    runtime_layer = owner.attach()
+
+    path = seed_camera_position_primvar(
+        stage,
+        (4.0, 5.0, 6.0),
+        runtime_layer,
+    )
+
+    assert str(path) == "/World.primvars:ormsCameraPositionWorld"
+    assert tuple(
+        UsdGeom.PrimvarsAPI(stage.GetPrimAtPath("/World"))
+        .GetPrimvar(CAMERA_POSITION_PRIMVAR_NAME)
+        .Get()
+    ) == (4.0, 5.0, 6.0)
+    assert runtime_layer.identifier in stage.GetSessionLayer().subLayerPaths
+
+    owner.detach()
+
+    assert not UsdGeom.PrimvarsAPI(stage.GetPrimAtPath("/World")).GetPrimvar(
+        CAMERA_POSITION_PRIMVAR_NAME
+    )
+    assert stage.GetSessionLayer().ExportToString() == session_before
+
+
 def test_session_sublayer_owns_only_derived_primvars_and_is_reversible():
     stage, mesh = _window_stage()
     root_before = stage.GetRootLayer().ExportToString()
@@ -380,7 +408,7 @@ def test_preserve_keeps_instances_and_reports_x1_fallback():
     assert {
         dict(diagnostic.details)["fallback_render_path"]
         for diagnostic in classification.extraction.diagnostics
-    } == {"source_authored_x1_binding"}
+    } == {"window_scoped_x1_binding"}
     assert {
         dict(diagnostic.details)["camera_primvar_inherited_proxy_count"]
         for diagnostic in classification.extraction.diagnostics

@@ -55,13 +55,18 @@ def validate_selector(mask: str) -> str:
 
 
 def selector_matches(mask: str, prim_path: str) -> bool:
-    """Match a complete composed path while allowing '*' across separators."""
+    """Match a bare prim name or a complete composed path."""
 
     normalised = validate_selector(mask)
     if not normalised:
         return False
     expression = re.escape(normalised).replace(r"\*", ".*")
-    return re.fullmatch(expression, prim_path) is not None
+    candidate = (
+        str(prim_path).rsplit("/", 1)[-1]
+        if "/" not in normalised
+        else str(prim_path)
+    )
+    return re.fullmatch(expression, candidate) is not None
 
 
 def validate_collection_selectors(

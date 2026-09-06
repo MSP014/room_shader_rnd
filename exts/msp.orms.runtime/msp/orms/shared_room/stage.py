@@ -17,6 +17,7 @@ from ..scene.resources import (
     coerce_runtime_resources,
     mdl_source_asset_name,
 )
+from ..scene.traversal import iter_composed_prims
 from .contracts import (
     _REQUIRED_SOURCE_PRIMVARS,
     METRICS_MODE_AUTO,
@@ -351,11 +352,16 @@ def stage_has_room_map_source_mesh(stage: Usd.Stage) -> bool:
 
     return any(
         prim.IsA(UsdGeom.Mesh) and _has_room_map_material_binding(prim)
-        for prim in stage.Traverse()
+        for prim in iter_composed_prims(
+            stage,
+            include_instance_proxies=True,
+        )
     )
 
 
-def _has_source_authored_x1_material_binding(prim: Usd.Prim) -> bool:
+def _has_x1_material_binding(prim: Usd.Prim) -> bool:
+    """Return whether the composed binding resolves to room_map_single."""
+
     return _bound_material_uses_source_asset(
         prim,
         (ROOM_MAP_SINGLE_MDL_FILENAME,),

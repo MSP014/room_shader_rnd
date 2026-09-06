@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,6 +19,7 @@ class AssignmentItem:
     assigned: bool
     reason: str
     override: bool | None
+    override_editable: bool = True
 
 
 @dataclass(frozen=True)
@@ -46,12 +48,23 @@ class AssignmentSession:
 
         return self._stage is stage
 
+    @property
+    def runtime_layer(self) -> Any | None:
+        """Expose the attached assignment layer for pre-classifier inputs."""
+
+        if self._assignment_owner is None:
+            return None
+        return self._assignment_owner.runtime_layer
+
     def apply(
         self,
         *,
         source_asset_path: str,
         atlas_asset_path: str,
         atlas_variant_count: int,
+        instance_source_asset_path: str | None = None,
+        material_input_values: Mapping[str, object] | None = None,
+        candidate_selectors: tuple[str, ...] | None = None,
     ) -> Any:
         """Re-evaluate recognised meshes and replace automatic bindings."""
 
@@ -61,12 +74,25 @@ class AssignmentSession:
         owner = AutoAssignmentOwner(
             self._stage,
             source_asset_path=source_asset_path,
+            instance_source_asset_path=instance_source_asset_path,
             atlas_asset_path=atlas_asset_path,
             atlas_variant_count=atlas_variant_count,
+            material_input_values=material_input_values,
+            candidate_selectors=candidate_selectors,
         )
         self._result = owner.apply()
         self._assignment_owner = owner
         return self._result
+
+    def set_material_input_values(
+        self,
+        values: Mapping[str, object],
+    ) -> int:
+        """Update live auto-assignment materials when they exist."""
+
+        if self._assignment_owner is None:
+            return 0
+        return self._assignment_owner.set_material_input_values(values)
 
     def inspect(self) -> AssignmentSnapshot:
         """Return the last pre-binding decisions with owned override state."""
@@ -90,6 +116,7 @@ class AssignmentSession:
                     assigned=decision.prim_path in assigned_paths,
                     reason=decision.reason,
                     override=self._overrides.value_for(decision.prim_path),
+                    override_editable=decision.override_editable,
                 )
                 for decision in decisions
             ),

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from msp.orms.shared_room.interior_set_diagnostics import (
 
 from .assignments.session import AssignmentSession, AssignmentSnapshot
 from .demo_scene import open_demo_scene as open_demo_scene_content
+from .diagnostic_capture import enable_complete_diagnostics
 from .interior_sets.controller import InteriorSetController
 from .interior_sets.repository import InteriorSetSettingsRepository
 from .interior_sets.transaction import InteriorSetRollbackError
@@ -33,6 +35,7 @@ from .materials.library import MaterialLibraryRegistration
 from .resources import (
     DEBUG_ASSET_SETTING,
     MATERIAL_SOURCE_ASSET,
+    PRESERVED_INSTANCE_MATERIAL_SOURCE_ASSET,
     PRODUCTION_DIRECTORY_SETTING,
     ResourceLayout,
 )
@@ -60,6 +63,29 @@ def _log_verbose_info(message: str) -> None:
     import carb
 
     carb.log_info(message)
+
+
+def _assignment_selectors(
+    collection: InteriorSetCollection,
+) -> tuple[str, ...]:
+    """Flatten configured mesh selectors without changing Set priority."""
+
+    return tuple(
+        dict.fromkeys(
+            mask
+            for item in collection.sets
+            for mask in item.selectors
+            if mask.strip()
+        )
+    )
+
+
+def _kit_settings() -> Any:
+    """Return the process-wide Kit settings interface at the API boundary."""
+
+    import carb.settings
+
+    return carb.settings.get_settings()
 
 
 class OrmsRuntimeService:
@@ -103,7 +129,6 @@ class OrmsRuntimeService:
 
         import carb
         import carb.eventdispatcher
-        import carb.settings
         import omni.usd
 
         try:
@@ -113,7 +138,21 @@ class OrmsRuntimeService:
             )
             settings = carb.settings.get_settings()
             settings.set_default(_AUTO_ASSIGN_SETTING, True)
-            settings.set_default(_VERBOSE_DIAGNOSTICS_SETTING, False)
+            import carb.logging
+
+            source_names = enable_complete_diagnostics(
+                settings,
+                orms_verbose_setting=_VERBOSE_DIAGNOSTICS_SETTING,
+                verbose_level=carb.logging.LEVEL_VERBOSE,
+            )
+            carb.logging.acquire_logging().set_level_threshold(
+                carb.logging.LEVEL_VERBOSE
+            )
+            carb.log_info(
+                "[ORMS] Complete diagnostics enabled: "
+                "USD diagnostics unmuted, ORMS trace enabled, "
+                f"Console sources enabled={len(source_names)}"
+            )
             for room_size in (1, 2, 3, 4):
                 debug_atlas = self._resources.debug_atlas(room_size)
                 settings.set(
@@ -302,42 +341,19 @@ class OrmsRuntimeService:
             stage,
             preserve_assignment_overrides,
         )
-        settings = carb.settings.get_settings()
+        settings = _kit_settings()
         if self._interior_sets is None:
             raise RuntimeError("Interior Set configuration is unavailable")
         collection = self._interior_sets.applied
         runtime_snapshot = self._interior_sets.runtime_snapshot()
         default_runtime = runtime_snapshot.by_id(DEFAULT_INTERIOR_SET_ID)
 
-        if bool(settings.get(_AUTO_ASSIGN_SETTING)):
-            try:
-                seed_x1 = default_runtime.resources.atlas_family(1)
-            except KeyError:
-                seed_x1 = None
-            if seed_x1 is None:
-                log_room_map_warning(
-                    owner="ORMS RUNTIME SERVICE",
-                    process="WINDOWS GLASS AUTO-ASSIGNMENT",
-                    state="SKIPPED",
-                    details={"reason": "no valid x1 atlas is available"},
-                )
-            else:
-                result = assignment_session.apply(
-                    source_asset_path=MATERIAL_SOURCE_ASSET,
-                    atlas_asset_path=seed_x1.asset_path,
-                    atlas_variant_count=seed_x1.variant_count,
-                )
-                decision_summary = "; ".join(
-                    f"{decision.prim_path}:{decision.reason}"
-                    for decision in result.decisions
-                )
-                if _verbose_diagnostics_enabled(settings):
-                    carb.log_info(
-                        "[ORMS] Windows Glass auto-assignment: "
-                        f"assigned={len(result.assigned_prim_paths)}, "
-                        f"examined={len(result.decisions)}, "
-                        f"decisions={decision_summary or '<none>'}"
-                    )
+        self._apply_automatic_assignments(
+            assignment_session,
+            collection,
+            runtime_snapshot,
+            settings,
+        )
 
         from msp.orms.shared_room.stage import (
             stage_has_room_map_source_mesh,
@@ -371,6 +387,7 @@ class OrmsRuntimeService:
                 ),
                 interior_sets=collection,
                 interior_set_resources=runtime_snapshot,
+                camera_seed_layer=assignment_session.runtime_layer,
                 verbose_diagnostics=_verbose_diagnostics_enabled(settings),
             )
         except Exception:
@@ -399,6 +416,58 @@ class OrmsRuntimeService:
         session = AssignmentSession(stage)
         self._assignment_session = session
         return session
+
+    def _apply_automatic_assignments(
+        self,
+        assignment_session: AssignmentSession,
+        collection: InteriorSetCollection,
+        runtime_snapshot: InteriorSetRuntimeSnapshot,
+        settings: Any,
+    ) -> None:
+        """Apply configured mesh selectors without editing live instances."""
+
+        if not bool(settings.get(_AUTO_ASSIGN_SETTING)):
+            assignment_session.stop_assignments()
+            return
+        default_runtime = runtime_snapshot.by_id(DEFAULT_INTERIOR_SET_ID)
+        try:
+            seed_x1 = default_runtime.resources.atlas_family(1)
+        except KeyError:
+            seed_x1 = None
+        if seed_x1 is None:
+            assignment_session.stop_assignments()
+            log_room_map_warning(
+                owner="ORMS RUNTIME SERVICE",
+                process="WINDOW MESH AUTO-ASSIGNMENT",
+                state="SKIPPED",
+                details={"reason": "no valid x1 atlas is available"},
+            )
+            return
+        result = assignment_session.apply(
+            source_asset_path=MATERIAL_SOURCE_ASSET,
+            instance_source_asset_path=(
+                self._resources.mdl_root
+                / PRESERVED_INSTANCE_MATERIAL_SOURCE_ASSET
+            ).as_posix(),
+            atlas_asset_path=seed_x1.asset_path,
+            atlas_variant_count=seed_x1.variant_count,
+            material_input_values=collection.default.material_mapping(),
+            candidate_selectors=_assignment_selectors(collection),
+        )
+        if not _verbose_diagnostics_enabled(settings):
+            return
+        import carb
+
+        decision_summary = "; ".join(
+            f"{decision.prim_path}:{decision.reason}"
+            for decision in result.decisions
+        )
+        carb.log_info(
+            "[ORMS] Window mesh auto-assignment: "
+            f"assigned={len(result.assigned_prim_paths)}, "
+            f"examined={len(result.decisions)}, "
+            f"decisions={decision_summary or '<none>'}"
+        )
 
     def _refresh_settings_window(self) -> None:
         if self._settings_window is not None:
@@ -466,13 +535,14 @@ class OrmsRuntimeService:
             self._handle_lifecycle_failure("Restart", error)
 
     def stop_runtime(self) -> None:
-        """Freeze the current ORMS result while releasing live callbacks."""
+        """Remove the current ORMS result while retaining UI configuration."""
 
         try:
-            if self._lifecycle.pause():
-                _log_verbose_info(
-                    "[ORMS] Runtime stopped; current stage result remains frozen"
-                )
+            stopped = self._lifecycle.stop()
+            if self._assignment_session is not None:
+                self._assignment_session.stop_assignments()
+            if stopped:
+                _log_verbose_info("[ORMS] Runtime stopped and detached")
         except Exception as error:
             self._handle_lifecycle_failure("Stop", error)
 
@@ -531,14 +601,40 @@ class OrmsRuntimeService:
 
         if self._lifecycle.state is not RuntimeState.RUNNING:
             return
-        classifier = self._lifecycle.classifier
-        if classifier is None or self._interior_sets is None:
+        if self._interior_sets is None:
             return
         for item in self._interior_sets.applied.sets:
-            classifier.set_interior_set_material_values(
+            self._apply_live_material_values(
                 item.set_id,
                 item.material_mapping(),
             )
+
+    def _apply_live_material_values(
+        self,
+        set_id: str,
+        values: Mapping[str, object],
+    ) -> int:
+        """Route one profile to classified and Preserve fallback materials."""
+
+        updated_count = 0
+        classifier = self._lifecycle.classifier
+        if (
+            classifier is not None
+            and self._lifecycle.state is RuntimeState.RUNNING
+        ):
+            updated_count += classifier.set_interior_set_material_values(
+                set_id,
+                values,
+            )
+        assignment_session = self._assignment_session
+        if (
+            set_id == DEFAULT_INTERIOR_SET_ID
+            and assignment_session is not None
+        ):
+            updated_count += assignment_session.set_material_input_values(
+                values
+            )
+        return updated_count
 
     def _apply_interior_set_material(
         self,
@@ -550,11 +646,9 @@ class OrmsRuntimeService:
 
         if self._interior_sets is None:
             return 0
-        classifier = self._lifecycle.classifier
         apply_runtime = (
-            classifier.set_interior_set_material_values
-            if classifier is not None
-            and self._lifecycle.state is RuntimeState.RUNNING
+            self._apply_live_material_values
+            if self._lifecycle.state is RuntimeState.RUNNING
             else None
         )
         return self._interior_sets.update_material(
@@ -573,11 +667,9 @@ class OrmsRuntimeService:
 
         if self._interior_sets is None:
             return 0
-        classifier = self._lifecycle.classifier
         apply_runtime = (
-            classifier.set_interior_set_material_values
-            if classifier is not None
-            and self._lifecycle.state is RuntimeState.RUNNING
+            self._apply_live_material_values
+            if self._lifecycle.state is RuntimeState.RUNNING
             else None
         )
         return self._interior_sets.reset_materials(
@@ -618,11 +710,13 @@ class OrmsRuntimeService:
         )
         try:
             self._interior_sets.apply(apply_runtime)
-        except InteriorSetRollbackError as error:
-            self._handle_lifecycle_failure(
-                "Apply Interior Sets rollback",
-                error,
+        except Exception as error:
+            action = (
+                "Apply Interior Sets rollback"
+                if isinstance(error, InteriorSetRollbackError)
+                else "Apply Interior Sets"
             )
+            self._handle_lifecycle_failure(action, error)
             raise
 
     def _apply_interior_sets_to_runtime(
@@ -630,13 +724,32 @@ class OrmsRuntimeService:
         collection: InteriorSetCollection,
         resources: InteriorSetRuntimeSnapshot,
     ) -> None:
-        """Rebuild Set families and retarget their live camera inputs."""
+        """Rebuild assignments and Set families from one applied snapshot."""
 
         classifier = self._lifecycle.classifier
         if classifier is None:
             raise RuntimeError("Running ORMS classifier is unavailable")
+        assignment_session = self._assignment_session
+        if assignment_session is None:
+            raise RuntimeError(
+                "Running ORMS assignment session is unavailable"
+            )
+        settings = _kit_settings()
+        classifier.pause()
+        self._apply_automatic_assignments(
+            assignment_session,
+            collection,
+            resources,
+            settings,
+        )
         classifier.apply_interior_sets(collection, resources)
-        self._lifecycle.set_camera_input_paths(classifier.camera_input_paths)
+        classifier.resume()
+        self._lifecycle.set_camera_input_paths(
+            classifier.camera_input_paths,
+            runtime_layer=(
+                classifier.runtime_layer or assignment_session.runtime_layer
+            ),
+        )
 
     def _deactivate_stage(self) -> None:
         cleanup_errors: list[Exception] = []

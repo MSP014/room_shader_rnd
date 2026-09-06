@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from .atlas_mode import ATLAS_MODE_DEBUG, normalise_atlas_mode
 from .identity import (
     DEFAULT_INTERIOR_SET_ID,
+    DEFAULT_WINDOW_SELECTOR,
     INTERIOR_SET_SCHEMA_VERSION,
     ROOM_SIZES,
     canonical_set_id,
@@ -24,6 +25,7 @@ from .manifest import (
 
 __all__ = (
     "DEFAULT_INTERIOR_SET_ID",
+    "DEFAULT_WINDOW_SELECTOR",
     "INTERIOR_SET_SCHEMA_VERSION",
     "ROOM_SIZES",
     "VARIANT_MANIFEST_VERSION",
@@ -107,6 +109,7 @@ class InteriorSetCollection:
             (
                 InteriorSetConfig(
                     set_id=DEFAULT_INTERIOR_SET_ID,
+                    selectors=(DEFAULT_WINDOW_SELECTOR,),
                     material_values=material_values,
                 ),
             )

@@ -14,6 +14,7 @@ class _RuntimePart:
         self.pause_count = 0
         self.resume_count = 0
         self.material_input_paths = None
+        self.runtime_layer = None
 
     def pause(self) -> None:
         self.pause_count += 1
@@ -23,6 +24,9 @@ class _RuntimePart:
 
     def set_material_input_paths(self, paths) -> None:
         self.material_input_paths = tuple(paths)
+
+    def set_runtime_layer(self, runtime_layer) -> None:
+        self.runtime_layer = runtime_layer
 
 
 def test_stop_and_start_freeze_and_resume_one_owned_session():
@@ -78,10 +82,15 @@ def test_running_session_retargets_camera_inputs_without_restart():
     camera_bridge = _RuntimePart()
     lifecycle.attach(_RuntimePart(), camera_bridge, lambda: None)
 
-    changed = lifecycle.set_camera_input_paths(("/Looks/New.inputs:camera",))
+    runtime_layer = object()
+    changed = lifecycle.set_camera_input_paths(
+        ("/Looks/New.inputs:camera",),
+        runtime_layer=runtime_layer,
+    )
 
     assert changed is True
     assert camera_bridge.material_input_paths == ("/Looks/New.inputs:camera",)
+    assert camera_bridge.runtime_layer is runtime_layer
 
 
 def test_failure_removes_partial_session_and_remains_recoverable():

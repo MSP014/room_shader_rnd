@@ -1,5 +1,135 @@
 # Changelog
 
+## 1.0.12
+
+- Reject 1.0.11 after the production-city RTX check: moving the camera could
+  invalidate materials across the nested native-instance graph because the
+  bridge updated one global `/World.primvars:ormsCameraPositionWorld` value.
+- Give each temporary native `room_map_single` material an explicit
+  class-local `camera_position_world` input. The camera bridge now targets
+  only those ORMS shader attributes and does not author or update the global
+  camera primvar for this native assignment route.
+- Leave the recovered ordinary-USD classifier, `room_map` graph, direct mesh
+  bindings, and camera route unchanged.
+- Enable the complete recovery diagnostic surface at extension startup:
+  USD diagnostics and coding errors are unmuted, ORMS trace is enabled, file
+  and Console logging use Verbose, and every registered Console source is
+  selected.
+- Add production-city regressions for assignment, classifier startup, camera
+  updates, absence of the global camera primvar, unchanged non-window
+  bindings, and complete teardown. Installed RTX Real-Time and RTX Interactive
+  checks confirm moving-camera parallax, preserved non-window appearance,
+  Restart, and Restore. Stop safely restores the native source appearance but
+  does not yet freeze the current ORMS result as intended.
+
+## 1.0.11
+
+- Replace the rejected 1.0.10 added-inherit mechanism with temporary overlays
+  on the source classes already authored by the Houdini building assets. ORMS
+  never changes an instance root's inherit list.
+- Keep each native x1 `room_map_single` material inside its source-class
+  namespace and bind only the selected window descendant. The material target
+  therefore resolves locally inside each building rather than through a
+  global material shared outside the native prototype.
+- Fail open when a native asset has no single unambiguous source class, and
+  omit the unsupported `enable_opacity` input from `room_map_single`.
+- Add regression coverage for the real nested
+  `PointInstancer -> native instance` city structure, exact non-window binding
+  preservation, unchanged source inherit arcs, cleanup, missing classes, and
+  ambiguous classes.
+
+## 1.0.10
+
+- Rejected native-instance candidate. Manual RTX city validation showed
+  corrupted non-window materials, unstable source-prototype materials, and
+  broken parallax on the original prototype block.
+- Replace the rejected instance-root collection from 1.0.9 with a removable
+  inherit overlay that composes a direct `room_map_single` binding only at
+  each eligible relative window path. Native instances stay instanceable and
+  non-window descendants retain their source bindings.
+- Route native camera updates to the attached assignment layer when the
+  shared-room classifier publishes no layer. A detached runtime layer now
+  fails open with one diagnostic instead of raising `SetEditTarget` every
+  frame.
+- Mark 1.0.9 as rejected for native-instance scenes: its OpenUSD collection
+  test did not represent the visible Kit/RTX result.
+
+## 1.0.9
+
+- Rejected native-instance candidate. Do not use it for production native
+  scenes; its instance-root collection can recolour non-window geometry in
+  Kit/RTX and its camera bridge can target an unattached runtime layer.
+- Ordinary authorable USD behaviour remains valid evidence from this build.
+- Restore ordinary USD discovery and retain full x1-x4 classification without
+  allowing Interior Set selectors to replace legacy compatibility rules.
+- Add removable window-only collection bindings for native instances. The
+  building remains instanceable, non-window materials stay untouched, and the
+  lightweight `room_map_single` x1 material receives live camera, glass, and
+  emission controls.
+- Remove generated sidecars, stage reopening, and Session de-instancing from
+  the native-instance workflow. Stop and Restore reveal source bindings by
+  detaching ORMS-owned runtime layers.
+
+## 1.0.8
+
+- Rejected local candidate. Its generated sidecar workflow is removed in
+  1.0.9 and must not be used for production scenes.
+
+## 1.0.7
+
+- Disable unsafe Preserve-mode auto-assignment through already composed
+  instance proxies. ORMS now reports that those meshes require a source or
+  persistent instance-ready adapter and leaves every source material and
+  reference arc untouched.
+- Retain automatic assignment for ordinary meshes and for the explicit
+  Session de-instance policy. Repeated Start, Restart, Stop, and Restore can no
+  longer introduce runtime instance-source substitutions.
+- Add an editable mesh-name/path selector to the Default Interior Set, seeded
+  as `Windows_Glass`, and use all Interior Set selectors when discovering
+  source meshes for automatic assignment.
+
+## 1.0.6
+
+- Replace Preserve-mode collection bindings with ephemeral instance-ready
+  adapters that bind `room_map_single` directly to eligible window meshes
+  before native instancing occurs.
+- Keep every non-window material binding untouched in RTX while retaining the
+  original building instances and restoring their source references on stop.
+
+## 1.0.5
+
+- Keep the inherited instance camera primvar in the live viewport-camera
+  update targets so Preserve-mode parallax continues after `Restart` and
+  camera movement.
+- Host Preserve-mode collection bindings on non-instance parents and use
+  explicit-only membership so restarting ORMS cannot override unrelated
+  facade, roof, or trim materials inside building instances.
+
+## 1.0.4
+
+- Apply the Default Interior Set material profile to both classified room
+  families and Preserve-mode x1 instance fallbacks.
+- Propagate every lightweight x1 control, including glass and emission, to
+  Preserve-mode fallback materials without compiling the classified slice DAG
+  inside an instance prototype.
+- Treat an intentionally empty shared-room runtime layer as a valid Preserve
+  result instead of attempting to edit an unattached USD layer.
+
+## 1.0.3
+
+- Keep composed building instances intact while assigning the x1 ORMS fallback
+  to eligible `Windows_Glass` proxies through instance-root collections.
+- Reserve Session de-instancing for explicitly selected full shared-room
+  classification instead of requiring it for automatic material assignment.
+
+## 1.0.2
+
+- Discover eligible `Windows_Glass` meshes inside composed instance proxies.
+- Apply ORMS through source-safe Session de-instancing when that instance
+  policy is selected, and report a clear diagnostic in Preserve mode.
+- Restore original instanceability and remove all temporary bindings when the
+  assignment session ends.
+
 ## 1.0.1
 
 - Establish an explicit mixed-licence distribution boundary: MIT software,
