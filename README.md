@@ -2,13 +2,17 @@
 
 > An installable NVIDIA Omniverse Kit extension for scalable parallax interiors
 
-**Status**: `msp.orms.runtime` 1.0.1 is the current accepted release.
-Automated contracts cover the artist workflow, Interior Sets, source-safe
-mesh-assignment overrides, reset controls, portable demo content, and quiet
-production diagnostics. The installed package is accepted in RTX Real-Time
-and RTX Interactive, and the local production libraries publish coherent
-x1-x4 variant manifests. Performance evidence remains a separate
-empirical-validation task.
+**Status**: `msp.orms.runtime` 1.0.20 is the current Registry build. Version
+1.0.20 updates only the Extension Manager artwork and retains the 1.0.19
+runtime. Ordinary authorable USD meshes retain full x1–x4 room classification,
+while preserved native instances use a source-safe x1 `room_map_single` path
+with the same four S1–S4 depth slices and applicable material controls.
+Installed validation in RTX Real-Time and RTX Interactive covers the
+multi-block city scene, moving-camera parallax, unchanged non-window materials,
+and frozen/resumable lifecycle operation. The ordinary Production/Debug Apply
+round trip is accepted; native Apply and the remaining Phase-5 matrix are still
+open. Full native x2–x4 grouping and controlled performance evidence remain
+separate work.
 
 **Project shorthand: ORMS — Omniverse Room Map Shader**
 
@@ -56,6 +60,9 @@ cleanly through an artist-facing OpenUSD and NVIDIA MDL workflow.
 then uses shader mathematics to create a convincing 3D illusion. It is a
 well-established technique for producing view-dependent depth perception from
 2D data.
+
+**Project overview:** [Watch the video on YouTube](https://youtu.be/O5fqQwg8EVs) ·
+[Read the project post on LinkedIn](https://lnkd.in/p/dcsmea8N)
 
 **How it works:**
 
@@ -325,19 +332,24 @@ only; it is not a substitute for the planned controlled benchmark.*
   production x1–x4 atlas locations and global packaged-debug fallbacks.
 - Luminance-selected interior emission with threshold, softness, strength, and
   independent depth-slice eligibility, validated in both RTX renderer modes.
-- Installable `msp.orms.runtime` 0.1.20 packaging, publication, installation,
+- Installable `msp.orms.runtime` 1.0.16 packaging, publication, installation,
   enablement, and AUTOLOAD through a local Kit extension registry.
-- Automatic assignment of contract-valid `Windows_Glass` meshes through a
-  reversible ORMS-owned Session sublayer, with source restoration on teardown.
+- Selector-driven automatic assignment with an editable `Windows_Glass`
+  default, exact window-only bindings, and complete source restoration.
+- Full x1–x4 assignment on ordinary authorable meshes and preserved-native x1
+  assignment through removable class-local materials, without de-instancing,
+  generated sidecars, reference replacement, or stage reopening.
 - Material Library creation and manual binding without Script Editor code.
 - A dockable `Window > ORMS` panel with lifecycle controls, per-Set material
   parameters, staged repeatable Interior Set blocks, debug/production mode,
   and portable `.orms` scene profiles.
 - One-click opening of the bundled Building 150 demo scene, with an automatic
   relative-path demo profile on a factory-clean first run.
-- Version-aware in-process extension upgrades, with 1.0.1 enablement,
-  demo-scene loading, and source-safe ownership accepted from the installed
-  runtime log.
+- `Stop` freezing the current parallax result, `Start` and `Restart` resuming
+  live camera updates, and `Restore Original Asset` revealing the unchanged
+  source bindings in both supported RTX modes.
+- Version-aware in-process extension upgrades through 1.0.16, including
+  installed-package provenance and source-integrity diagnostics.
 
 #### Remaining boundaries
 
@@ -359,9 +371,9 @@ Extension Manager / AUTOLOAD
           -> materials/             MDL + Material Library registration
           -> assignments/           reversible Windows_Glass assignment
           -> interior_sets/         staged configuration and resolution
-          -> lifecycle state machine
-             -> shared-room classifier and Session Layer authoring
-             -> active-camera material bridge
+           -> lifecycle state machine
+              -> shared-room classifier and anonymous runtime overlays
+              -> ordinary and preserved-native camera bridges
           -> ui/                     Window > ORMS and its three settings tabs
 ```
 
@@ -381,13 +393,16 @@ Extension Manager / AUTOLOAD
 | `msp/orms/scene/source_loader.py` | Reloads the exact extension-owned runtime graph and cleans up live callback owners. |
 | `msp/orms/scene/assignment.py` | Validates compatible window meshes and owns reversible default bindings. |
 | `msp/orms/classification/` | Performs deterministic, Kit-independent x1–x4 room classification. |
-| `msp/orms/shared_room/` | Interprets composed OpenUSD and authors derived runtime state in an anonymous Session sublayer. |
+| `msp/orms/shared_room/` | Interprets composed OpenUSD and authors ordinary x1–x4 state or preserved-native x1 overlays in ORMS-owned anonymous layers. |
 
-Automatic assignment and generated ORMS state use separate anonymous Session
-sublayers. Their implementation prims are hidden from the ordinary Stage tree,
-and removing those layers restores the source asset without rewriting its USD
-files. Common material parameters are presented once in the ORMS window and
-fanned out to the active x1–x4 materials.
+ORMs runtime opinions exist only in ORMS-owned anonymous Session Layer
+sublayers. Ordinary meshes receive exact Mesh or GeomSubset bindings and full
+x1–x4 classification. Preserved native instances keep their instanceability;
+eligible window descendants receive removable overlays on an existing source
+class and class-local `room_map_single` materials. No binding is broadened to a
+building root. Removing the runtime layers reveals the original composition
+without rewriting source USD files. Common material parameters are presented
+once in the ORMS window and distributed to both routes.
 
 ---
 
@@ -424,14 +439,16 @@ normal Kit workflow:
 
 Open `Window > ORMS` to access lifecycle controls and the `ORMS Classifier`,
 `Material Parameters`, and `Interior Atlases` tabs. Compatible
-`Windows_Glass` meshes are recognised and assigned automatically. The same
-material remains available for manual assignment through
+window meshes selected by the editable Interior Set masks are assigned
+automatically; the Default Set starts with `Windows_Glass`. The same material
+remains available for manual assignment through
 `Create > Material > ORMS > Omniverse Room Map Shader`.
 
-`Start` activates an eligible stage, `Stop` freezes its current calculated
-result, `Restart` rebuilds the ORMS runtime, and `Restore Original Asset`
-removes ORMS-owned Session Layer state and reveals the source material binding.
-Disabling the extension performs the same source-safe teardown.
+`Start` activates an eligible stage. `Stop` retains the current ORMS image and
+freezes camera-driven parallax updates. `Start` or `Restart` resumes a stopped
+runtime, while `Restore Original Asset` removes ORMS-owned runtime layers and
+reveals the source material bindings. Disabling the extension performs the
+same source-safe teardown.
 
 The installed package contains public x1–x4 debug atlases. Production atlases
 remain external content and are selected independently for each room family in
@@ -463,10 +480,10 @@ semantic variant manifests with aligned x1-x4 identity sequences.
 
 ## Production Validation Path
 
-The technical R&D core, first production-building integration, installable Kit
-extension, and KRM-92 artist workflow are complete. The remaining validation
-path scales the accepted contract from one building to an urban digital-twin
-context and adds controlled performance evidence.
+The technical R&D core, production-building integration, installable Kit
+extension, KRM-92 artist workflow, and first urban digital-twin deployment are
+implemented. Controlled performance evidence remains a separate validation
+stage.
 
 ### Stage 1: Building 150 Integration — Complete
 
@@ -483,14 +500,22 @@ context and adds controlled performance evidence.
 6. Retained the fixed Building 150 fixture for a future performance benchmark;
    no geometry-versus-ORMS result is claimed by this integration milestone.
 
-### Stage 2: Urban Digital-Twin Scale — Planned
+### Stage 2: Urban Digital-Twin Scale — Implemented
 
-1. Apply the accepted workflow to a family of several building assets.
-2. Assemble those buildings into multiple city blocks.
-3. Validate repeatable setup, visual variation, runtime ownership, and camera
-   response across the combined scene.
-4. Measure the geometry-versus-ORMS trade-off at representative street and
-   neighbourhood viewpoints.
+1. Applied ORMS to nine compatible building prototypes in the production city.
+2. Assembled the prototypes across multiple city blocks while preserving the
+   native-instance composition.
+3. Validated exact window-only assignment, original non-window materials,
+   moving-camera parallax, S1–S4 depth slices, and lifecycle recovery in RTX
+   Real-Time and RTX Interactive.
+4. Kept the original Houdini/USD layers unchanged and avoided sidecars,
+   reference substitution, stage reopening, and geometry de-instancing.
+
+### Stage 3: Controlled Performance Evidence — Planned
+
+Measure the geometry-versus-ORMS trade-off at representative building, street,
+and neighbourhood viewpoints. No comparative performance result is claimed by
+the city-scale implementation milestone.
 
 ---
 
@@ -608,18 +633,19 @@ the parameter, coordinate-space, and renderer-validation record.
 
 KRM-93 derives neighbouring apertures from the composed OpenUSD stage and maps
 supported flat runs, rigid faceted bays, and bounded right-angle corners into
-coherent x1-x4 virtual rooms. The runtime authors derived world-space primvars
-and specialised material bindings in the Session Layer, leaving the source USD
-asset unchanged. It also preserves deterministic eight-way room variation,
-physical aperture controls, four depth slices, and stable camera response.
+coherent x1–x4 virtual rooms on ordinary authorable meshes. The runtime authors
+derived primvars and exact window bindings in ORMS-owned anonymous layers,
+leaving the source USD asset unchanged. It also preserves deterministic room
+variation, physical aperture controls, four depth slices, and stable camera
+response.
 
-The retained fixtures cover Omniverse-authored and Houdini-exported geometry,
-including referenced instanceable components. `Preserve` keeps source
-instanceability and uses the x1 material fallback where descendant overrides
-are unavailable; `Session de-instance` creates reversible ORMS-owned Session
-Layer opinions for coherent shared rooms. Atlas-family settings, missing-family
-fallbacks, stage replacement, runtime stop/reload, and subscription ownership
-are part of the accepted lifecycle contract.
+The current runtime also covers Houdini-exported native-instance composition.
+It discovers instance-proxy windows read-only, retains native instanceability,
+and places a removable class-local `room_map_single` material only on the
+eligible window descendant. That preserved-native route deliberately uses x1
+room grouping while retaining S1–S4 depth slices, glass, emission, and live
+camera parallax. Session de-instancing is historical evidence, not a current
+product fallback; the runtime creates no adapter or sidecar stage.
 
 See the
 [shared-room contract](docs/knowledge_base/mdl/009_shared_multi_window_rooms.md)
@@ -635,12 +661,12 @@ Python package, MDL resources, public debug atlases, icons, changelog, and
 Extension Manager documentation are materialised into one non-overwriting
 release bundle and published through Kit's ordinary extension-registry flow.
 
-Installed versions through 0.1.18 have exercised the local-registry workflow,
+Installed versions through 1.0.16 have exercised the local-registry workflow,
 AUTOLOAD, Material Library creation, reversible automatic assignment, five
-Interior Sets, independent x1–x4 runtime material families, and source-safe
-Session Layer ownership. Version 0.1.20 is published and accepted in RTX
-Real-Time and RTX Interactive; its final log also confirms clean
-disable/re-enable ownership.
+Interior Sets, independent x1–x4 ordinary material families, and source-safe
+runtime ownership. Version 1.0.16 adds the preserved-native x1 route with
+window-only class-local materials, S1–S4 depth slices, resumable frozen camera
+updates, and clean restoration in RTX Real-Time and RTX Interactive.
 
 The canonical module ownership and Session Layer flow are described once in
 [Extension Architecture](#extension-architecture). This milestone section
@@ -651,6 +677,9 @@ contains the architecture, failure history, and installed acceptance evidence.
 The [KRM-92 delivery record](docs/knowledge_base/mdl/012_orms_ui_and_artist_workflow.md)
 records the completed artist-facing implementation and installed acceptance
 without reopening the accepted extension runtime.
+The [runtime recovery and native-instance record](docs/knowledge_base/mdl/014_orms_runtime_recovery_and_native_instances.md)
+records the current two-route contract, rejected approaches, and validation
+boundary through 1.0.16.
 
 ---
 
@@ -706,8 +735,8 @@ The renderer-validated implementation supports:
 - Automatic shared-room classification for flat, bay, and right-angle window
   groups without permanent edits to source USD assets.
 - Physical aperture scale and offset controls across differing window sizes.
-- Reversible Preserve and Session de-instance policies for referenced
-  instanceable components.
+- Source-safe ordinary Session Layer bindings and preserved-native x1 class
+  overlays, without de-instancing, generated sidecars, or source rewrites.
 - Deterministic family fallback, central ORMS settings, and runtime lifecycle
   behaviour validated in retained Omniverse-authored and Houdini-exported
   fixtures and in the installed extension.
@@ -722,19 +751,19 @@ The renderer-validated implementation supports:
   `.orms` scene-profile save/load.
 
 The remaining work no longer concerns the core PIM mathematics, the Kit
-extension boundary, or KRM-92. It concerns controlled performance evidence and
-urban-scale validation.
+extension boundary, KRM-92, or the first urban-scale deployment. It concerns
+formal acceptance accounting, controlled performance evidence, and later
+research into full x2–x4 grouping for preserved native instances.
 
 ### Phase 4: Productionisation — In progress
 
-The production phase has completed Building 150 integration and the installed
-Kit extension boundary. ORMS now has repeatable packaging, local-registry
-publication, Extension Manager installation, AUTOLOAD, configuration,
-diagnostics, and controlled lifecycle behaviour. Its remaining scope will:
-
-- scale the workflow to a family of buildings assembled into several city
-  blocks; and
-- complete the controlled geometry-versus-ORMS performance benchmark.
+The production phase has completed Building 150 integration, the installed Kit
+extension boundary, and the first multi-block native-instance deployment. ORMS
+now has repeatable packaging, local-registry publication, Extension Manager
+installation, AUTOLOAD, configuration, diagnostics, and controlled lifecycle
+behaviour. Its remaining scope is the formal installed acceptance/resource
+matrix and the controlled geometry-versus-ORMS performance benchmark. Full
+x2–x4 grouping for preserved native instances remains a later research target.
 
 ---
 
@@ -805,14 +834,15 @@ virtual rooms shared across flat, bay, and right-angle window groups. The same
 runtime contract is retained in isolated Omniverse-authored and Houdini-exported
 fixtures. A dedicated `roomUV` contract preserves ordinary asset UVs, while the
 runtime classifier derives shared-room mappings without permanent edits to
-source USD assets. Building 150 production integration now adds adaptive
-x1–x4 grouping, real x1 content, independent glass controls, and selective
-interior emission. The same system is packaged as an installable Kit extension
-with registry installation, AUTOLOAD, Material Library integration, reversible
-automatic assignment, central controls, external production-atlas routing,
-version-safe upgrades, and symmetric teardown. Multi-building profiling and
-controlled performance evidence remain separate boundaries; KRM-92 installed
-acceptance is complete.
+source USD assets. Building 150 production integration adds adaptive x1–x4
+grouping, real x1 content, independent glass controls, and selective interior
+emission. The production city extends the same contract to nine compatible
+native building prototypes without de-instancing or changing non-window
+materials. The system is packaged as an installable Kit extension with registry
+installation, AUTOLOAD, Material Library integration, reversible automatic
+assignment, central controls, external production-atlas routing, version-safe
+upgrades, and symmetric teardown. Controlled performance evidence and full
+native x2–x4 grouping remain separate boundaries.
 
 The retained evidence demonstrates:
 
@@ -916,24 +946,8 @@ Your support funds:
 
 ## 📜 Changelog
 
-* **Week of 31 August, 2026:** Completed the renderer-validated ORMS technical
-  core and Building 150 production integration: adaptive x1–x4 rooms across
-  232 apertures, source-safe material bindings, a 56-variant real x1 atlas,
-  independent one-surface glass controls, luminance-selected per-slice
-  emission, and accepted RTX Real-Time and RTX Interactive evidence; packaged
-  the result as installable `msp.orms.runtime` with local-registry
-  publication, Extension Manager installation, AUTOLOAD, Material Library,
-  reversible automatic assignment, central ORMS controls, lifecycle commands,
-  external production-atlas routing, clean source restoration, and the
-  completed five-Set architecture with per-Set x1–x4 atlases, material
-  profiles, staged editing, portable `.orms` scene profiles, and a canonical
-  extension-owned Python and MDL source tree; followed through `1.0.1` with
-  the bundled Building 150 demo, relative demo-profile resources, quiet
-  production diagnostics, and an explicit mixed-licence distribution boundary.
-  Recovered the ordinary-USD and preserved-native x1 production paths through
-  `1.0.16`, including window-only class-local materials, resumable frozen
-  camera updates, source-integrity and resource auditing, and native S1-S4
-  depth slices without de-instancing, sidecars, or source-layer rewrites.
+* **Week of 7 September, 2026:** Productionised ORMS around Building 150 and the multi-block city with Registry installation, five selector-driven Interior Sets, portable profiles, and the recovered 1.0.16 ordinary x1–x4 and preserved-native x1/S1–S4 paths, retaining exact window-only bindings, resumable camera updates, and source-safe restoration in both RTX modes.
+* **Week of 31 August, 2026:** Finalised the source-safe shared-room runtime for coherent x1–x4 rooms across flat, bay, and right-angle window groups, including stable camera response and retained referenced-instance fixtures.
 * **Week of 24 August, 2026:** Extended the renderer-validated MDL parallax room from its named-primvar, camera-bridge, five-face, depth-slice, and UDIM baselines to automatically classified shared volumes across flat, bay, and right-angle Omniverse window groups.
 * **Week of 17 August, 2026:** Re-inventoried the RnD workspace with Omniverse MCP reference helpers, updated validation and dependency configuration, and renewed the MDL and USD research baseline.
 * **Week of 2 March, 2026:** Defined the hybrid USD primvar and dynamic-frame strategy, then formalised native MDL parallax-interior mapping, cross-layout projection, depth slices, instance variation, and surface integration.

@@ -331,6 +331,37 @@ def test_owned_assignment_layer_restores_original_material_on_stop():
     )
 
 
+def test_direct_assignment_rebuild_uses_the_new_atlas_resource():
+    stage, mesh, source_material = _stage_with_window()
+    source_before = stage.GetRootLayer().ExportToString()
+
+    for atlas_path in (
+        "production/x1/room_map.<UDIM>.png",
+        "debug/x1/room_map_debug.<UDIM>.png",
+    ):
+        owner = AutoAssignmentOwner(
+            stage,
+            source_asset_path="room_map.mdl",
+            atlas_asset_path=atlas_path,
+            atlas_variant_count=8,
+        )
+        owner.apply()
+        shader = UsdShade.Shader(
+            stage.GetPrimAtPath("/__ORMSAutoAssignment/Looks/RoomMap/Shader")
+        )
+
+        assert shader.GetInput("room_atlas").Get().path == atlas_path
+        assert _bound_material_path(mesh.GetPrim()) == (
+            "/__ORMSAutoAssignment/Looks/RoomMap"
+        )
+        owner.stop()
+        assert _bound_material_path(mesh.GetPrim()) == str(
+            source_material.GetPath()
+        )
+
+    assert stage.GetRootLayer().ExportToString() == source_before
+
+
 def test_preserve_binds_only_instance_window_and_restores_source():
     stage, asset_stage, instance = _stage_with_instance_window(
         include_facade=True
@@ -409,6 +440,47 @@ def test_preserve_binds_only_instance_window_and_restores_source():
     assert _mesh_material_paths(stage) == source_bindings
     assert not instance_source_camera_input_paths(stage)
     assert owner.layer_identifier not in stage.GetSessionLayer().subLayerPaths
+    assert stage.GetRootLayer().ExportToString() == stage_before
+    assert asset_stage.GetRootLayer().ExportToString() == asset_before
+
+
+def test_native_assignment_rebuild_uses_new_atlas_and_preserves_facade():
+    stage, asset_stage, instance = _stage_with_instance_window(
+        include_facade=True
+    )
+    source_bindings = _mesh_material_paths(stage)
+    stage_before = stage.GetRootLayer().ExportToString()
+    asset_before = asset_stage.GetRootLayer().ExportToString()
+
+    for atlas_path in (
+        "production/x1/room_map.<UDIM>.png",
+        "debug/x1/room_map_debug.<UDIM>.png",
+    ):
+        owner = AutoAssignmentOwner(
+            stage,
+            source_asset_path="room_map.mdl",
+            instance_source_asset_path="room_map_single.mdl",
+            atlas_asset_path=atlas_path,
+            atlas_variant_count=8,
+        )
+        owner.apply()
+        shader = UsdShade.Shader(
+            stage.GetPrimAtPath(
+                "/__class__/Building/mtl/ORMSRoomMapSingle/Shader"
+            )
+        )
+        window = stage.GetPrimAtPath(
+            "/World/BuildingA/geo/render/Windows_Glass"
+        )
+        facade = stage.GetPrimAtPath("/World/BuildingA/geo/render/Facade")
+
+        assert shader.GetInput("room_atlas").Get().path == atlas_path
+        assert _bound_material_path(window).endswith("/ORMSRoomMapSingle")
+        assert _bound_material_path(facade).endswith("/Looks/Facade")
+        assert instance.IsInstance()
+        owner.stop()
+        assert _mesh_material_paths(stage) == source_bindings
+
     assert stage.GetRootLayer().ExportToString() == stage_before
     assert asset_stage.GetRootLayer().ExportToString() == asset_before
 

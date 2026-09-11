@@ -24,15 +24,22 @@ out/
 # tests/ <-- we WANT to track minimal test scenes, unless they are huge
 
 # --- Source/Project Files (Adobe and other software specific) ---
-ae/   # After Effects
-ai/   # Adobe Illustrator
-prj/  # Premiere Pro
-psd/  # Photoshop Projects
+# After Effects
+ae/
+# Adobe Illustrator
+ai/
+# Premiere Pro
+prj/
+# Photoshop Projects
+psd/
+# Voiceover and Music for videos
+wav/
 
 # --- Media & Renders (Heavy) ---
 exr/
 mp4/
 gif/
+png/
 mov/
 
 # --- File Extensions (Specific Blocklist) ---

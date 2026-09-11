@@ -5,12 +5,13 @@
 | Field | Value |
 | --- | --- |
 | Jira | Follow-up to KRM-91, KRM-92, KRM-93, and KRM-98; recovery issue not yet assigned |
-| Known-good baseline | Commit `f0f625f`, `Release ORMS 1.0.1 with demo and licensing` |
+| Known-good pre-recovery baseline | Commit `f0f625f`, `Release ORMS 1.0.1 with demo and licensing` |
+| Current recovery implementation | Commit `40dc4dd`, `Restore native-instance ORMS parity`, pushed to `origin/main` |
 | Accepted native-instance evidence | `009_shared_multi_window_rooms.md` |
 | Implementation target | `exts/msp.orms.runtime/` |
 | Validation assets | `assets/_demo/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd`; `assets/_external/usd/Moskovskiy_av_150/usd/Moskovskiy_av_150.usd`; `assets/_external/usd/room_map_city.usd` |
-| State | In progress — installed 1.0.16 has initial native S1-S4 visual acceptance and clean runtime evidence; the remaining Phase-5 matrix is still open |
-| Last reviewed | 6 September 2026 |
+| State | In progress — installed 1.0.16 has initial native S1-S4 visual acceptance and clean runtime evidence, and the working recovery implementation is committed and pushed; the remaining Phase-5 matrix is still open |
+| Last reviewed | 7 September 2026 |
 
 ## Purpose
 
@@ -775,6 +776,11 @@ regressions remain mandatory before publishing any native candidate.
 | 1.0.15 native depth-slice rejection | Verify that saved material controls affect the native x1 material in Debug and Production atlas modes | Slice toggles, depth, offset, scale, and per-slice emission were present in MaterialState and the UI, but `SINGLE_MATERIAL_INPUT_NAMES` filtered them out and `room_map_single.mdl` performed only the final room-face lookup | Manual Debug and Production checks failed in RTX Real-Time and RTX Interactive. The log confirms native assignments use `room_map_single.mdl`; source inspection confirms one lookup and no slice inputs. A 34-test focused contour covers the restored controls and five-lookup contract, and the dedicated `native_x1_full` Kit probe completed MDL compilation | Reject 1.0.15 as the final recovery baseline. In 1.0.16 the native x1 shader receives S1-S4 enable, depth, offset, scale, and emission inputs and composites four bounded slice samples over the room face. Ordinary `room_map`, ordinary classification/binding, and both camera routes remain unchanged |
 | 1.0.16 Registry publication | Deliver the native depth-slice correction without reopening accepted ordinary or lifecycle code | The defect is renderer-visible and cannot be accepted from source assertions alone | The 34-test native contour and six package/Registry tests pass. Kit publisher verification reports `OK`. Archive inspection confirms version 1.0.16, 195 entries, five texture lookups and the new slice inputs in `room_map_single.mdl`, the corresponding material allow-list entries, and no city, sidecar, adapter, or preparation artefact | Published to the local Kit Registry for the narrow native Debug/Production slice retest in both RTX modes |
 | 1.0.16 installed initial slice check | Verify that the published package, rather than source checkout or 1.0.15, is rendering the recovered native city | Kit initially autoloaded 1.0.15, then Extension Manager downloaded, installed, and started 1.0.16 from the local Registry before the city run | Max reports that the slices now appear. The 21:00-21:08 local log identifies the active package and Python modules as 1.0.16, opens its packaged `room_map_single.mdl`, assigns all nine eligible `Windows_Glass` meshes, authors nine native material specs, retains nine native instances and nine USD prototypes, and updates nine class-local camera inputs through one observer. No ORMS/MDLC compile error occurs. The only MDLC warnings are unrelated unused MaterialX transmission parameters | Initial native S1-S4 result accepted. The city Start record also reports an unchanged source USD digest, no changed Mesh bindings, and valid runtime binding scope. The log does not encode rendered S1-S4 pixels or include a post-Restore city comparison, so Debug/Production, both-renderer, control-by-control, and Restore claims remain limited to explicit manual observations |
+| 1.0.16 committed recovery baseline | Freeze the working ordinary x1–x4 plus preserved-native x1/S1–S4 implementation before completing the remaining manual matrix | Source, package, compile-probe, installed lifecycle, city-camera, material-isolation, and initial slice evidence now agree on one implementation | The complete configured pre-commit gate passed, including formatting, linting, security checks, dependency audit, and the complete pytest suite | Commit `40dc4dd`, `Restore native-instance ORMS parity`, was pushed to `origin/main`. This is the current recovery implementation, but its commit status does not replace the still-open Phase-5 visual and resource observations |
+| 1.0.17 live atlas switch | Force a targeted Material resync when a generated `room_atlas` value changes | USD published the expected resync, but RTX retained an incomplete specialised dependency graph and the window could remain transparent | Installed `single_room` Debug/Production Apply check; Restart restored the selected atlas | Reject 1.0.17. A classifier-only USD notice test is not evidence for the public Apply lifecycle |
+| 1.0.18 synchronous Apply reactivation | Reuse the complete running-state Restart teardown/rebuild order inside Apply | The new graph was rebuilt in the same Kit update. The log shows correct Debug publication at 97,094 ms followed by stale RTX `MdlShadeNode` destruction at the reused paths at 97,137 ms | Installed Debug/Production Apply check plus the supplied complete-diagnostics log; only separate Restore then Start exposed the selected atlas | Reject 1.0.18. Synchronous call ordering and composed USD assertions do not model asynchronous renderer destruction |
+| 1.0.19 renderer-separated Apply | Tear down first and publish only after RTX has processed the old graph removal | Acceptance still requires installed pixels; the source fix must also remain safe under repeated Apply, Restore, stage replacement, and deferred failure | The public service Apply regression models stale-node destruction and enforces publication afterward. Four edge cases cover supersession, cancellation, stale-stage rejection, and fail-open; the two affected files pass 49 tests and seven package/Registry tests pass | Published as an immutable local Registry candidate. The inspected 195-entry archive contains the two-update reactivation, reports 1.0.19, and contains no city, adapter, sidecar, or preparation artefact |
+| 1.0.20 Extension Manager artwork | Package the updated ORMS icon and preview without reopening runtime behaviour | The installed 1.0.19 ordinary Apply result is accepted; this package must remain an artwork-only successor | Both replacement PNG files validate, seven focused package/Registry tests pass, and Kit publisher verification reports `OK` | Published to the local Registry. The inspected 195-entry archive reports 1.0.20 and contains byte lengths matching the repository icon and preview; runtime behaviour is unchanged from 1.0.19 |
 
 ### Current status against the delivery sequence
 
@@ -783,9 +789,9 @@ regressions remain mandatory before publishing any native candidate.
 | Phase 0 — recover the implementation baseline | Implemented for the recovery candidate: sidecar generation, preparation UI, stage reopen, reference substitution, automatic de-instancing, and ancestor-wide fallback bindings are absent |
 | Phase 1 — restore ordinary USD | Runtime route restored and reported working in the ordinary manual check. The accidental mandatory native argument was corrected. Complete direct-demo/direct-external validation in both required RTX modes remains part of final acceptance |
 | Phase 2 — restore native Preserve/x1 | 1.0.11 was rejected because its global camera channel invalidated the city on camera movement. 1.0.12 retains the exact window overlay but isolates live camera writes to nine class-local ORMS shader inputs. OpenUSD production-city regression coverage passes; camera movement now preserves parallax and the original non-window appearance in both installed RTX modes |
-| Phase 3 — prove material and lifecycle parity | Lifecycle parity is accepted: installed 1.0.15 passes Stop freeze plus Start/Restart resume in RTX Real-Time and RTX Interactive. Material parity remains open because that build exposed but did not consume S1-S4 controls in the native x1 material. Version 1.0.16 restores only that native slice boundary; the accepted lifecycle and ordinary paths remain frozen |
-| Phase 4 — build the recovery candidate | Completed for `msp.orms.runtime-1.0.16`: 34 focused native tests and six package/Registry tests pass, the dedicated Kit `native_x1_full` probe compiles, Kit verification reports `OK`, and the inspected 195-entry archive contains the restored slice graph and no forbidden scene artefacts |
-| Phase 5 — manual Registry acceptance and baseline freeze | Installed 1.0.15 accepts the complete stopped-session lifecycle transition in both renderer modes but is rejected as the final baseline because native depth slices are absent. Installed 1.0.16 has initial visual confirmation that S1-S4 returned, and its log confirms the correct package, nine window-only native materials, preserved instance/prototype counts, active class-local camera delivery, and unchanged source USD state at Start. The exact Debug/Production, both-renderer, per-control and post-Restore scope still depends on explicit manual observations; the remaining direct-asset, lighting, source-integrity, repeated-cycle, and renderer-resource matrix also remains open |
+| Phase 3 — prove material and lifecycle parity | Lifecycle parity is accepted: installed 1.0.15 passes Stop freeze plus Start/Restart resume in RTX Real-Time and RTX Interactive. Version 1.0.16 implements the missing native S1-S4 inputs and five-lookup composition, and the first installed visual check reports that the slices are visible again. Complete Debug/Production, both-renderer, control-by-control, emission, and post-Restore material parity remains part of Phase 5; the accepted lifecycle and ordinary paths remain frozen |
+| Phase 4 — build the recovery candidate | Completed for `msp.orms.runtime-1.0.16`: 34 focused native tests and six package/Registry tests pass, the dedicated Kit `native_x1_full` probe compiles, Kit verification reports `OK`, and the inspected 195-entry archive contains the restored slice graph and no forbidden scene artefacts. The working implementation is committed as `40dc4dd` and pushed to `origin/main` |
+| Phase 5 — manual Registry acceptance and baseline freeze | Installed 1.0.15 accepts the complete stopped-session lifecycle transition in both renderer modes but is rejected as the final baseline because native depth slices are absent. Installed 1.0.16 has initial visual confirmation that S1-S4 returned, and its log confirms the correct package, nine window-only native materials, preserved instance/prototype counts, active class-local camera delivery, and unchanged source USD state at Start. Live atlas Apply rejected 1.0.17 and 1.0.18; the installed 1.0.19 ordinary Debug/Production round trip is visually and log-confirmed. Artwork-only 1.0.20 carries the same runtime and is published. Native Apply plus the complete both-renderer, per-control and post-Restore scope still depend on explicit manual observations; the remaining direct-asset, lighting, source-integrity, repeated-cycle, and renderer-resource matrix also remains open |
 | Phase 6 — investigate preserved native x2–x4 | Not started and remains prohibited until Phase 5 is accepted |
 
 ## Validation record
@@ -1018,21 +1024,156 @@ post-Restore comparison for the city and cannot encode rendered slice pixels,
 so it does not by itself close the full Debug/Production, renderer, individual
 control, Restore, or resource matrix.
 
-The remaining Phase-5 gate is therefore the narrow native slice retest plus
-the already documented direct-asset, lighting, repeated-cycle,
-source-integrity, and resource observations. Native x2–x4 research remains
-gated behind that acceptance.
+On 7 September, a separate ordinary-USD live-resource regression was reproduced
+with `assets/_external/usd/single_room/single_room.usd`. Production resources
+rendered on initial Start, but applying the global Debug policy to the running
+session left the ORMS window visually empty. The runtime log proved that the
+selector still found the same window, its direct binding still targeted the
+same generated x1 material, every packaged Debug UDIM resolved, and the draft
+contained the expected Debug `room_atlas`. Publication nevertheless reported
+zero resynced paths and only an information-only change for
+`Shader.inputs:room_atlas`; no ORMS, MDL compiler, or texture-resolution error
+followed. Inspection of the packaged x1 tiles also confirmed valid opaque face
+regions. The defect was therefore localised to RTX retaining the existing MDL
+material node when an asset-valued shader input changed at a stable prim path,
+not to atlas content, selection, binding, or source USD.
+
+Version 1.0.17 adds a narrow renderer-invalidation boundary without changing
+the ordinary classifier, source bindings, camera bridge, or native assignment
+route. Before the finished draft is transferred, ORMS compares only authored
+`room_atlas` signatures below its generated materials. For each actual resource
+change it removes that ORMS-owned Material from the live runtime layer and
+transfers the complete candidate back inside the same `Sdf.ChangeBlock`. USD
+therefore publishes one resync at the exact generated Material path while the
+final material path and window binding remain stable. Source geometry,
+non-window materials, Root Layer, referenced layers, and Houdini/USD files are
+outside that operation. A no-op Apply does not resync anything.
+
+Three focused regressions cover one changed family, Debug/Production round-trip
+replacement, and same-resource reapplication. They additionally assert that
+all resynced paths remain below the relevant ORMS Interior Set, the bound window
+material path is unchanged, and the Root Layer is byte-for-byte unchanged. The
+complete nearby controller and pipeline contour passes 25 tests. Installed RTX
+validation of 1.0.17 remains required before this correction is accepted.
+The immutable 195-entry 1.0.17 archive passed Kit publisher verification, was
+published to the local Registry, and was inspected to confirm both its version
+metadata and the targeted atlas-resync implementation.
+
+The installed 1.0.17 check rejected that correction. Applying either Debug or
+Production resources could still leave the window transparent, while pressing
+Restart immediately restored the selected atlas. The targeted Material resync
+therefore did not invalidate the complete RTX dependency graph. Code-path
+comparison exposed the missing boundary: live Apply removed and recreated the
+auto-assignment layer while the existing classifier materials that specialised
+those assignments were still attached. Running-state Restart first tears down
+the classifier and its renderer dependencies, then replaces assignments and
+builds the classifier again.
+
+Version 1.0.18 removes the ineffective targeted-resync experiment and routes
+Apply Interior Sets through that same complete reactivation boundary. Because
+the Interior Set controller has persisted but not yet accepted its transaction
+when the callback runs, the candidate collection and resolved resource snapshot
+are passed explicitly into activation. Renderer teardown therefore precedes
+assignment-layer teardown; ordinary direct assignments and preserved-native
+class-local assignments are then rebuilt from the selected atlas policy before
+the classifier and camera bridge start again. Assignment overrides are retained,
+and no source or instance-proxy opinion is authored.
+
+The regression boundary now covers the public service callback and the ordering
+that distinguishes Apply from the rejected implementation. Separate ordinary
+and native replacement tests apply Production and Debug atlas paths in turn.
+They verify the resulting shader asset, original binding restoration, unchanged
+native facade, retained instanceability, and byte-for-byte unchanged source
+layers. Four focused regression cases and the complete two affected test files
+pass; the latter result is 44 tests. Installed 1.0.18 validation remains the
+required renderer proof.
+The immutable 195-entry 1.0.18 archive passed Kit publisher verification, was
+published to the local Registry, and was inspected to confirm its version and
+controlled Apply-reactivation implementation.
+
+Installed RTX validation rejected 1.0.18. Selecting either Debug or Production
+and pressing Apply produced no visible resource change; the selected result
+appeared only after two separate user actions, Restore Original Asset followed
+by Start. The supplied verbose log removes the remaining ambiguity. At
+`97,094 ms` the replacement Debug runtime finished publication with the
+correct packaged `room_map_debug_x1.<UDIM>.png` resource and a valid window-only
+binding. At `97,137 ms`, roughly 43 ms later, RTX destroyed the old
+`MdlShadeNode` objects at the same auto-assignment and Interior Set shader
+paths. The nominally correct replacement graph had therefore been published
+inside the asynchronous destruction window and was lost with the stale graph.
+The earlier 1.0.18 tests checked synchronous Python ordering and composed USD
+state, so they could not reproduce this renderer-lifetime race and are not
+accepted as evidence for Apply behaviour.
+
+Version 1.0.19 turns Apply into a two-phase reactivation. The synchronous phase
+commits the candidate profile, tears down the classifier, then removes its
+assignment layer. The service retains the source stage and AssignmentSession
+but does not recreate any MDL material immediately. The asynchronous phase
+waits for two complete Kit updates, giving RTX a renderer-processing boundary
+in which to destroy the previous nodes, and only then rebuilds assignments,
+classifier materials, bindings, and the camera bridge from the exact committed
+collection and resource snapshot. This changes service orchestration only; the
+accepted ordinary classifier, shader, binding, and camera-coordinate route and
+the preserved-native x1 material route remain unchanged.
+
+Pending Apply work is revisioned and coalesced so only the newest Debug or
+Production choice can publish. Restore, stage replacement, and extension
+shutdown invalidate and cancel it. Before publication the delayed phase also
+checks that both the active stage and retained AssignmentSession are still the
+ones prepared by the synchronous phase. A deferred activation error follows
+the existing fail-open cleanup and leaves the original asset visible.
+
+The corrected regression boundary now enters through the public service Apply
+callback and models delayed destruction of the stale renderer nodes. It fails
+if the new runtime publishes before that destruction boundary. Four additional
+edge cases cover newest-Apply supersession, Restore while waiting, stale-stage
+rejection, and deferred fail-open cleanup. Together with the ordinary direct
+and preserved-native assignment replacement checks, the two affected test
+files pass 49 tests; seven focused package and local-Registry tests also pass.
+Kit publisher verification reported `OK`, and immutable 1.0.19 was published
+to the local Registry. The inspected 195-entry archive contains the deferred
+reactivation implementation and correct version metadata, with no city,
+adapter, sidecar, or native-preparation artefact.
+
+The installed ordinary-USD round trip is now accepted for 1.0.19. Max observed
+both atlas changes without Restart or Restore/Start. The supplied log confirms
+that Registry 1.0.19 was loaded, the Production and Debug snapshots were
+published in turn, every stale ORMS `MdlShadeNode` was destroyed before the
+corresponding replacement runtime began, no later stale destruction occurred,
+and the exact window-only binding remained valid. Native-instance validation
+remains a separate acceptance item.
+
+Version 1.0.20 changes only the Extension Manager artwork. The new 1080 x 1080
+icon and 1734 x 905 preview are valid PNG files; runtime code is identical to
+the 1.0.19 candidate. Seven focused package/Registry tests and Kit publisher
+verification pass. The immutable 195-entry archive was published to the local
+Registry and contains image byte lengths matching the repository sources.
+
+The working recovery implementation was committed as `40dc4dd`,
+`Restore native-instance ORMS parity`, after the complete configured
+pre-commit gate passed, and was pushed to `origin/main`. This freezes the
+ordinary x1–x4 plus preserved-native x1/S1–S4 implementation that produced the
+recorded evidence; it does not convert an initial visual observation into full
+Phase-5 acceptance.
+
+The remaining Phase-5 gate is therefore to record the still-unconfirmed parts
+of the native slice matrix plus the already documented direct-asset, lighting,
+repeated-cycle, source-integrity, and resource observations. Native x2–x4
+research remains gated behind that acceptance.
 
 Accepted historical evidence:
 
-- `f0f625f` is the last committed recovery baseline;
+- `f0f625f` is the known-good pre-recovery baseline;
+- `40dc4dd` is the current committed recovery implementation for ordinary
+  x1–x4 plus preserved-native x1/S1–S4;
 - record 009 contains renderer-validated native-instance `Preserve/x1`
   evidence; and
 - records 010 through 012 contain the accepted ordinary Building 150,
   material-control, extension, and artist-workflow evidence.
 
-The current uncommitted runtime and already published broken experimental
-versions are not accepted merely because their version numbers are higher.
+The 1.0.16 implementation is no longer uncommitted. Commit and publication do
+not by themselves close the remaining manual Phase-5 matrix, and rejected
+experimental versions remain rejected regardless of their version numbers.
 
 The recovery validation entry must record:
 

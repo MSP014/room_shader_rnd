@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.0.20
+
+- Replace the Extension Manager icon and package preview with the updated ORMS
+  artwork. Runtime behaviour is unchanged from 1.0.19.
+
+## 1.0.19
+
+- Reject 1.0.18 after installed RTX validation showed that Apply detached and
+  rebuilt the runtime in one Kit update: the new Debug or Production graph was
+  published, then delayed RTX cleanup destroyed MDL nodes at those reused
+  paths. Only a separately invoked Restore followed by Start exposed the new
+  atlas reliably.
+- Split Apply reactivation across the renderer boundary. ORMS now tears down
+  the classifier and assignment layer first, waits for two complete Kit
+  updates so RTX can release the old graph, and only then publishes the newest
+  committed Interior Set snapshot.
+- Coalesce repeated Apply requests and guard delayed work by revision, active
+  stage, and assignment-session ownership. Restore, stage replacement, and
+  extension shutdown cancel pending work; a deferred build failure cleans up
+  to the original source state.
+- Add regression coverage through the public Apply service callback, including
+  delayed old-node destruction, Production/Debug supersession, Restore during
+  the renderer wait, stale-stage rejection, and deferred fail-open cleanup.
+  Existing ordinary and preserved-native assignment checks continue to cover
+  exact window-only binding and unchanged source data.
+
+## 1.0.18
+
+- Reject 1.0.17 after the installed `single_room` check showed that applying
+  either Debug or Production resources could still leave a transparent window;
+  pressing Restart immediately restored the selected atlas.
+- Route Apply Interior Sets through the same controlled renderer teardown and
+  complete runtime reactivation as the proven running-state Restart path. The
+  not-yet-accepted collection and resource snapshot are passed directly into
+  that rebuild, so the committed UI transaction is rendered without recycling
+  its auto-assignment layer beneath live specialised MDL materials.
+- Preserve assignment overrides, native instancing, window-only bindings,
+  non-window materials, source layers, and camera startup across that
+  reactivation.
+- Add service-level ordering coverage plus ordinary and preserved-native atlas
+  replacement tests. The tests cover Production/Debug resource changes,
+  renderer teardown before assignment teardown, stable source bindings,
+  unchanged facades, retained instances, and unchanged source USD.
+- Installed RTX validation rejected this approach: publishing the replacement
+  graph in the same Kit update raced delayed destruction of the old MDL nodes.
+
+## 1.0.17
+
+- Attempt to correct live Production-to-Debug and Debug-to-Production atlas
+  changes when
+  the generated ORMS material keeps its stable prim path. A changed
+  `room_atlas` asset now produces a targeted material resync during the same
+  atomic runtime-layer publication instead of an information-only update that
+  RTX can leave visually empty.
+- Limit that resync to the generated ORMS materials whose atlas asset actually
+  changed. Window bindings keep their stable material paths, source geometry
+  and source material bindings remain untouched, and reapplying the same atlas
+  does not invalidate a material.
+- Add focused coverage for a one-family resource change, the complete
+  Production/Debug round trip, unchanged-resource reapplication, stable window
+  binding, and unchanged source USD.
+- Installed RTX validation rejected this approach: a Material-prim resync did
+  not rebuild the complete specialised dependency graph, while Restart did.
+
 ## 1.0.16
 
 - Restore the four S1-S4 depth slices in the preserved-native x1 material.

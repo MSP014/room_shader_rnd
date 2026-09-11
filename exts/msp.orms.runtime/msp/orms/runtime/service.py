@@ -44,6 +44,7 @@ from .resources import (
 _SETTINGS_ROOT = "/persistent/exts/msp.orms.runtime"
 _AUTO_ASSIGN_SETTING = f"{_SETTINGS_ROOT}/autoAssignWindowsGlass"
 _VERBOSE_DIAGNOSTICS_SETTING = f"{_SETTINGS_ROOT}/verboseDiagnostics"
+_RENDERER_RELEASE_UPDATE_COUNT = 2
 
 
 def _verbose_diagnostics_enabled(settings: Any | None = None) -> bool:
@@ -89,6 +90,14 @@ def _kit_settings() -> Any:
     return carb.settings.get_settings()
 
 
+async def _next_kit_update() -> None:
+    """Yield until Kit has completed another application update."""
+
+    import omni.kit.app
+
+    await omni.kit.app.get_app().next_update_async()
+
+
 class OrmsRuntimeService:
     """Own all callbacks and ephemeral USD layers created by the extension."""
 
@@ -109,6 +118,8 @@ class OrmsRuntimeService:
         self._settings_window: Any | None = None
         self._interior_sets: InteriorSetController | None = None
         self._demo_open_task: asyncio.Task[None] | None = None
+        self._runtime_reactivation_task: asyncio.Task[None] | None = None
+        self._runtime_reactivation_revision = 0
         self._phase5_audit: Phase5RuntimeAudit | None = None
 
     @classmethod
@@ -331,6 +342,9 @@ class OrmsRuntimeService:
         *,
         preserve_assignment_overrides: bool = False,
         audit_event: str = "STARTED",
+        collection_override: InteriorSetCollection | None = None,
+        runtime_snapshot_override: InteriorSetRuntimeSnapshot | None = None,
+        prepared_assignment_session: AssignmentSession | None = None,
     ) -> None:
         import carb
         import carb.settings
@@ -340,16 +354,42 @@ class OrmsRuntimeService:
         if stage is None:
             self._deactivate_stage()
             return
-        assignment_session = self._prepare_assignment_session(
-            stage,
-            preserve_assignment_overrides,
-        )
+        if prepared_assignment_session is None:
+            assignment_session = self._prepare_assignment_session(
+                stage,
+                preserve_assignment_overrides,
+            )
+        else:
+            assignment_session = prepared_assignment_session
+            if (
+                self._assignment_session is not assignment_session
+                or not assignment_session.owns_stage(stage)
+            ):
+                raise RuntimeError(
+                    "Prepared ORMS assignment session no longer owns the "
+                    "active stage"
+                )
         settings = _kit_settings()
         self._ensure_phase5_audit(stage, settings)
-        if self._interior_sets is None:
+        has_collection_override = collection_override is not None
+        has_snapshot_override = runtime_snapshot_override is not None
+        if has_collection_override != has_snapshot_override:
+            raise ValueError(
+                "Runtime collection and resource overrides must be supplied "
+                "together"
+            )
+        if self._interior_sets is None and not has_collection_override:
             raise RuntimeError("Interior Set configuration is unavailable")
-        collection = self._interior_sets.applied
-        runtime_snapshot = self._interior_sets.runtime_snapshot()
+        collection = (
+            collection_override
+            if collection_override is not None
+            else self._interior_sets.applied
+        )
+        runtime_snapshot = (
+            runtime_snapshot_override
+            if runtime_snapshot_override is not None
+            else self._interior_sets.runtime_snapshot()
+        )
         default_runtime = runtime_snapshot.by_id(DEFAULT_INTERIOR_SET_ID)
 
         self._apply_automatic_assignments(
@@ -516,6 +556,8 @@ class OrmsRuntimeService:
         """Start an inactive stage or resume its frozen runtime session."""
 
         try:
+            if self._runtime_reactivation_pending():
+                return
             if self._resume_frozen_runtime("RESUMED"):
                 _log_verbose_info("[ORMS] Runtime resumed")
                 return
@@ -534,6 +576,8 @@ class OrmsRuntimeService:
         """Resume a stopped result, otherwise rebuild it from settings."""
 
         try:
+            if self._runtime_reactivation_pending():
+                return
             if self._resume_frozen_runtime("RESTARTED"):
                 _log_verbose_info("[ORMS] Frozen runtime resumed by Restart")
                 return
@@ -728,7 +772,10 @@ class OrmsRuntimeService:
             return
         apply_runtime = (
             self._apply_interior_sets_to_runtime
-            if self._lifecycle.state is RuntimeState.RUNNING
+            if (
+                self._lifecycle.state is RuntimeState.RUNNING
+                or self._runtime_reactivation_pending()
+            )
             else None
         )
         try:
@@ -747,32 +794,130 @@ class OrmsRuntimeService:
         collection: InteriorSetCollection,
         resources: InteriorSetRuntimeSnapshot,
     ) -> None:
-        """Rebuild assignments and Set families from one applied snapshot."""
+        """Reactivate only after RTX releases the previous MDL graph."""
 
-        classifier = self._lifecycle.classifier
-        if classifier is None:
-            raise RuntimeError("Running ORMS classifier is unavailable")
-        assignment_session = self._assignment_session
-        if assignment_session is None:
-            raise RuntimeError(
-                "Running ORMS assignment session is unavailable"
-            )
-        settings = _kit_settings()
-        classifier.pause()
-        self._apply_automatic_assignments(
+        prepared = self._prepare_current_stage_for_reactivation()
+        if prepared is None:
+            return
+        stage, assignment_session = prepared
+        self._schedule_runtime_reactivation(
+            stage,
             assignment_session,
             collection,
             resources,
-            settings,
         )
-        classifier.apply_interior_sets(collection, resources)
-        classifier.resume()
-        self._lifecycle.set_camera_input_paths(
-            classifier.camera_input_paths,
-            runtime_layer=(
-                classifier.runtime_layer or assignment_session.runtime_layer
-            ),
+
+    def _prepare_current_stage_for_reactivation(
+        self,
+    ) -> tuple[object, AssignmentSession] | None:
+        """Detach renderer dependencies before replacing assignment data."""
+
+        import omni.usd
+
+        stage = omni.usd.get_context().get_stage()
+        if stage is None:
+            self._deactivate_stage()
+            return None
+        assignment_session = self._prepare_assignment_session(stage, True)
+        return stage, assignment_session
+
+    def _schedule_runtime_reactivation(
+        self,
+        stage: object,
+        assignment_session: AssignmentSession,
+        collection: InteriorSetCollection,
+        resources: InteriorSetRuntimeSnapshot,
+    ) -> None:
+        """Coalesce Apply requests and publish after renderer cleanup."""
+
+        self._cancel_runtime_reactivation()
+        revision = self._runtime_reactivation_revision
+        self._runtime_reactivation_task = asyncio.ensure_future(
+            self._reactivate_after_renderer_release(
+                revision,
+                stage,
+                assignment_session,
+                collection,
+                resources,
+            )
         )
+        _log_verbose_info(
+            "[ORMS] Interior Set Apply waiting for RTX material release"
+        )
+
+    async def _reactivate_after_renderer_release(
+        self,
+        revision: int,
+        stage: object,
+        assignment_session: AssignmentSession,
+        collection: InteriorSetCollection,
+        resources: InteriorSetRuntimeSnapshot,
+    ) -> None:
+        """Publish the newest Apply only after two complete Kit updates."""
+
+        current_task = asyncio.current_task()
+        try:
+            for _ in range(_RENDERER_RELEASE_UPDATE_COUNT):
+                await _next_kit_update()
+            if revision != self._runtime_reactivation_revision:
+                return
+            if not self._prepared_stage_is_current(
+                stage,
+                assignment_session,
+            ):
+                return
+            if self._runtime_reactivation_task is current_task:
+                self._runtime_reactivation_task = None
+            self._activate_current_stage(
+                audit_event="INTERIOR_SETS_APPLIED",
+                collection_override=collection,
+                runtime_snapshot_override=resources,
+                prepared_assignment_session=assignment_session,
+            )
+            _log_verbose_info(
+                "[ORMS] Interior Set Apply reactivated after RTX release"
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception as error:
+            if self._runtime_reactivation_task is current_task:
+                self._runtime_reactivation_task = None
+            self._handle_lifecycle_failure("Apply Interior Sets", error)
+        finally:
+            if self._runtime_reactivation_task is current_task:
+                self._runtime_reactivation_task = None
+
+    def _prepared_stage_is_current(
+        self,
+        stage: object,
+        assignment_session: AssignmentSession,
+    ) -> bool:
+        """Reject a delayed Apply after stage or owner replacement."""
+
+        import omni.usd
+
+        return (
+            omni.usd.get_context().get_stage() is stage
+            and self._assignment_session is assignment_session
+            and assignment_session.owns_stage(stage)
+        )
+
+    def _runtime_reactivation_pending(self) -> bool:
+        task = getattr(self, "_runtime_reactivation_task", None)
+        return task is not None and not task.done()
+
+    def _cancel_runtime_reactivation(self) -> None:
+        """Invalidate and cancel one not-yet-published Apply request."""
+
+        self._runtime_reactivation_revision = (
+            getattr(self, "_runtime_reactivation_revision", 0) + 1
+        )
+        task, self._runtime_reactivation_task = (
+            getattr(self, "_runtime_reactivation_task", None),
+            None,
+        )
+        if task is not None and not task.done():
+            task.cancel()
 
     def _phase5_ownership_details(self) -> dict[str, object]:
         details: dict[str, object] = self._lifecycle.ownership_details()
@@ -825,6 +970,7 @@ class OrmsRuntimeService:
 
     def _deactivate_stage(self, *, audit_event: str = "DEACTIVATED") -> None:
         cleanup_errors: list[Exception] = []
+        self._cancel_runtime_reactivation()
         try:
             self._lifecycle.teardown()
         except Exception as error:

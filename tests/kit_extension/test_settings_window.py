@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Protect the ORMS Window-menu surface and its direct model callbacks."""
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -95,72 +96,337 @@ def test_service_skips_runtime_without_a_room_map_source_mesh():
     assert "Stage activation skipped" in source
 
 
-def test_structural_apply_rebuilds_assignment_and_retargets_camera_bridge(
+def test_apply_waits_for_renderer_release_before_runtime_publication(
     monkeypatch,
 ):
     from msp.orms.runtime import service as service_module
     from msp.orms.runtime.service import OrmsRuntimeService
 
-    events = []
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
 
-    class Classifier:
-        camera_input_paths = ("/Looks/New/Shader.inputs:camera",)
-        runtime_layer = None
+    async def scenario():
+        events = []
+        stage = object()
+        assignment_session = object()
 
-        def pause(self):
-            events.append("pause")
+        async def next_update():
+            events.append("renderer_release_update")
+            await asyncio.sleep(0)
 
-        def apply_interior_sets(self, collection, resources):
-            events.append(("rebuild", collection, resources))
-
-        def resume(self):
-            events.append("resume")
-
-    class Lifecycle:
-        classifier = Classifier()
-
-        def set_camera_input_paths(self, paths, *, runtime_layer=None):
-            events.append(("camera", tuple(paths), runtime_layer))
-
-    class AssignmentSession:
-        runtime_layer = "assignment-layer"
-
-    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
-    service._lifecycle = Lifecycle()
-    service._assignment_session = AssignmentSession()
-    service._apply_automatic_assignments = (
-        lambda session, collection, resources, settings: events.append(
-            (
-                "assignments",
-                session,
-                collection,
-                resources,
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            events.append("renderer_teardown") or (stage, assignment_session)
+        )
+        service._prepared_stage_is_current = (
+            lambda candidate_stage, candidate_session: (
+                candidate_stage is stage
+                and candidate_session is assignment_session
             )
         )
-    )
-    monkeypatch.setattr(
-        service_module,
-        "_kit_settings",
-        lambda: "settings",
-    )
-    service._apply_interior_sets_to_runtime("sets", "resources")
+        service._activate_current_stage = lambda **kwargs: events.append(
+            ("runtime_publication", kwargs)
+        )
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
 
-    assert events == [
-        "pause",
-        (
-            "assignments",
-            service._assignment_session,
-            "sets",
-            "resources",
-        ),
-        ("rebuild", "sets", "resources"),
-        "resume",
-        (
-            "camera",
-            ("/Looks/New/Shader.inputs:camera",),
-            "assignment-layer",
-        ),
-    ]
+        service._apply_interior_sets_to_runtime("sets", "resources")
+        task = service._runtime_reactivation_task
+
+        assert task is not None
+        assert events == ["renderer_teardown"]
+        await task
+        assert events == [
+            "renderer_teardown",
+            "renderer_release_update",
+            "renderer_release_update",
+            (
+                "runtime_publication",
+                {
+                    "audit_event": "INTERIOR_SETS_APPLIED",
+                    "collection_override": "sets",
+                    "runtime_snapshot_override": "resources",
+                    "prepared_assignment_session": assignment_session,
+                },
+            ),
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_new_apply_supersedes_pending_renderer_reactivation(monkeypatch):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
+
+    async def scenario():
+        stage = object()
+        assignment_session = object()
+        releases = []
+        publications = []
+
+        async def next_update():
+            releases.append("update")
+            await asyncio.sleep(0)
+
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            stage,
+            assignment_session,
+        )
+        service._prepared_stage_is_current = lambda *_: True
+        service._activate_current_stage = lambda **kwargs: publications.append(
+            kwargs["collection_override"]
+        )
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
+
+        service._apply_interior_sets_to_runtime("production", "prod")
+        superseded = service._runtime_reactivation_task
+        service._apply_interior_sets_to_runtime("debug", "debug")
+        newest = service._runtime_reactivation_task
+
+        assert superseded is not None
+        assert newest is not None
+        assert newest is not superseded
+        await asyncio.gather(
+            superseded,
+            newest,
+            return_exceptions=True,
+        )
+        assert publications == ["debug"]
+        assert releases == ["update", "update"]
+
+    asyncio.run(scenario())
+
+
+def test_public_apply_publishes_after_stale_renderer_nodes_are_gone(
+    monkeypatch,
+):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.lifecycle import RuntimeState
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
+
+    async def scenario():
+        events = []
+        stage = object()
+        assignment_session = object()
+
+        class Controller:
+            @staticmethod
+            def apply(apply_runtime):
+                events.append("profile_committed")
+                apply_runtime("debug_sets", "debug_resources")
+                events.append("profile_accepted")
+
+        class Lifecycle:
+            state = RuntimeState.RUNNING
+
+        async def next_update():
+            if "stale_nodes_destroyed" not in events:
+                events.append("stale_nodes_destroyed")
+            else:
+                events.append("renderer_idle_update")
+            await asyncio.sleep(0)
+
+        def publish(**kwargs):
+            assert "stale_nodes_destroyed" in events
+            events.append(
+                (
+                    "new_runtime_published",
+                    kwargs["collection_override"],
+                    kwargs["runtime_snapshot_override"],
+                )
+            )
+
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._interior_sets = Controller()
+        service._lifecycle = Lifecycle()
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            events.append("old_runtime_detached")
+            or (stage, assignment_session)
+        )
+        service._prepared_stage_is_current = lambda *_: True
+        service._activate_current_stage = publish
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
+
+        service._apply_interior_sets()
+        task = service._runtime_reactivation_task
+
+        assert task is not None
+        assert events == [
+            "profile_committed",
+            "old_runtime_detached",
+            "profile_accepted",
+        ]
+        await task
+        assert events == [
+            "profile_committed",
+            "old_runtime_detached",
+            "profile_accepted",
+            "stale_nodes_destroyed",
+            "renderer_idle_update",
+            (
+                "new_runtime_published",
+                "debug_sets",
+                "debug_resources",
+            ),
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_restore_cancels_pending_renderer_reactivation(monkeypatch):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
+
+    async def scenario():
+        release = asyncio.Event()
+        publications = []
+
+        async def next_update():
+            await release.wait()
+
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            object(),
+            object(),
+        )
+        service._prepared_stage_is_current = lambda *_: True
+        service._activate_current_stage = lambda **kwargs: publications.append(
+            kwargs
+        )
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
+
+        service._apply_interior_sets_to_runtime("sets", "resources")
+        task = service._runtime_reactivation_task
+        assert task is not None
+        await asyncio.sleep(0)
+        service._cancel_runtime_reactivation()
+        release.set()
+        await task
+
+        assert publications == []
+        assert not service._runtime_reactivation_pending()
+
+    asyncio.run(scenario())
+
+
+def test_stale_stage_cannot_publish_delayed_apply(monkeypatch):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
+
+    async def scenario():
+        publications = []
+
+        async def next_update():
+            await asyncio.sleep(0)
+
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            object(),
+            object(),
+        )
+        service._prepared_stage_is_current = lambda *_: False
+        service._activate_current_stage = lambda **kwargs: publications.append(
+            kwargs
+        )
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
+
+        service._apply_interior_sets_to_runtime("sets", "resources")
+        task = service._runtime_reactivation_task
+        assert task is not None
+        await task
+
+        assert publications == []
+        assert not service._runtime_reactivation_pending()
+
+    asyncio.run(scenario())
+
+
+def test_deferred_apply_failure_uses_fail_open_cleanup(monkeypatch):
+    from msp.orms.runtime import service as service_module
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    monkeypatch.setattr(service_module, "_log_verbose_info", lambda _: None)
+
+    async def scenario():
+        failures = []
+
+        async def next_update():
+            await asyncio.sleep(0)
+
+        def fail_reactivation(**_kwargs):
+            raise RuntimeError("renderer rebuild failed")
+
+        service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+        service._runtime_reactivation_task = None
+        service._runtime_reactivation_revision = 0
+        service._prepare_current_stage_for_reactivation = lambda: (
+            object(),
+            object(),
+        )
+        service._prepared_stage_is_current = lambda *_: True
+        service._activate_current_stage = fail_reactivation
+        service._handle_lifecycle_failure = (
+            lambda action, error: failures.append((action, str(error)))
+        )
+        monkeypatch.setattr(service_module, "_next_kit_update", next_update)
+
+        service._apply_interior_sets_to_runtime("sets", "resources")
+        task = service._runtime_reactivation_task
+        assert task is not None
+        await task
+
+        assert failures == [("Apply Interior Sets", "renderer rebuild failed")]
+        assert not service._runtime_reactivation_pending()
+
+    asyncio.run(scenario())
+
+
+def test_assignment_rebuild_tears_down_renderer_dependencies_first():
+    from msp.orms.runtime.service import OrmsRuntimeService
+
+    events = []
+    stage = object()
+
+    class Lifecycle:
+        @staticmethod
+        def teardown():
+            events.append("renderer_teardown")
+
+    class AssignmentSession:
+        @staticmethod
+        def owns_stage(candidate):
+            return candidate is stage
+
+        @staticmethod
+        def stop_assignments():
+            events.append("assignment_teardown")
+
+    session = AssignmentSession()
+    service = OrmsRuntimeService.__new__(OrmsRuntimeService)
+    service._lifecycle = Lifecycle()
+    service._assignment_session = session
+
+    prepared = service._prepare_assignment_session(stage, True)
+
+    assert prepared is session
+    assert events == ["renderer_teardown", "assignment_teardown"]
 
 
 def test_default_profile_updates_runtime_and_preserve_fallback_together():
